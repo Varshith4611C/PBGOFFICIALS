@@ -1,0 +1,4 @@
+# https://pbgofficials.dev/.well-known/security.txt
+Contact: mailto:pbgofficial143@gmail.com
+Preferred-Languages: en
+Canonical: https://pbgofficials.dev/.well-known/security.txt

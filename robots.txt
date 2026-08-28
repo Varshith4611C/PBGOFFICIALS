@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
+Disallow: /node_modules/
 
+# Sitemap
 Sitemap: https://pbgofficials.dev/sitemap.xml
+
+# Crawl-delay (optional, for polite bots)
+Crawl-delay: 1
