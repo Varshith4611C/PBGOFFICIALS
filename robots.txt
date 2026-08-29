@@ -1,9 +1,14 @@
+# Robots.txt for PBG Officials (https://pbgofficials.dev)
 User-agent: *
 Allow: /
+Allow: /anime/
+Allow: /assets/
 Disallow: /node_modules/
+Disallow: /api/anime/img
+Disallow: /scratch/
 
-# Sitemap
+# Sitemap Location
 Sitemap: https://pbgofficials.dev/sitemap.xml
 
-# Crawl-delay (optional, for polite bots)
+# Crawl Delay
 Crawl-delay: 1

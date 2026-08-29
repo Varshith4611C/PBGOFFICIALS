@@ -1,33 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- PBG Officials Main Hub -->
   <url>
     <loc>https://pbgofficials.dev/</loc>
-    <lastmod>2026-08-28</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://pbgofficials.dev/assets/images/logo.jpg</image:loc>
+      <image:title>PBG Officials - Multi-Platform Digital Hub</image:title>
+    </image:image>
   </url>
+
+  <!-- PBG Anime Streaming Platform -->
   <url>
-    <loc>https://pbgofficials.dev/#projects</loc>
-    <lastmod>2026-08-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <loc>https://pbgofficials.dev/anime/</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://pbgofficials.dev/assets/images/logo.jpg</image:loc>
+      <image:title>PBG Anime - Watch Anime Online Free in HD</image:title>
+    </image:image>
   </url>
+
+  <!-- PBG Anime Watch Page -->
   <url>
-    <loc>https://pbgofficials.dev/#about</loc>
-    <lastmod>2026-08-28</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://pbgofficials.dev/#services</loc>
-    <lastmod>2026-08-28</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://pbgofficials.dev/#contact</loc>
-    <lastmod>2026-08-28</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://pbgofficials.dev/anime/watch.html</loc>
+    <lastmod>2026-08-29</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
   </url>
 </urlset>
