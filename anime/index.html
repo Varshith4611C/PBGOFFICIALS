@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PBG Anime — Watch Anime Online Free | HD Streaming</title>
+  <meta name="description" content="Watch anime online for free in HD quality. Stream popular anime series, latest episodes, and trending shows on PBG Anime." />
+  <meta name="keywords" content="PBG Anime, watch anime online, free anime streaming, anime HD, sub dub anime" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="canonical" href="https://pbgofficials.dev/anime/" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <a href="/anime/" class="nav-brand">
+        <img src="/assets/images/logo.jpg" alt="PBG Logo" />
+        <span>PBG <span class="brand-anime">Anime</span></span>
+      </a>
+
+      <div class="nav-search">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search anime... (e.g., Naruto, One Piece, Dragon Ball)" autocomplete="off" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
+      <div class="nav-links">
+        <a href="/anime/" class="active" id="navHome"><i class="fas fa-fire"></i> Home</a>
+        <a href="/" class="nav-home"><i class="fas fa-globe"></i> PBG Hub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="heroSection">
+    <h1>
+      Stream Anime on
+      <span class="gradient">PBG Anime</span>
+    </h1>
+    <p>Watch the latest anime episodes, trending series, and top-airing shows — all in HD, sub & dub.</p>
+  </section>
+
+  <!-- Tabs -->
+  <div class="section-tabs" id="sectionTabs">
+    <button class="tab-btn active" data-tab="recent"><i class="fas fa-clock"></i> Recent</button>
+    <button class="tab-btn" data-tab="top-airing"><i class="fas fa-fire"></i> Top Airing</button>
+  </div>
+
+  <!-- Anime Content -->
+  <section class="content-section" id="contentSection">
+    <div class="section-header" id="sectionHeader">
+      <h2><i class="fas fa-clock"></i> Recent Episodes</h2>
+    </div>
+    <div class="anime-grid" id="animeGrid">
+      <!-- Skeleton loading cards -->
+    </div>
+    <div class="loader" id="loadingSpinner" style="display:none;">
+      <div class="spinner"></div>
+    </div>
+  </section>
+
+  <!-- Search Results Section (hidden by default) -->
+  <section class="content-section" id="searchSection" style="display:none;">
+    <div class="section-header">
+      <h2><i class="fas fa-search"></i> Search Results for "<span id="searchQuery"></span>"</h2>
+    </div>
+    <div class="anime-grid" id="searchGrid"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

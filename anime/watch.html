@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watch — PBG Anime</title>
+  <meta name="description" content="Watch anime episodes in HD with multiple servers on PBG Anime." />
+  <meta name="theme-color" content="#020617" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="/anime/" class="nav-brand">
+        <img src="/assets/images/logo.jpg" alt="PBG Logo" />
+        <span>PBG <span class="brand-anime">Anime</span></span>
+      </a>
+
+      <div class="nav-search">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search anime..." autocomplete="off" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+
+      <div class="nav-links">
+        <a href="/anime/" id="navHome"><i class="fas fa-fire"></i> Home</a>
+        <a href="/" class="nav-home"><i class="fas fa-globe"></i> PBG Hub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Watch Page -->
+  <div class="watch-page">
+
+    <!-- Main Layout: Sidebar (Left) + Player Area (Right) -->
+    <div class="watch-layout">
+
+      <!-- LEFT SIDEBAR: Episodes (Desktop side, Mobile bottom) -->
+      <aside class="episodes-sidebar" id="episodesSection">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <i class="fas fa-list"></i>
+            <span>Episodes</span>
+            <span class="ep-count-badge" id="epTotalCount"></span>
+          </div>
+          <div class="sidebar-find">
+            <i class="fas fa-search"></i>
+            <input type="number" id="epFilterInput" placeholder="# Find Ep..." min="1" />
+          </div>
+        </div>
+        <!-- Range navigation buttons injected dynamically -->
+        <div id="epRangeContainer"></div>
+        <!-- 5-column grid showing max ~30 episodes (6 rows) at a time, scrollable for the rest of the 100 -->
+        <div class="episodes-grid" id="episodesGrid">
+          <!-- Episode buttons generated dynamically -->
+        </div>
+      </aside>
+
+      <!-- RIGHT COLUMN: Player Area -->
+      <div class="player-area">
+
+        <!-- Top breadcrumb / Back to Anime -->
+        <div class="player-header-bar">
+          <a href="/anime/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Browse</a>
+        </div>
+
+        <!-- Video Player Frame -->
+        <div class="player-wrapper" id="playerWrapper">
+          <div class="player-loading" id="playerLoading">
+            <div class="spinner"></div>
+            <p>Loading player...</p>
+          </div>
+          <!-- iframe gets injected here -->
+        </div>
+
+        <!-- Player Controls: Prev, Next, Server in 1 Single Row -->
+        <div class="player-controls">
+          <div class="player-nav-group">
+            <button id="prevEpBtn" class="ctrl-btn" disabled>
+              <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <button id="nextEpBtn" class="ctrl-btn" disabled>
+              Next <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <div class="server-select-group">
+            <label for="serverSelector"><i class="fas fa-server"></i> Server:</label>
+            <select id="serverSelector">
+              <option value="">Loading...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Episode Info -->
+        <div class="episode-info" id="episodeInfo">
+          <h1 id="episodeTitle">
+            <span class="ep-number">Loading...</span>
+          </h1>
+          <div class="episode-meta" id="episodeMeta">
+            <span><i class="fas fa-tv"></i> <span id="animeTitle">—</span></span>
+            <span><i class="fas fa-closed-captioning"></i> <span id="animeType">Sub</span></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

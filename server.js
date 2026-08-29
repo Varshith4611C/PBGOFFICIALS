@@ -26,11 +26,15 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 // ── Serve .well-known directory explicitly ──
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
-// ── Correct MIME type for sitemap ──
-app.get('/sitemap.xml', (_req, res) => {
-  res.type('application/xml');
-  res.sendFile(path.join(__dirname, 'sitemap.xml'));
-});
+// ── Anime API routes ──
+const animeApi = require('./anime/api');
+app.use('/api/anime', animeApi);
+
+// ── Serve anime frontend ──
+app.use('/anime', express.static(path.join(__dirname, 'anime'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
 
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──
 app.get('/{*path}', (_req, res) => {
