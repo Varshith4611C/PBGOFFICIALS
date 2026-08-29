@@ -24,12 +24,4 @@
       <image:title>PBG Anime - Watch Anime Online Free in HD</image:title>
     </image:image>
   </url>
-
-  <!-- PBG Anime Watch Page -->
-  <url>
-    <loc>https://pbgofficials.dev/anime/watch.html</loc>
-    <lastmod>2026-08-29</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.85</priority>
-  </url>
 </urlset>
