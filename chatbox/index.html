@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>PBG ChatBox — Real-Time Community Chat | PBG Officials</title>
-  <meta name="description" content="PBG ChatBox is a real-time community chat platform. Join themed rooms, connect with fans and creators, and be part of the PBG community." />
-  <meta name="keywords" content="PBG ChatBox, PBG chat, community chat, real-time chat, PBG Officials, anime chat, gaming chat" />
+  <meta name="description" content="PBG ChatBox is a real-time community chat platform. Watch anime together, listen to synchronized music, and chat with the PBG community on desktop and mobile." />
+  <meta name="keywords" content="PBG ChatBox, PBG chat, community chat, real-time chat, watch anime together, listen to music together, PBG Officials" />
   <meta name="theme-color" content="#020617" />
   <meta name="robots" content="index, follow" />
   <meta name="author" content="PBG Officials" />
@@ -14,15 +14,15 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://pbgofficials.dev/chatbox/" />
-  <meta property="og:title" content="PBG ChatBox — Real-Time Community Chat" />
-  <meta property="og:description" content="Join real-time chat rooms, connect with the PBG community, and discuss anime, gaming, music, and more." />
+  <meta property="og:title" content="PBG ChatBox — Watch, Listen & Chat Together" />
+  <meta property="og:description" content="Join real-time chat rooms, watch anime together, listen to synchronized music, and connect with the community." />
   <meta property="og:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
   <meta property="og:site_name" content="PBG Officials" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="PBG ChatBox — Real-Time Community Chat" />
-  <meta name="twitter:description" content="Join real-time chat rooms, connect with the PBG community, and discuss anime, gaming, music, and more." />
+  <meta name="twitter:title" content="PBG ChatBox — Watch, Listen & Chat Together" />
+  <meta name="twitter:description" content="Join real-time chat rooms, watch anime together, listen to synchronized music, and connect with the community." />
   <meta name="twitter:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
 
   <link rel="stylesheet" href="style.css" />
@@ -37,13 +37,29 @@
       <div class="modal-icon">💬</div>
       <h2>Welcome to PBG ChatBox</h2>
       <p>Choose a username to start chatting with the community</p>
-      <div class="modal-input-group">
-        <input type="text" id="usernameInput" placeholder="Enter your username..." maxlength="20" autocomplete="off" spellcheck="false" />
-        <span class="modal-input-hint">2–20 characters, letters & numbers only</span>
-      </div>
-      <button class="modal-btn" id="joinBtn" disabled>
-        <i class="fas fa-arrow-right"></i> Join Chat
-      </button>
+      
+      <!-- Native form for mobile & desktop keyboard submit -->
+      <form id="usernameForm" class="modal-form" onsubmit="return false;">
+        <div class="modal-input-group">
+          <input 
+            type="text" 
+            id="usernameInput" 
+            placeholder="Enter your username..." 
+            maxlength="25" 
+            autocomplete="nickname" 
+            autocorrect="off" 
+            autocapitalize="words" 
+            spellcheck="false" 
+            enterkeyhint="go" 
+            required 
+          />
+          <span class="modal-input-hint" id="modalHint">2–25 characters (letters, numbers, spaces allowed)</span>
+          <div class="modal-error-msg" id="modalError" style="display: none;"></div>
+        </div>
+        <button type="submit" class="modal-btn" id="joinBtn">
+          <i class="fas fa-arrow-right"></i> Join Chat
+        </button>
+      </form>
     </div>
   </div>
 
@@ -53,7 +69,7 @@
     <!-- ── Top Bar ── -->
     <header class="chat-topbar" id="chatTopbar">
       <div class="topbar-left">
-        <button class="topbar-hamburger" id="sidebarToggle" aria-label="Toggle rooms">
+        <button class="topbar-hamburger" id="sidebarToggle" aria-label="Toggle chat rooms">
           <i class="fas fa-bars"></i>
         </button>
         <a href="/" class="topbar-logo">
@@ -81,7 +97,7 @@
     </header>
 
     <!-- ── Main Layout ── -->
-    <div class="chat-layout">
+    <div class="chat-layout" id="chatLayout">
 
       <!-- Left Sidebar: Rooms -->
       <aside class="sidebar sidebar-rooms" id="sidebarRooms">
@@ -98,8 +114,117 @@
         </div>
       </aside>
 
-      <!-- Main Chat Area -->
-      <main class="chat-main">
+      <!-- ══════ CINEMA STAGE (Anime Room — Watch Together side-by-side with chat) ══════ -->
+      <section class="cinema-stage" id="cinemaStage" style="display: none;">
+        <!-- Cinema Header Bar -->
+        <div class="cinema-header">
+          <div class="cinema-title-wrap">
+            <span class="cinema-badge"><i class="fas fa-tv"></i> WATCH TOGETHER</span>
+            <h2 class="cinema-title" id="cinemaAnimeTitle">PBG Anime Cinema</h2>
+            <span class="cinema-ep" id="cinemaAnimeEp">Select an anime</span>
+          </div>
+          <div class="cinema-controls">
+            <button class="cinema-btn" id="cinemaPrevEp" title="Previous Episode" disabled><i class="fas fa-backward-step"></i></button>
+            <button class="cinema-btn" id="cinemaNextEp" title="Next Episode" disabled><i class="fas fa-forward-step"></i></button>
+            <button class="cinema-btn" id="cinemaSearchToggle" title="Browse / Search Anime"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="cinema-btn cinema-btn-danger" id="cinemaStopBtn" title="Stop Watch Party" style="display: none;"><i class="fas fa-stop"></i> End</button>
+          </div>
+        </div>
+
+        <!-- Cinema Search Drawer -->
+        <div class="cinema-search-drawer" id="cinemaSearchDrawer" style="display: none;">
+          <div class="cinema-search-input-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="animeSearchInput" placeholder="Search anime from PBG Anime (e.g. Naruto, Bleach, Jujutsu)..." autocomplete="off" />
+            <button class="cinema-search-close-btn" id="cinemaSearchClose" aria-label="Close search"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="anime-results" id="animeResults" style="display: none;"></div>
+        </div>
+
+        <!-- Video Player / Empty State Stage -->
+        <div class="cinema-player-wrap" id="cinemaPlayerWrap">
+          <div class="cinema-empty-state" id="cinemaEmptyState">
+            <div class="cinema-empty-icon"><i class="fas fa-film"></i></div>
+            <h3>Watch Anime Together with Friends</h3>
+            <p>Stream episodes directly from PBG Anime and enjoy live chat in sync with the room.</p>
+            <button class="cinema-cta-btn" id="cinemaQuickBrowseBtn"><i class="fas fa-search"></i> Search Anime to Watch</button>
+          </div>
+          <iframe id="animeIframe" class="cinema-iframe" src="" allow="autoplay; encrypted-media; fullscreen" allowfullscreen style="display: none;"></iframe>
+        </div>
+      </section>
+
+      <!-- Main Chat Area (Full height & width, with Music Deck when in Music Room) -->
+      <main class="chat-main" id="chatMain">
+
+        <!-- ══════ MUSIC AUDIO DECK (Music Room — Audio-Only, Listen & Chat) ══════ -->
+        <div class="music-audio-deck" id="musicAudioDeck" style="display: none;">
+          <div class="music-deck-main">
+            <!-- Vinyl / Equalizer Graphic -->
+            <div class="music-vinyl-wrap">
+              <div class="music-vinyl" id="musicVinyl">
+                <div class="music-vinyl-grooves"></div>
+                <div class="music-vinyl-center"><i class="fas fa-music"></i></div>
+              </div>
+              <div class="music-eq" id="musicEq">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <!-- Track Info -->
+            <div class="music-info-wrap">
+              <div class="music-status-tag"><span class="live-dot"></span> LIVE MUSIC STREAM</div>
+              <div class="music-title" id="musicTrackTitle">Lofi Girl — Beats to Relax & Study to</div>
+              <div class="music-meta" id="musicTrackMeta">PBG Radio • Audio Only</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="music-actions">
+              <button class="music-ctrl-btn music-play-btn" id="musicToggleBtn" title="Play / Pause">
+                <i class="fas fa-pause"></i>
+              </button>
+              <button class="music-ctrl-btn" id="musicSkipBtn" title="Next Track">
+                <i class="fas fa-forward-step"></i>
+              </button>
+              <button class="music-ctrl-btn" id="musicQueueToggle" title="View Queue">
+                <i class="fas fa-list"></i>
+                <span class="music-queue-badge" id="musicQueueBadge" style="display: none;">0</span>
+              </button>
+              <button class="music-ctrl-btn" id="musicAddToggle" title="Add / Play Song URL">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Curated Music Stations (Audio Only) -->
+          <div class="music-stations-bar">
+            <span class="music-stations-label"><i class="fas fa-radio"></i> Stations:</span>
+            <div class="music-stations-pills" id="musicStationsPills">
+              <!-- Dynamically populated station pills -->
+            </div>
+          </div>
+
+          <!-- Music Add / Queue Dropdown Panel -->
+          <div class="music-dropdown-panel" id="musicDropdownPanel" style="display: none;">
+            <div class="music-add-form" id="musicAddForm">
+              <input type="text" id="musicUrlInput" placeholder="Paste YouTube song link (e.g. youtube.com/watch?v=...)" autocomplete="off" />
+              <button class="music-submit-btn" id="musicAddBtn"><i class="fas fa-play"></i> Play Music</button>
+            </div>
+            <div class="music-queue-view" id="musicQueueView" style="display: none;">
+              <div class="music-queue-head">
+                <span><i class="fas fa-list"></i> Upcoming Songs</span>
+                <span id="musicQueueCount">0 tracks</span>
+              </div>
+              <ul class="music-queue-items" id="musicQueueList"></ul>
+            </div>
+          </div>
+
+          <!-- Hidden Audio-Engine (Pure Audio Playback) -->
+          <div class="music-audio-engine" style="position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; overflow: hidden;">
+            <iframe id="musicIframe" src="" allow="autoplay; encrypted-media"></iframe>
+          </div>
+        </div>
+
+        <!-- ══════ MESSAGES CONTAINER ══════ -->
         <div class="messages-container" id="messagesContainer">
           <div class="messages-start">
             <div class="messages-start-icon" id="messagesStartIcon">💬</div>
@@ -123,6 +248,18 @@
         <button class="scroll-bottom-btn" id="scrollBottomBtn" style="display: none;" aria-label="Scroll to bottom">
           <i class="fas fa-chevron-down"></i>
         </button>
+
+        <!-- Reply Bar (shown when replying) -->
+        <div class="reply-bar" id="replyBar" style="display: none;">
+          <div class="reply-bar-content">
+            <i class="fas fa-reply"></i>
+            <span>Replying to <strong id="replyBarUser">—</strong></span>
+            <span class="reply-bar-preview" id="replyBarPreview">—</span>
+          </div>
+          <button class="reply-bar-close" id="replyBarClose" aria-label="Cancel reply">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
 
         <!-- Message Input -->
         <div class="message-input-wrapper">
