@@ -449,7 +449,7 @@ function initChatSocket(io) {
         addedBy: user.username,
       };
 
-      if (!musicState.currentTrack || !musicState.isPlaying) {
+      if (!musicState.currentTrack || !musicState.isPlaying || musicState.currentTrack.type === 'stream') {
         musicState.currentTrack = track;
         musicState.isPlaying = true;
         musicState.startedAt = Date.now();

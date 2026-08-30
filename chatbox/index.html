@@ -224,9 +224,11 @@
           <!-- Music Add / Queue Dropdown Panel -->
           <div class="music-dropdown-panel" id="musicDropdownPanel" style="display: none;">
             <div class="music-add-form" id="musicAddForm">
-              <input type="text" id="musicUrlInput" placeholder="Paste YouTube song link (e.g. youtube.com/watch?v=...)" autocomplete="off" />
-              <button class="music-submit-btn" id="musicAddBtn"><i class="fas fa-play"></i> Play</button>
+              <input type="text" id="musicUrlInput" placeholder="Search YouTube or paste link (e.g. YOASOBI idol)..." autocomplete="off" />
+              <button class="music-submit-btn" id="musicAddBtn"><i class="fab fa-youtube"></i> Search</button>
             </div>
+            <!-- Quick YouTube search dropdown results -->
+            <div class="music-quick-results" id="musicQuickResults" style="display: none;"></div>
             <div class="music-queue-view" id="musicQueueView" style="display: none;">
               <div class="music-queue-head">
                 <span><i class="fas fa-list"></i> Upcoming Songs</span>
@@ -251,7 +253,7 @@
             <div class="music-library-header">
               <div class="music-lib-title">
                 <i class="fas fa-headphones-simple"></i>
-                <h2>Music Library & 24/7 Live Radio</h2>
+                <h2>Music Library & YouTube Search</h2>
               </div>
               <div class="music-lib-header-actions">
                 <button class="music-lib-add-btn" id="openAddSongBtn"><i class="fas fa-plus"></i> Add Song</button>
@@ -299,12 +301,14 @@
             <!-- Library Search Bar -->
             <div class="music-lib-search">
               <i class="fas fa-magnifying-glass"></i>
-              <input type="text" id="musicLibSearchInput" placeholder="Search anime songs, lo-fi, radio stations, or custom tracks..." autocomplete="off" />
+              <input type="text" id="musicLibSearchInput" placeholder="Search library or search any song on YouTube..." autocomplete="off" />
+              <button class="music-lib-search-btn" id="musicLibSearchBtn"><i class="fab fa-youtube"></i> Search YT</button>
             </div>
 
             <!-- Library Tabs / Category Pills -->
             <div class="music-lib-tabs">
               <button class="lib-tab active" data-category="all">All</button>
+              <button class="lib-tab" data-category="youtube"><i class="fab fa-youtube" style="color: #ef4444;"></i> Search YouTube</button>
               <button class="lib-tab" data-category="radio">📻 24/7 Radio</button>
               <button class="lib-tab" data-category="custom">✨ Community</button>
               <button class="lib-tab" data-category="anime">🎌 Anime Hits</button>
@@ -314,7 +318,7 @@
 
             <!-- Library Content Grid -->
             <div class="music-lib-content" id="musicLibContent">
-              <!-- Dynamically populated from RADIO_STATIONS & MUSIC_LIBRARY -->
+              <!-- Dynamically populated from RADIO_STATIONS, MUSIC_LIBRARY & YOUTUBE API -->
             </div>
           </div>
         </div>

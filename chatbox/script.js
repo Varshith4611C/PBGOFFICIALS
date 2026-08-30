@@ -67,6 +67,7 @@
   const musicQueueView = document.getElementById('musicQueueView');
   const musicQueueCount = document.getElementById('musicQueueCount');
   const musicQueueList = document.getElementById('musicQueueList');
+  const musicQuickResults = document.getElementById('musicQuickResults');
   const realRadioAudio = document.getElementById('realRadioAudio');
   const musicIframe = document.getElementById('musicIframe');
 
@@ -83,6 +84,7 @@
   const addSongError = document.getElementById('addSongError');
   const submitAddSongBtn = document.getElementById('submitAddSongBtn');
   const musicLibSearchInput = document.getElementById('musicLibSearchInput');
+  const musicLibSearchBtn = document.getElementById('musicLibSearchBtn');
   const musicLibContent = document.getElementById('musicLibContent');
   const libTabs = document.querySelectorAll('.lib-tab');
 
@@ -769,6 +771,80 @@
     musicAddBtn.addEventListener('click', handleAddMusic);
     musicUrlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddMusic(); });
 
+    let musicSearchDebounce = null;
+    musicUrlInput.addEventListener('input', () => {
+      const raw = musicUrlInput.value.trim();
+      clearTimeout(musicSearchDebounce);
+
+      if (!raw || extractYouTubeId(raw)) {
+        if (musicQuickResults) {
+          musicQuickResults.style.display = 'none';
+          musicQuickResults.innerHTML = '';
+        }
+        return;
+      }
+
+      musicSearchDebounce = setTimeout(async () => {
+        if (!musicQuickResults) return;
+        musicQuickResults.style.display = 'flex';
+        musicQuickResults.innerHTML = '<div style="padding: 8px; font-size: 0.72rem; color: var(--text-muted); text-align: center;"><i class="fas fa-spinner fa-spin"></i> Searching YouTube...</div>';
+
+        const results = await fetchYouTubeSearch(raw);
+        if (results.length === 0) {
+          musicQuickResults.innerHTML = '<div style="padding: 8px; font-size: 0.72rem; color: var(--text-muted); text-align: center;">No YouTube results found</div>';
+          return;
+        }
+
+        musicQuickResults.innerHTML = '';
+        results.slice(0, 5).forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'music-quick-item';
+          row.innerHTML = `
+            <img class="music-quick-thumb" src="${escapeHtml(item.thumbnail)}" alt="thumb" />
+            <div class="music-quick-info">
+              <div class="music-quick-title">${escapeHtml(item.title)}</div>
+              <div class="music-quick-channel">${escapeHtml(item.artist)} • ${escapeHtml(item.duration || 'Track')}</div>
+            </div>
+            <div class="music-quick-actions">
+              <button class="music-quick-play" title="Play Now"><i class="fas fa-play"></i> Play</button>
+              <button class="music-quick-q" title="Add to Queue"><i class="fas fa-plus"></i></button>
+            </div>
+          `;
+
+          row.querySelector('.music-quick-play').addEventListener('click', (e) => {
+            e.stopPropagation();
+            stopAllAudio();
+            socket.emit('music-add', {
+              videoId: item.videoId,
+              title: item.title,
+              artist: item.artist,
+            });
+            musicUrlInput.value = '';
+            musicQuickResults.style.display = 'none';
+            musicDropdownPanel.style.display = 'none';
+          });
+
+          row.querySelector('.music-quick-q').addEventListener('click', (e) => {
+            e.stopPropagation();
+            socket.emit('music-add', {
+              videoId: item.videoId,
+              title: item.title,
+              artist: item.artist,
+            });
+            const qBtn = row.querySelector('.music-quick-q');
+            qBtn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+              musicUrlInput.value = '';
+              musicQuickResults.style.display = 'none';
+              musicDropdownPanel.style.display = 'none';
+            }, 500);
+          });
+
+          musicQuickResults.appendChild(row);
+        });
+      }, 350);
+    });
+
     document.addEventListener('click', (e) => {
       if (!musicDropdownPanel.contains(e.target) && e.target !== musicAddToggle && e.target !== musicQueueToggle) {
         musicDropdownPanel.style.display = 'none';
@@ -794,22 +870,57 @@
     return match ? match[1] : null;
   }
 
-  function handleAddMusic() {
+  async function fetchYouTubeSearch(query) {
+    if (!query) return [];
+    try {
+      const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error('Search failed');
+      const data = await res.json();
+      return data.results || [];
+    } catch (e) {
+      console.warn('YouTube search request error:', e);
+      return [];
+    }
+  }
+
+  async function handleAddMusic() {
     const raw = musicUrlInput.value.trim();
     if (!raw) return;
+
     const videoId = extractYouTubeId(raw);
-    if (!videoId) {
-      musicUrlInput.style.borderColor = 'var(--rose-400)';
-      setTimeout(() => { musicUrlInput.style.borderColor = ''; }, 1500);
+    if (videoId) {
+      stopAllAudio();
+      socket.emit('music-add', {
+        videoId,
+        title: `YouTube Track (${videoId})`,
+        artist: currentUser?.username || 'Custom Audio',
+      });
+      musicUrlInput.value = '';
+      if (musicQuickResults) musicQuickResults.style.display = 'none';
+      musicDropdownPanel.style.display = 'none';
       return;
     }
-    socket.emit('music-add', {
-      videoId,
-      title: `YouTube Song (${videoId})`,
-      artist: 'Custom Audio',
-    });
-    musicUrlInput.value = '';
-    musicDropdownPanel.style.display = 'none';
+
+    // Direct YouTube Search from Input
+    if (musicAddBtn) musicAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const results = await fetchYouTubeSearch(raw);
+    if (musicAddBtn) musicAddBtn.innerHTML = '<i class="fab fa-youtube"></i> Search';
+
+    if (results.length > 0) {
+      const top = results[0];
+      stopAllAudio();
+      socket.emit('music-add', {
+        videoId: top.videoId,
+        title: top.title,
+        artist: top.artist,
+      });
+      musicUrlInput.value = '';
+      if (musicQuickResults) musicQuickResults.style.display = 'none';
+      musicDropdownPanel.style.display = 'none';
+    } else {
+      musicUrlInput.style.borderColor = 'var(--rose-400)';
+      setTimeout(() => { musicUrlInput.style.borderColor = ''; }, 1500);
+    }
   }
 
   function updateMusicUI(state) {
@@ -983,7 +1094,37 @@
       });
     });
 
-    musicLibSearchInput.addEventListener('input', renderLibraryContent);
+    if (musicLibSearchBtn) {
+      musicLibSearchBtn.addEventListener('click', () => {
+        activeLibraryCategory = 'youtube';
+        libTabs.forEach(t => {
+          if (t.dataset.category === 'youtube') t.classList.add('active');
+          else t.classList.remove('active');
+        });
+        renderLibraryContent();
+      });
+    }
+
+    let libSearchDebounce = null;
+    musicLibSearchInput.addEventListener('input', () => {
+      clearTimeout(libSearchDebounce);
+      libSearchDebounce = setTimeout(() => {
+        renderLibraryContent();
+      }, activeLibraryCategory === 'youtube' ? 350 : 50);
+    });
+
+    musicLibSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (activeLibraryCategory !== 'youtube') {
+          activeLibraryCategory = 'youtube';
+          libTabs.forEach(t => {
+            if (t.dataset.category === 'youtube') t.classList.add('active');
+            else t.classList.remove('active');
+          });
+        }
+        renderLibraryContent();
+      }
+    });
   }
 
   function handleStoreLibrarySong() {
@@ -1033,9 +1174,99 @@
     }
   }
 
+  let currentYTRequestId = 0;
+  async function renderYouTubeSearchTab(query) {
+    const reqId = ++currentYTRequestId;
+    const searchTerm = query || 'trending anime opening songs';
+    musicLibContent.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.88rem;">
+        <i class="fas fa-spinner fa-spin fa-2x" style="color: #ef4444; margin-bottom: 12px;"></i><br/>
+        Searching YouTube for "<strong>${escapeHtml(searchTerm)}</strong>"...
+      </div>
+    `;
+
+    const results = await fetchYouTubeSearch(searchTerm);
+    if (reqId !== currentYTRequestId) return;
+
+    if (results.length === 0) {
+      musicLibContent.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.88rem;">
+          <i class="fab fa-youtube fa-2x" style="color: #ef4444; margin-bottom: 10px;"></i><br/>
+          No YouTube results found for "<strong>${escapeHtml(searchTerm)}</strong>". Try another search query above!
+        </div>
+      `;
+      return;
+    }
+
+    musicLibContent.innerHTML = '';
+    results.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'music-yt-card';
+      card.innerHTML = `
+        <div class="music-yt-thumb-wrap">
+          <img class="music-yt-thumb" src="${escapeHtml(item.thumbnail)}" alt="thumb" loading="lazy" />
+          ${item.duration ? `<span class="music-yt-duration">${escapeHtml(item.duration)}</span>` : ''}
+        </div>
+        <div class="music-yt-info">
+          <div class="music-yt-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+          <div class="music-yt-channel">${escapeHtml(item.artist)}${item.views ? ` • ${escapeHtml(item.views)}` : ''}</div>
+          <div class="music-yt-actions">
+            <button class="music-yt-play-btn" title="Play Now"><i class="fas fa-play"></i> Play</button>
+            <button class="music-yt-queue-btn" title="Add to Queue"><i class="fas fa-plus"></i> Queue</button>
+            <button class="music-yt-save-btn" title="Save to Community Library"><i class="fas fa-bookmark"></i> Save</button>
+          </div>
+        </div>
+      `;
+
+      card.querySelector('.music-yt-play-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopAllAudio();
+        socket.emit('music-add', {
+          videoId: item.videoId,
+          title: item.title,
+          artist: item.artist,
+        });
+        musicLibraryModal.style.display = 'none';
+      });
+
+      card.querySelector('.music-yt-queue-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        socket.emit('music-add', {
+          videoId: item.videoId,
+          title: item.title,
+          artist: item.artist,
+        });
+        const btn = card.querySelector('.music-yt-queue-btn');
+        btn.innerHTML = '<i class="fas fa-check"></i> Queued';
+        setTimeout(() => { btn.innerHTML = '<i class="fas fa-plus"></i> Queue'; }, 1500);
+      });
+
+      card.querySelector('.music-yt-save-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        socket.emit('music-add-library', {
+          title: item.title,
+          artist: item.artist,
+          category: 'Anime Hits',
+          youtubeUrl: item.videoId,
+        });
+        const btn = card.querySelector('.music-yt-save-btn');
+        btn.innerHTML = '<i class="fas fa-check"></i> Saved';
+        setTimeout(() => { btn.innerHTML = '<i class="fas fa-bookmark"></i> Save'; }, 1500);
+      });
+
+      musicLibContent.appendChild(card);
+    });
+  }
+
   function renderLibraryContent() {
     if (!currentMusicState) return;
     const query = musicLibSearchInput.value.trim().toLowerCase();
+
+    // If on the dedicated YouTube Search tab, delegate to renderYouTubeSearchTab
+    if (activeLibraryCategory === 'youtube') {
+      renderYouTubeSearchTab(query);
+      return;
+    }
     const stations = currentMusicState.stations || [];
     const library = currentMusicState.library || [];
 
