@@ -1017,6 +1017,9 @@
           }
         }
       }
+
+      // Update Native MediaSession for Lock Screen & Background Audio Controls
+      updateMediaSession(state.currentTrack, state.isPlaying);
     }
 
     // Queue badge & list
@@ -1731,6 +1734,78 @@
       cinemaPrevEp.disabled = true;
       cinemaNextEp.disabled = true;
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  NATIVE MEDIA SESSION API (Lock Screen & Background Audio)
+  // ════════════════════════════════════════════════════════════════
+  function updateMediaSession(track, isPlaying) {
+    if (!('mediaSession' in navigator) || !track) return;
+
+    try {
+      let artworkSrc = '/assets/images/logo.jpg';
+      if (track.type === 'youtube' && track.videoId) {
+        artworkSrc = `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`;
+      } else if (track.thumbnail) {
+        artworkSrc = track.thumbnail;
+      }
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title || 'PBG Music',
+        artist: track.artist || (track.type === 'stream' ? '24/7 Live Radio' : 'PBG Audio'),
+        album: 'PBG Officials — Live Radio & Chat',
+        artwork: [
+          { src: artworkSrc, sizes: '512x512', type: 'image/jpeg' },
+          { src: artworkSrc, sizes: '256x256', type: 'image/jpeg' },
+          { src: artworkSrc, sizes: '128x128', type: 'image/jpeg' },
+          { src: '/assets/images/logo.jpg', sizes: '96x96', type: 'image/jpeg' }
+        ]
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (currentMusicState && !currentMusicState.isPlaying) {
+          if (currentMusicState.currentTrack?.type === 'stream' && currentMusicState.currentTrack?.streamUrl) {
+            if (currentlyPlayingStreamUrl !== currentMusicState.currentTrack.streamUrl) {
+              currentlyPlayingStreamUrl = currentMusicState.currentTrack.streamUrl;
+              realRadioAudio.src = currentMusicState.currentTrack.streamUrl;
+            }
+            realRadioAudio.play().catch(() => {});
+          }
+          socket.emit('music-toggle');
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (currentMusicState && currentMusicState.isPlaying) {
+          if (realRadioAudio) realRadioAudio.pause();
+          socket.emit('music-toggle');
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        socket.emit('music-skip');
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        socket.emit('music-skip');
+      });
+
+      navigator.mediaSession.setActionHandler('stop', () => {
+        stopAllAudio();
+        socket.emit('music-toggle');
+      });
+    } catch (err) {
+      console.warn('MediaSession setup warning:', err.message);
+    }
+  }
+
+  // ── PWA Service Worker Registration ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/chatbox/sw.js').catch(() => {});
+    });
   }
 
   // ── Init ──
