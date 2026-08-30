@@ -69,7 +69,9 @@
   const musicQueueList = document.getElementById('musicQueueList');
   const musicQuickResults = document.getElementById('musicQuickResults');
   const realRadioAudio = document.getElementById('realRadioAudio');
+  const bgAudioAnchor = document.getElementById('bgAudioAnchor');
   const musicIframe = document.getElementById('musicIframe');
+  const SILENT_AUDIO_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
 
   // Music Library Elements
   const musicLibraryModal = document.getElementById('musicLibraryModal');
@@ -723,6 +725,17 @@
           } else {
             realRadioAudio.pause();
           }
+        } else if (currentMusicState.currentTrack.type === 'youtube') {
+          if (!currentMusicState.isPlaying) {
+            if (bgAudioAnchor) {
+              if (!bgAudioAnchor.src.startsWith('data:audio')) bgAudioAnchor.src = SILENT_AUDIO_URI;
+              bgAudioAnchor.play().catch(() => {});
+            }
+            postToYouTube('playVideo');
+          } else {
+            if (bgAudioAnchor) bgAudioAnchor.pause();
+            postToYouTube('pauseVideo');
+          }
         }
       }
       socket.emit('music-toggle');
@@ -858,6 +871,10 @@
       realRadioAudio.pause();
       realRadioAudio.src = '';
     }
+    if (bgAudioAnchor) {
+      bgAudioAnchor.pause();
+      bgAudioAnchor.src = '';
+    }
     postToYouTube('pauseVideo');
     if (musicIframe) musicIframe.src = '';
   }
@@ -967,6 +984,7 @@
 
       // ── HYBRID AUDIO PLAYBACK ENGINE ──
       if (state.currentTrack.type === 'stream' && state.currentTrack.streamUrl) {
+        if (bgAudioAnchor && !bgAudioAnchor.paused) bgAudioAnchor.pause();
         postToYouTube('pauseVideo');
         if (musicIframe.src) musicIframe.src = '';
 
@@ -990,6 +1008,22 @@
       } else if (state.currentTrack.type === 'youtube' && state.currentTrack.videoId) {
         currentlyPlayingStreamUrl = '';
         if (!realRadioAudio.paused) realRadioAudio.pause();
+
+        // Maintain Native Audio Anchor for Mobile MediaSession & Notification Drawer
+        if (bgAudioAnchor) {
+          if (!bgAudioAnchor.src.startsWith('data:audio')) {
+            bgAudioAnchor.src = SILENT_AUDIO_URI;
+          }
+          if (state.isPlaying && currentRoom === 'music') {
+            if (bgAudioAnchor.paused) {
+              bgAudioAnchor.play().catch(() => {});
+            }
+          } else {
+            if (!bgAudioAnchor.paused) {
+              bgAudioAnchor.pause();
+            }
+          }
+        }
 
         let startSeconds = 0;
         if (state.isPlaying && state.startedAt) {
@@ -1772,6 +1806,12 @@
               realRadioAudio.src = currentMusicState.currentTrack.streamUrl;
             }
             realRadioAudio.play().catch(() => {});
+          } else if (currentMusicState.currentTrack?.type === 'youtube') {
+            if (bgAudioAnchor) {
+              if (!bgAudioAnchor.src.startsWith('data:audio')) bgAudioAnchor.src = SILENT_AUDIO_URI;
+              bgAudioAnchor.play().catch(() => {});
+            }
+            postToYouTube('playVideo');
           }
           socket.emit('music-toggle');
         }
@@ -1780,6 +1820,8 @@
       navigator.mediaSession.setActionHandler('pause', () => {
         if (currentMusicState && currentMusicState.isPlaying) {
           if (realRadioAudio) realRadioAudio.pause();
+          if (bgAudioAnchor) bgAudioAnchor.pause();
+          postToYouTube('pauseVideo');
           socket.emit('music-toggle');
         }
       });

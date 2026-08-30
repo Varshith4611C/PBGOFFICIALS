@@ -246,6 +246,9 @@
           <!-- HTML5 Live Audio Element for 24/7 Web Radios (Direct Stream) -->
           <audio id="realRadioAudio" preload="auto" style="display: none;"></audio>
 
+          <!-- Background Audio Anchor for Mobile MediaSession & YouTube Background Playback -->
+          <audio id="bgAudioAnchor" loop preload="auto" style="display: none;"></audio>
+
           <!-- Hidden YouTube Audio Engine with API enabled -->
           <div class="music-audio-engine" style="position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; overflow: hidden;">
             <iframe id="musicIframe" src="" allow="autoplay; encrypted-media" style="width: 1px; height: 1px;"></iframe>
