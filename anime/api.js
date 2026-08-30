@@ -18,12 +18,16 @@ const client = axios.create({
 
 // ── Helper: Clean URL path to get ID ──
 function cleanPath(href) {
+  let path;
   try {
     const url = new URL(href, BASE_URL);
-    return url.pathname.replace(/^\/+|\/+$/g, '');
+    path = url.pathname.replace(/^\/+|\/+$/g, '');
   } catch {
-    return href.replace(BASE_URL, '').replace(/^\/+|\/+$/g, '');
+    path = href.replace(BASE_URL, '').replace(/^\/+|\/+$/g, '');
   }
+  // Strip common prefixes (anime/, category/) so IDs are bare slugs
+  path = path.replace(/^(anime|category)\//, '');
+  return path;
 }
 
 // ── Helper: Parse homepage articles ──

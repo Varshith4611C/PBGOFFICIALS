@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PBG ChatBox — Real-Time Community Chat | PBG Officials</title>
+  <meta name="description" content="PBG ChatBox is a real-time community chat platform. Join themed rooms, connect with fans and creators, and be part of the PBG community." />
+  <meta name="keywords" content="PBG ChatBox, PBG chat, community chat, real-time chat, PBG Officials, anime chat, gaming chat" />
+  <meta name="theme-color" content="#020617" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="PBG Officials" />
+  <link rel="canonical" href="https://pbgofficials.dev/chatbox/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pbgofficials.dev/chatbox/" />
+  <meta property="og:title" content="PBG ChatBox — Real-Time Community Chat" />
+  <meta property="og:description" content="Join real-time chat rooms, connect with the PBG community, and discuss anime, gaming, music, and more." />
+  <meta property="og:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
+  <meta property="og:site_name" content="PBG Officials" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PBG ChatBox — Real-Time Community Chat" />
+  <meta name="twitter:description" content="Join real-time chat rooms, connect with the PBG community, and discuss anime, gaming, music, and more." />
+  <meta name="twitter:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+  <!-- ========== USERNAME MODAL ========== -->
+  <div class="modal-overlay" id="usernameModal">
+    <div class="modal-card">
+      <div class="modal-glow"></div>
+      <div class="modal-icon">💬</div>
+      <h2>Welcome to PBG ChatBox</h2>
+      <p>Choose a username to start chatting with the community</p>
+      <div class="modal-input-group">
+        <input type="text" id="usernameInput" placeholder="Enter your username..." maxlength="20" autocomplete="off" spellcheck="false" />
+        <span class="modal-input-hint">2–20 characters, letters & numbers only</span>
+      </div>
+      <button class="modal-btn" id="joinBtn" disabled>
+        <i class="fas fa-arrow-right"></i> Join Chat
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== CHAT APP ========== -->
+  <div class="chat-app" id="chatApp" style="display: none;">
+
+    <!-- ── Top Bar ── -->
+    <header class="chat-topbar" id="chatTopbar">
+      <div class="topbar-left">
+        <button class="topbar-hamburger" id="sidebarToggle" aria-label="Toggle rooms">
+          <i class="fas fa-bars"></i>
+        </button>
+        <a href="/" class="topbar-logo">
+          <img src="/assets/images/logo.jpg" alt="PBG Logo" class="topbar-logo-img" />
+          <span>PBG ChatBox</span>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <span class="topbar-room-icon" id="topbarRoomIcon">💬</span>
+        <div class="topbar-room-info">
+          <h1 id="topbarRoomName">General</h1>
+          <span class="topbar-room-desc" id="topbarRoomDesc">Hang out and talk about anything</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-btn" id="usersToggle" aria-label="Toggle online users">
+          <i class="fas fa-users"></i>
+          <span class="topbar-badge" id="onlineCountBadge">0</span>
+        </button>
+        <div class="topbar-user" id="topbarUser">
+          <div class="user-avatar-small" id="topbarAvatar"></div>
+          <span id="topbarUsername"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Main Layout ── -->
+    <div class="chat-layout">
+
+      <!-- Left Sidebar: Rooms -->
+      <aside class="sidebar sidebar-rooms" id="sidebarRooms">
+        <div class="sidebar-header">
+          <h3><i class="fas fa-hashtag"></i> Chat Rooms</h3>
+        </div>
+        <ul class="room-list" id="roomList">
+          <!-- Populated by JS -->
+        </ul>
+        <div class="sidebar-footer">
+          <a href="/" class="sidebar-back-link">
+            <i class="fas fa-arrow-left"></i> Back to PBG
+          </a>
+        </div>
+      </aside>
+
+      <!-- Main Chat Area -->
+      <main class="chat-main">
+        <div class="messages-container" id="messagesContainer">
+          <div class="messages-start">
+            <div class="messages-start-icon" id="messagesStartIcon">💬</div>
+            <h2 id="messagesStartTitle">Welcome to #General</h2>
+            <p id="messagesStartDesc">This is the beginning of the conversation. Say hi! 👋</p>
+          </div>
+          <div class="messages-list" id="messagesList">
+            <!-- Messages rendered here -->
+          </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text" id="typingText">Someone is typing...</span>
+        </div>
+
+        <!-- Scroll to bottom -->
+        <button class="scroll-bottom-btn" id="scrollBottomBtn" style="display: none;" aria-label="Scroll to bottom">
+          <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Message Input -->
+        <div class="message-input-wrapper">
+          <div class="message-input-bar">
+            <button class="input-emoji-btn" id="emojiBtn" aria-label="Emoji picker">
+              <i class="far fa-face-smile"></i>
+            </button>
+            <input type="text" class="message-input" id="messageInput" placeholder="Type a message..." maxlength="1000" autocomplete="off" spellcheck="true" />
+            <button class="input-send-btn" id="sendBtn" aria-label="Send message" disabled>
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+          <!-- Emoji Picker Popup -->
+          <div class="emoji-picker" id="emojiPicker" style="display: none;">
+            <div class="emoji-grid" id="emojiGrid">
+              <!-- Emojis populated by JS -->
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right Sidebar: Online Users -->
+      <aside class="sidebar sidebar-users" id="sidebarUsers">
+        <div class="sidebar-header">
+          <h3><i class="fas fa-circle" style="color: var(--emerald-400); font-size: 0.5rem;"></i> Online — <span id="onlineCount">0</span></h3>
+        </div>
+        <ul class="user-list" id="userList">
+          <!-- Populated by JS -->
+        </ul>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

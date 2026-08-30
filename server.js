@@ -1,7 +1,12 @@
 const express = require('express');
 const path = require('path');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const { initChatSocket } = require('./chatbox/api');
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer);
 const PORT = process.env.PORT || 3000;
 
 // ── SEO & Security headers ──
@@ -36,13 +41,22 @@ app.use('/anime', express.static(path.join(__dirname, 'anime'), {
   index: 'index.html',
 }));
 
+// ── Serve chatbox frontend ──
+app.use('/chatbox', express.static(path.join(__dirname, 'chatbox'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
+
+// ── Initialize Socket.IO for ChatBox ──
+initChatSocket(io);
+
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──
 app.get('/{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ── Start server ──
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`\n  ⚡ PBG Officials server running at:\n`);
   console.log(`     Local:   http://localhost:${PORT}`);
   console.log(`     Network: http://0.0.0.0:${PORT}\n`);
