@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>PBG ChatBox — Real-Time Community Chat | PBG Officials</title>
-  <meta name="description" content="PBG ChatBox is a real-time community chat platform. Watch anime together, listen to synchronized music, and chat with the PBG community on desktop and mobile." />
-  <meta name="keywords" content="PBG ChatBox, PBG chat, community chat, real-time chat, watch anime together, listen to music together, PBG Officials" />
+  <meta name="description" content="PBG ChatBox is a real-time community chat platform. Watch anime together, listen to synchronized live music radio stations, and chat with the PBG community." />
+  <meta name="keywords" content="PBG ChatBox, PBG chat, community chat, real-time chat, watch anime together, listen to music together, live radio, PBG Officials" />
   <meta name="theme-color" content="#020617" />
   <meta name="robots" content="index, follow" />
   <meta name="author" content="PBG Officials" />
@@ -15,14 +15,14 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://pbgofficials.dev/chatbox/" />
   <meta property="og:title" content="PBG ChatBox — Watch, Listen & Chat Together" />
-  <meta property="og:description" content="Join real-time chat rooms, watch anime together, listen to synchronized music, and connect with the community." />
+  <meta property="og:description" content="Join real-time chat rooms, watch anime together, listen to synchronized live radio stations, and connect with the community." />
   <meta property="og:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
   <meta property="og:site_name" content="PBG Officials" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="PBG ChatBox — Watch, Listen & Chat Together" />
-  <meta name="twitter:description" content="Join real-time chat rooms, watch anime together, listen to synchronized music, and connect with the community." />
+  <meta name="twitter:description" content="Join real-time chat rooms, watch anime together, listen to synchronized live radio stations, and connect with the community." />
   <meta name="twitter:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
 
   <link rel="stylesheet" href="style.css" />
@@ -38,7 +38,6 @@
       <h2>Welcome to PBG ChatBox</h2>
       <p>Choose a username to start chatting with the community</p>
       
-      <!-- Native form for mobile & desktop keyboard submit -->
       <form id="usernameForm" class="modal-form" onsubmit="return false;">
         <div class="modal-input-group">
           <input 
@@ -124,6 +123,10 @@
             <span class="cinema-ep" id="cinemaAnimeEp">Select an anime</span>
           </div>
           <div class="cinema-controls">
+            <button class="cinema-btn cinema-btn-primary" id="cinemaTogglePlay" title="Pause / Resume Watch Party for Room" style="display: none;">
+              <i class="fas fa-pause"></i> <span class="cinema-btn-text">Pause</span>
+            </button>
+            <button class="cinema-btn" id="cinemaResyncBtn" title="Resync Stream with Room"><i class="fas fa-arrows-rotate"></i> Sync</button>
             <button class="cinema-btn" id="cinemaPrevEp" title="Previous Episode" disabled><i class="fas fa-backward-step"></i></button>
             <button class="cinema-btn" id="cinemaNextEp" title="Next Episode" disabled><i class="fas fa-forward-step"></i></button>
             <button class="cinema-btn" id="cinemaSearchToggle" title="Browse / Search Anime"><i class="fas fa-magnifying-glass"></i> Search</button>
@@ -149,14 +152,25 @@
             <p>Stream episodes directly from PBG Anime and enjoy live chat in sync with the room.</p>
             <button class="cinema-cta-btn" id="cinemaQuickBrowseBtn"><i class="fas fa-search"></i> Search Anime to Watch</button>
           </div>
-          <iframe id="animeIframe" class="cinema-iframe" src="" allow="autoplay; encrypted-media; fullscreen" allowfullscreen style="display: none;"></iframe>
+          <!-- Native Video Player (HLS Stream for 100% True Synchronized Playback) -->
+          <video id="animeVideo" class="cinema-video" playsinline controls style="display: none; width: 100%; height: 100%; position: absolute; inset: 0; background: #000; z-index: 10;"></video>
+
+          <!-- Watch Party Paused Overlay (Synchronized for all viewers) -->
+          <div class="cinema-pause-overlay" id="cinemaPauseOverlay" style="display: none;">
+            <div class="pause-overlay-card">
+              <div class="pause-icon"><i class="fas fa-pause"></i></div>
+              <h3 id="pauseOverlayTitle">Watch Party Paused</h3>
+              <p id="pauseOverlayDesc">The host paused playback for everyone.</p>
+              <button class="cinema-cta-btn" id="pauseOverlayResumeBtn"><i class="fas fa-play"></i> Resume Party</button>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- Main Chat Area (Full height & width, with Music Deck when in Music Room) -->
       <main class="chat-main" id="chatMain">
 
-        <!-- ══════ MUSIC AUDIO DECK (Music Room — Audio-Only, Listen & Chat) ══════ -->
+        <!-- ══════ MUSIC AUDIO DECK (Music Room — 24/7 Live Radio, Library & Shared Beats) ══════ -->
         <div class="music-audio-deck" id="musicAudioDeck" style="display: none;">
           <div class="music-deck-main">
             <!-- Vinyl / Equalizer Graphic -->
@@ -172,34 +186,38 @@
 
             <!-- Track Info -->
             <div class="music-info-wrap">
-              <div class="music-status-tag"><span class="live-dot"></span> LIVE MUSIC STREAM</div>
-              <div class="music-title" id="musicTrackTitle">Lofi Girl — Beats to Relax & Study to</div>
-              <div class="music-meta" id="musicTrackMeta">PBG Radio • Audio Only</div>
+              <div class="music-status-tag"><span class="live-dot"></span> <span id="musicModeTag">LIVE 24/7 RADIO</span></div>
+              <div class="music-title" id="musicTrackTitle">Lofi Chillout Radio — 24/7 Ambient Beats</div>
+              <div class="music-meta" id="musicTrackMeta">SomaFM Groove Salad • 24/7 Live Radio</div>
             </div>
 
             <!-- Controls -->
             <div class="music-actions">
-              <button class="music-ctrl-btn music-play-btn" id="musicToggleBtn" title="Play / Pause">
+              <button class="music-ctrl-btn music-play-btn" id="musicToggleBtn" title="Play / Pause Audio">
                 <i class="fas fa-pause"></i>
               </button>
-              <button class="music-ctrl-btn" id="musicSkipBtn" title="Next Track">
+              <button class="music-ctrl-btn" id="musicSkipBtn" title="Next Radio Station / Track">
                 <i class="fas fa-forward-step"></i>
+              </button>
+              <button class="music-ctrl-btn music-lib-btn" id="musicLibraryToggle" title="Open Music Library & Radio Stations">
+                <i class="fas fa-compact-disc"></i>
+                <span class="btn-text-hide">Library</span>
               </button>
               <button class="music-ctrl-btn" id="musicQueueToggle" title="View Queue">
                 <i class="fas fa-list"></i>
                 <span class="music-queue-badge" id="musicQueueBadge" style="display: none;">0</span>
               </button>
-              <button class="music-ctrl-btn" id="musicAddToggle" title="Add / Play Song URL">
+              <button class="music-ctrl-btn" id="musicAddToggle" title="Add / Paste Music URL">
                 <i class="fas fa-plus"></i>
               </button>
             </div>
           </div>
 
-          <!-- Quick Curated Music Stations (Audio Only) -->
+          <!-- Quick Curated Live Radio Stations (1-Click Switch) -->
           <div class="music-stations-bar">
-            <span class="music-stations-label"><i class="fas fa-radio"></i> Stations:</span>
+            <span class="music-stations-label"><i class="fas fa-tower-broadcast"></i> 24/7 Radio:</span>
             <div class="music-stations-pills" id="musicStationsPills">
-              <!-- Dynamically populated station pills -->
+              <!-- Dynamically populated live radio pills -->
             </div>
           </div>
 
@@ -207,7 +225,7 @@
           <div class="music-dropdown-panel" id="musicDropdownPanel" style="display: none;">
             <div class="music-add-form" id="musicAddForm">
               <input type="text" id="musicUrlInput" placeholder="Paste YouTube song link (e.g. youtube.com/watch?v=...)" autocomplete="off" />
-              <button class="music-submit-btn" id="musicAddBtn"><i class="fas fa-play"></i> Play Music</button>
+              <button class="music-submit-btn" id="musicAddBtn"><i class="fas fa-play"></i> Play</button>
             </div>
             <div class="music-queue-view" id="musicQueueView" style="display: none;">
               <div class="music-queue-head">
@@ -218,9 +236,86 @@
             </div>
           </div>
 
-          <!-- Hidden Audio-Engine (Pure Audio Playback) -->
+          <!-- HTML5 Live Audio Element for 24/7 Web Radios (Direct Stream) -->
+          <audio id="realRadioAudio" preload="auto" style="display: none;"></audio>
+
+          <!-- Hidden YouTube Audio Engine with API enabled -->
           <div class="music-audio-engine" style="position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; overflow: hidden;">
-            <iframe id="musicIframe" src="" allow="autoplay; encrypted-media"></iframe>
+            <iframe id="musicIframe" src="" allow="autoplay; encrypted-media" style="width: 1px; height: 1px;"></iframe>
+          </div>
+        </div>
+
+        <!-- ══════ MUSIC LIBRARY MODAL / DRAWER ══════ -->
+        <div class="music-library-overlay" id="musicLibraryModal" style="display: none;">
+          <div class="music-library-card">
+            <div class="music-library-header">
+              <div class="music-lib-title">
+                <i class="fas fa-headphones-simple"></i>
+                <h2>Music Library & 24/7 Live Radio</h2>
+              </div>
+              <div class="music-lib-header-actions">
+                <button class="music-lib-add-btn" id="openAddSongBtn"><i class="fas fa-plus"></i> Add Song</button>
+                <button class="music-lib-close-btn" id="musicLibraryClose" aria-label="Close library"><i class="fas fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- Add Song to Library Form Drawer -->
+            <div class="add-song-panel" id="addSongPanel" style="display: none;">
+              <div class="add-song-head">
+                <h4><i class="fab fa-youtube" style="color: #ff0000;"></i> Store New Song in Library</h4>
+                <button class="add-song-close" id="closeAddSongBtn" title="Cancel"><i class="fas fa-xmark"></i></button>
+              </div>
+              <div class="add-song-grid">
+                <div class="add-song-field">
+                  <label for="addSongTitle">Song Title *</label>
+                  <input type="text" id="addSongTitle" placeholder="e.g. Gurenge (Demon Slayer OP)" maxlength="120" />
+                </div>
+                <div class="add-song-field">
+                  <label for="addSongArtist">Artist / Creator</label>
+                  <input type="text" id="addSongArtist" placeholder="e.g. LiSA" maxlength="80" />
+                </div>
+                <div class="add-song-field">
+                  <label for="addSongCategory">Category</label>
+                  <select id="addSongCategory">
+                    <option value="Anime Hits">🎌 Anime Hits</option>
+                    <option value="Lo-Fi Chill">🎧 Lo-Fi Chill</option>
+                    <option value="Gaming & Synth">🕹️ Gaming & Synth</option>
+                    <option value="Pop & Rock">🎸 Pop & Rock</option>
+                    <option value="EDM & Dance">⚡ EDM & Dance</option>
+                    <option value="Community Custom" selected>✨ Community Custom</option>
+                  </select>
+                </div>
+                <div class="add-song-field add-song-full">
+                  <label for="addSongUrl">YouTube Link or Video ID *</label>
+                  <input type="text" id="addSongUrl" placeholder="https://www.youtube.com/watch?v=... or youtu.be/..." />
+                </div>
+              </div>
+              <div class="add-song-footer">
+                <div class="add-song-error" id="addSongError" style="display: none;"></div>
+                <button class="add-song-submit-btn" id="submitAddSongBtn"><i class="fas fa-bookmark"></i> Save to Community Library</button>
+              </div>
+            </div>
+
+            <!-- Library Search Bar -->
+            <div class="music-lib-search">
+              <i class="fas fa-magnifying-glass"></i>
+              <input type="text" id="musicLibSearchInput" placeholder="Search anime songs, lo-fi, radio stations, or custom tracks..." autocomplete="off" />
+            </div>
+
+            <!-- Library Tabs / Category Pills -->
+            <div class="music-lib-tabs">
+              <button class="lib-tab active" data-category="all">All</button>
+              <button class="lib-tab" data-category="radio">📻 24/7 Radio</button>
+              <button class="lib-tab" data-category="custom">✨ Community</button>
+              <button class="lib-tab" data-category="anime">🎌 Anime Hits</button>
+              <button class="lib-tab" data-category="lofi">🎧 Lo-Fi Chill</button>
+              <button class="lib-tab" data-category="gaming">🕹️ Gaming & Synth</button>
+            </div>
+
+            <!-- Library Content Grid -->
+            <div class="music-lib-content" id="musicLibContent">
+              <!-- Dynamically populated from RADIO_STATIONS & MUSIC_LIBRARY -->
+            </div>
           </div>
         </div>
 
@@ -293,6 +388,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>

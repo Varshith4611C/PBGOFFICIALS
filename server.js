@@ -35,6 +35,46 @@ app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 const animeApi = require('./anime/api');
 app.use('/api/anime', animeApi);
 
+// ── Music Live Radio Proxy Endpoint ──
+const http = require('http');
+const https = require('https');
+app.get('/api/music/radio-proxy', (req, res) => {
+  const streamUrl = req.query.url;
+  if (!streamUrl) return res.status(400).send('Missing stream URL');
+
+  try {
+    const client = streamUrl.startsWith('https') ? https : http;
+    const proxyReq = client.get(streamUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Icy-MetaData': '0',
+      }
+    }, (proxyRes) => {
+      res.writeHead(proxyRes.statusCode || 200, {
+        'Content-Type': proxyRes.headers['content-type'] || 'audio/mpeg',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-store',
+        'Pragma': 'no-cache',
+      });
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      if (!res.headersSent) {
+        res.status(502).send('Proxy error: ' + err.message);
+      }
+    });
+
+    req.on('close', () => {
+      proxyReq.destroy();
+    });
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).send('Proxy failure: ' + err.message);
+    }
+  }
+});
+
 // ── Serve anime frontend ──
 app.use('/anime', express.static(path.join(__dirname, 'anime'), {
   extensions: ['html'],

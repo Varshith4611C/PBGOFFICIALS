@@ -50,10 +50,12 @@
   const musicAudioDeck = document.getElementById('musicAudioDeck');
   const musicVinyl = document.getElementById('musicVinyl');
   const musicEq = document.getElementById('musicEq');
+  const musicModeTag = document.getElementById('musicModeTag');
   const musicTrackTitle = document.getElementById('musicTrackTitle');
   const musicTrackMeta = document.getElementById('musicTrackMeta');
   const musicToggleBtn = document.getElementById('musicToggleBtn');
   const musicSkipBtn = document.getElementById('musicSkipBtn');
+  const musicLibraryToggle = document.getElementById('musicLibraryToggle');
   const musicQueueToggle = document.getElementById('musicQueueToggle');
   const musicQueueBadge = document.getElementById('musicQueueBadge');
   const musicAddToggle = document.getElementById('musicAddToggle');
@@ -65,12 +67,31 @@
   const musicQueueView = document.getElementById('musicQueueView');
   const musicQueueCount = document.getElementById('musicQueueCount');
   const musicQueueList = document.getElementById('musicQueueList');
+  const realRadioAudio = document.getElementById('realRadioAudio');
   const musicIframe = document.getElementById('musicIframe');
+
+  // Music Library Elements
+  const musicLibraryModal = document.getElementById('musicLibraryModal');
+  const musicLibraryClose = document.getElementById('musicLibraryClose');
+  const openAddSongBtn = document.getElementById('openAddSongBtn');
+  const addSongPanel = document.getElementById('addSongPanel');
+  const closeAddSongBtn = document.getElementById('closeAddSongBtn');
+  const addSongTitle = document.getElementById('addSongTitle');
+  const addSongArtist = document.getElementById('addSongArtist');
+  const addSongCategory = document.getElementById('addSongCategory');
+  const addSongUrl = document.getElementById('addSongUrl');
+  const addSongError = document.getElementById('addSongError');
+  const submitAddSongBtn = document.getElementById('submitAddSongBtn');
+  const musicLibSearchInput = document.getElementById('musicLibSearchInput');
+  const musicLibContent = document.getElementById('musicLibContent');
+  const libTabs = document.querySelectorAll('.lib-tab');
 
   // Anime Cinema Elements
   const cinemaStage = document.getElementById('cinemaStage');
   const cinemaAnimeTitle = document.getElementById('cinemaAnimeTitle');
   const cinemaAnimeEp = document.getElementById('cinemaAnimeEp');
+  const cinemaTogglePlay = document.getElementById('cinemaTogglePlay');
+  const cinemaResyncBtn = document.getElementById('cinemaResyncBtn');
   const cinemaPrevEp = document.getElementById('cinemaPrevEp');
   const cinemaNextEp = document.getElementById('cinemaNextEp');
   const cinemaSearchToggle = document.getElementById('cinemaSearchToggle');
@@ -79,9 +100,14 @@
   const animeSearchInput = document.getElementById('animeSearchInput');
   const cinemaSearchClose = document.getElementById('cinemaSearchClose');
   const animeResults = document.getElementById('animeResults');
+  const cinemaPlayerWrap = document.getElementById('cinemaPlayerWrap');
+  const animeVideo = document.getElementById('animeVideo');
   const cinemaEmptyState = document.getElementById('cinemaEmptyState');
   const cinemaQuickBrowseBtn = document.getElementById('cinemaQuickBrowseBtn');
-  const animeIframe = document.getElementById('animeIframe');
+  const cinemaPauseOverlay = document.getElementById('cinemaPauseOverlay');
+  const pauseOverlayTitle = document.getElementById('pauseOverlayTitle');
+  const pauseOverlayDesc = document.getElementById('pauseOverlayDesc');
+  const pauseOverlayResumeBtn = document.getElementById('pauseOverlayResumeBtn');
 
   // ── State ──
   let socket = null;
@@ -98,6 +124,13 @@
   let currentAnimeInfo = null;
   let currentMusicState = null;
   let currentAnimeState = null;
+  let currentlyPlayingStreamUrl = '';
+  let currentLoadedDirectStream = null;
+  let currentEmbedSrc = '';
+  let activeLibraryCategory = 'all';
+  let hlsInstance = null;
+  let isRemoteAnimeSync = false;
+  let lastSeekEmit = 0;
 
   // ── Safe LocalStorage ──
   function getStoredUsername() {
@@ -161,6 +194,13 @@
     return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${time}`;
   }
 
+  function formatMediaTime(sec) {
+    if (!sec || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -175,7 +215,7 @@
     messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: smooth ? 'smooth' : 'instant' });
   }
 
-  // ── Username Modal (Mobile + Desktop Friendly) ──
+  // ── Username Modal ──
   function initModal() {
     const savedUser = getStoredUsername();
     if (savedUser && savedUser.trim().length >= 2) {
@@ -204,7 +244,6 @@
 
     usernameInput.addEventListener('input', validateInput);
 
-    // Form submit listener (handles Mobile "Go/Done" key + desktop Enter + button tap)
     usernameForm.addEventListener('submit', (e) => {
       e.preventDefault();
       handleJoin();
@@ -215,7 +254,6 @@
       handleJoin();
     });
 
-    // Auto focus on desktop
     if (window.innerWidth > 768) {
       setTimeout(() => usernameInput.focus(), 150);
     }
@@ -223,7 +261,6 @@
 
   function handleJoin() {
     let val = usernameInput.value.trim();
-    // Sanitize extra internal spaces
     val = val.replace(/\s+/g, ' ');
 
     if (!val || val.length < 2) {
@@ -233,9 +270,7 @@
       return;
     }
 
-    if (val.length > 25) {
-      val = val.slice(0, 25);
-    }
+    if (val.length > 25) val = val.slice(0, 25);
 
     currentUser = val;
     setStoredUsername(val);
@@ -283,9 +318,22 @@
       updateMusicUI(state);
     });
 
+    socket.on('music-error', ({ message }) => {
+      if (addSongError && addSongPanel && addSongPanel.style.display !== 'none') {
+        showAddSongError(message);
+      } else {
+        alert(message);
+      }
+    });
+
     socket.on('anime-state', (state) => {
       currentAnimeState = state;
       updateAnimeUI(state);
+    });
+
+    // Real-Time Synchronized Anime Playback Actions (Play / Pause / Seek)
+    socket.on('anime-action', ({ action, currentTime, username }) => {
+      handleRemoteAnimeAction(action, currentTime, username);
     });
 
     initMessageInput();
@@ -294,6 +342,7 @@
     initScrollDetection();
     initReply();
     initMusicDeck();
+    initMusicLibrary();
     initCinemaStage();
     updateRoomView();
   }
@@ -309,7 +358,7 @@
       li.dataset.roomId = room.id;
       let badge = '';
       if (room.id === 'music') {
-        badge = '<span class="room-feature-badge badge-listen">🎧 Audio</span>';
+        badge = '<span class="room-feature-badge badge-listen">📻 Radio</span>';
       } else if (room.id === 'anime-manga') {
         badge = '<span class="room-feature-badge badge-watch">📺 Watch</span>';
       }
@@ -367,18 +416,23 @@
   function updateRoomView() {
     if (currentRoom === 'music') {
       musicAudioDeck.style.display = 'block';
+      if (currentMusicState) updateMusicUI(currentMusicState);
     } else {
       musicAudioDeck.style.display = 'none';
       musicDropdownPanel.style.display = 'none';
+      musicLibraryModal.style.display = 'none';
+      stopAllAudio();
     }
 
     if (currentRoom === 'anime-manga') {
       cinemaStage.style.display = 'flex';
       chatLayout.classList.add('cinema-active');
+      if (currentAnimeState) updateAnimeUI(currentAnimeState);
     } else {
       cinemaStage.style.display = 'none';
       chatLayout.classList.remove('cinema-active');
       cinemaSearchDrawer.style.display = 'none';
+      if (animeVideo) animeVideo.pause();
     }
 
     setTimeout(() => scrollToBottom(false), 50);
@@ -627,11 +681,58 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  MUSIC AUDIO DECK (Only Music, Listen & Chat Together)
+  //  AUDIO ENGINE CONTROLLER (HTML5 Web Radios & YouTube Audio)
   // ════════════════════════════════════════════════════════════════
+
+  function postToYouTube(command, args = []) {
+    if (musicIframe && musicIframe.contentWindow) {
+      try {
+        musicIframe.contentWindow.postMessage(JSON.stringify({
+          event: 'command',
+          func: command,
+          args: args
+        }), '*');
+      } catch (err) {
+        console.warn('YouTube postMessage error:', err);
+      }
+    }
+  }
+
+  function stopAllAudio() {
+    if (realRadioAudio) {
+      realRadioAudio.pause();
+    }
+    postToYouTube('pauseVideo');
+    if (musicIframe && musicIframe.src) {
+      musicIframe.src = '';
+    }
+  }
+
   function initMusicDeck() {
-    musicToggleBtn.addEventListener('click', () => socket.emit('music-toggle'));
+    musicToggleBtn.addEventListener('click', () => {
+      if (currentMusicState && currentMusicState.currentTrack) {
+        if (currentMusicState.currentTrack.type === 'stream' && currentMusicState.currentTrack.streamUrl) {
+          if (!currentMusicState.isPlaying) {
+            if (currentlyPlayingStreamUrl !== currentMusicState.currentTrack.streamUrl) {
+              currentlyPlayingStreamUrl = currentMusicState.currentTrack.streamUrl;
+              realRadioAudio.src = currentMusicState.currentTrack.streamUrl;
+            }
+            realRadioAudio.play().catch(e => console.error('Audio play error:', e));
+          } else {
+            realRadioAudio.pause();
+          }
+        }
+      }
+      socket.emit('music-toggle');
+    });
+
     musicSkipBtn.addEventListener('click', () => socket.emit('music-skip'));
+
+    musicLibraryToggle.addEventListener('click', () => {
+      musicLibraryModal.style.display = 'flex';
+      renderLibraryContent();
+      setTimeout(() => musicLibSearchInput.focus(), 150);
+    });
 
     musicAddToggle.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -675,17 +776,22 @@
     });
   }
 
+  function stopAllAudio() {
+    currentlyPlayingStreamUrl = '';
+    if (realRadioAudio) {
+      realRadioAudio.pause();
+      realRadioAudio.src = '';
+    }
+    postToYouTube('pauseVideo');
+    if (musicIframe) musicIframe.src = '';
+  }
+
   function extractYouTubeId(url) {
     if (!url) return null;
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-      /^([a-zA-Z0-9_-]{11})$/,
-    ];
-    for (const pat of patterns) {
-      const m = url.match(pat);
-      if (m) return m[1];
-    }
-    return null;
+    const str = url.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+    const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+    return match ? match[1] : null;
   }
 
   function handleAddMusic() {
@@ -699,8 +805,8 @@
     }
     socket.emit('music-add', {
       videoId,
-      title: `Music Track (${videoId})`,
-      artist: 'User Shared',
+      title: `YouTube Song (${videoId})`,
+      artist: 'Custom Audio',
     });
     musicUrlInput.value = '';
     musicDropdownPanel.style.display = 'none';
@@ -709,15 +815,19 @@
   function updateMusicUI(state) {
     if (!state) return;
 
+    // Render Station Pills
     if (state.stations && state.stations.length > 0) {
       musicStationsPills.innerHTML = '';
       state.stations.forEach(station => {
         const btn = document.createElement('button');
-        const isActive = state.currentTrack?.videoId === station.videoId;
+        const isActive = state.currentTrack?.id === station.id;
         btn.className = `station-pill${isActive ? ' active' : ''}`;
-        btn.textContent = station.tag || station.title;
+        btn.textContent = `${station.icon || '📻'} ${station.tag || station.title}`;
         btn.title = station.title;
         btn.addEventListener('click', () => {
+          currentlyPlayingStreamUrl = station.streamUrl;
+          realRadioAudio.src = station.streamUrl;
+          realRadioAudio.play().catch(e => console.error('Station play error:', e));
           socket.emit('music-play-station', station.id);
         });
         musicStationsPills.appendChild(btn);
@@ -726,9 +836,14 @@
 
     if (state.currentTrack) {
       musicTrackTitle.textContent = state.currentTrack.title;
-      const metaEl = document.getElementById('musicTrackMeta');
-      if (metaEl) metaEl.textContent = `${state.currentTrack.artist || 'PBG Audio'} • Added by ${state.currentTrack.addedBy}`;
+      if (musicModeTag) {
+        musicModeTag.textContent = state.currentTrack.type === 'stream' ? 'LIVE 24/7 RADIO' : 'YOUTUBE AUDIO';
+      }
+      if (musicTrackMeta) {
+        musicTrackMeta.textContent = `${state.currentTrack.artist || 'PBG Audio'} • Added by ${state.currentTrack.addedBy}`;
+      }
 
+      // Vinyl & EQ visual state
       if (state.isPlaying) {
         musicVinyl.classList.add('playing');
         musicEq.classList.add('playing');
@@ -739,22 +854,61 @@
         musicToggleBtn.innerHTML = '<i class="fas fa-play"></i>';
       }
 
-      let startSeconds = 0;
-      if (state.isPlaying && state.startedAt) {
-        startSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
-        if (startSeconds < 0) startSeconds = 0;
-      } else if (!state.isPlaying) {
-        startSeconds = Math.floor(state.pausedAt || 0);
-      }
+      // ── HYBRID AUDIO PLAYBACK ENGINE ──
+      if (state.currentTrack.type === 'stream' && state.currentTrack.streamUrl) {
+        postToYouTube('pauseVideo');
+        if (musicIframe.src) musicIframe.src = '';
 
-      const currentSrc = musicIframe.src;
-      const targetBase = `https://www.youtube.com/embed/${state.currentTrack.videoId}`;
-      if (!currentSrc.includes(state.currentTrack.videoId)) {
-        const autoplay = state.isPlaying ? 1 : 0;
-        musicIframe.src = `${targetBase}?autoplay=${autoplay}&start=${startSeconds}&enablejsapi=1`;
+        if (currentlyPlayingStreamUrl !== state.currentTrack.streamUrl) {
+          currentlyPlayingStreamUrl = state.currentTrack.streamUrl;
+          realRadioAudio.src = state.currentTrack.streamUrl;
+        }
+
+        if (state.isPlaying && currentRoom === 'music') {
+          if (realRadioAudio.paused) {
+            realRadioAudio.play().catch(e => {
+              console.log('Stream autoplay waiting for user interaction:', e.message);
+            });
+          }
+        } else {
+          if (!realRadioAudio.paused) {
+            realRadioAudio.pause();
+          }
+        }
+
+      } else if (state.currentTrack.type === 'youtube' && state.currentTrack.videoId) {
+        currentlyPlayingStreamUrl = '';
+        if (!realRadioAudio.paused) realRadioAudio.pause();
+
+        let startSeconds = 0;
+        if (state.isPlaying && state.startedAt) {
+          startSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
+          if (startSeconds < 0) startSeconds = 0;
+        } else if (!state.isPlaying) {
+          startSeconds = Math.floor(state.pausedAt || 0);
+        }
+
+        const targetSrc = `https://www.youtube.com/embed/${state.currentTrack.videoId}?autoplay=${state.isPlaying ? 1 : 0}&start=${startSeconds}&enablejsapi=1&origin=${window.location.origin}`;
+
+        if (!musicIframe.src.includes(state.currentTrack.videoId)) {
+          musicIframe.src = targetSrc;
+        } else {
+          if (!state.isPlaying) {
+            postToYouTube('pauseVideo');
+            if (musicIframe.src.includes('autoplay=1')) {
+              musicIframe.src = targetSrc;
+            }
+          } else {
+            postToYouTube('playVideo');
+            if (musicIframe.src.includes('autoplay=0')) {
+              musicIframe.src = targetSrc;
+            }
+          }
+        }
       }
     }
 
+    // Queue badge & list
     const qCount = (state.queue && state.queue.length) || 0;
     if (qCount > 0) {
       musicQueueBadge.style.display = 'flex';
@@ -779,10 +933,204 @@
       musicQueueCount.textContent = '0 tracks';
       musicQueueList.innerHTML = '<li style="padding:8px;color:var(--text-muted);font-size:0.75rem;text-align:center;">Queue is empty</li>';
     }
+
+    // Refresh library view if open
+    if (musicLibraryModal.style.display === 'flex') {
+      renderLibraryContent();
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  CINEMA STAGE (Anime Watch Together + Side-by-Side Live Chat)
+  //  MUSIC LIBRARY MODAL & CATEGORIES
+  // ════════════════════════════════════════════════════════════════
+  function initMusicLibrary() {
+    musicLibraryClose.addEventListener('click', () => {
+      musicLibraryModal.style.display = 'none';
+    });
+
+    musicLibraryModal.addEventListener('click', (e) => {
+      if (e.target === musicLibraryModal) musicLibraryModal.style.display = 'none';
+    });
+
+    // Toggle Add Song Drawer in Library
+    if (openAddSongBtn && addSongPanel) {
+      openAddSongBtn.addEventListener('click', () => {
+        const isVisible = addSongPanel.style.display === 'block';
+        addSongPanel.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+          if (addSongError) addSongError.style.display = 'none';
+          if (addSongTitle) addSongTitle.focus();
+        }
+      });
+    }
+
+    if (closeAddSongBtn && addSongPanel) {
+      closeAddSongBtn.addEventListener('click', () => {
+        addSongPanel.style.display = 'none';
+      });
+    }
+
+    if (submitAddSongBtn) {
+      submitAddSongBtn.addEventListener('click', handleStoreLibrarySong);
+    }
+
+    libTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        libTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeLibraryCategory = tab.dataset.category;
+        renderLibraryContent();
+      });
+    });
+
+    musicLibSearchInput.addEventListener('input', renderLibraryContent);
+  }
+
+  function handleStoreLibrarySong() {
+    const rawUrl = addSongUrl.value.trim();
+    if (!rawUrl) {
+      showAddSongError('Please enter a YouTube video URL or ID.');
+      addSongUrl.focus();
+      return;
+    }
+    const videoId = extractYouTubeId(rawUrl);
+    if (!videoId) {
+      showAddSongError('Invalid YouTube URL. Use formats like youtube.com/watch?v=... or youtu.be/...');
+      addSongUrl.focus();
+      return;
+    }
+
+    const title = addSongTitle.value.trim() || `YouTube Track (${videoId})`;
+    const artist = addSongArtist.value.trim() || (currentUser?.username || 'Community');
+    const category = addSongCategory.value || 'Community Custom';
+
+    socket.emit('music-add-library', {
+      title,
+      artist,
+      category,
+      youtubeUrl: rawUrl,
+    });
+
+    addSongTitle.value = '';
+    addSongArtist.value = '';
+    addSongUrl.value = '';
+    if (addSongError) addSongError.style.display = 'none';
+    if (addSongPanel) addSongPanel.style.display = 'none';
+
+    // Auto-switch tab to custom to see the stored track immediately
+    activeLibraryCategory = 'custom';
+    libTabs.forEach(t => {
+      if (t.dataset.category === 'custom') t.classList.add('active');
+      else t.classList.remove('active');
+    });
+    renderLibraryContent();
+  }
+
+  function showAddSongError(msg) {
+    if (addSongError) {
+      addSongError.textContent = msg;
+      addSongError.style.display = 'block';
+    }
+  }
+
+  function renderLibraryContent() {
+    if (!currentMusicState) return;
+    const query = musicLibSearchInput.value.trim().toLowerCase();
+    const stations = currentMusicState.stations || [];
+    const library = currentMusicState.library || [];
+
+    musicLibContent.innerHTML = '';
+    const items = [];
+
+    // Radio stations
+    if (activeLibraryCategory === 'all' || activeLibraryCategory === 'radio') {
+      stations.forEach(s => {
+        if (!query || s.title.toLowerCase().includes(query) || s.artist.toLowerCase().includes(query) || s.tag.toLowerCase().includes(query)) {
+          items.push({ ...s, itemType: 'station' });
+        }
+      });
+    }
+
+    // Library tracks
+    if (activeLibraryCategory !== 'radio') {
+      library.forEach(t => {
+        const isCustom = t.custom || (t.id && t.id.startsWith('custom-'));
+        const catMatch = activeLibraryCategory === 'all' ||
+          (activeLibraryCategory === 'custom' && isCustom) ||
+          (activeLibraryCategory === 'anime' && (t.category.includes('Anime') || t.category === 'Anime Hits')) ||
+          (activeLibraryCategory === 'lofi' && (t.category.includes('Lo-Fi') || t.category.includes('Lofi'))) ||
+          (activeLibraryCategory === 'gaming' && (t.category.includes('Gaming') || t.category.includes('Synth')));
+
+        if (catMatch && (!query || t.title.toLowerCase().includes(query) || t.artist.toLowerCase().includes(query) || t.category.toLowerCase().includes(query) || (t.addedBy && t.addedBy.toLowerCase().includes(query)))) {
+          items.push({ ...t, itemType: 'library' });
+        }
+      });
+    }
+
+    if (items.length === 0) {
+      musicLibContent.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.85rem;">No music found in this category. Click <strong>+ Add Song</strong> to store your first track!</div>';
+      return;
+    }
+
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'music-lib-card';
+      const isPlayingThis = (item.itemType === 'station' && currentMusicState.currentTrack?.id === item.id) ||
+                            (item.itemType === 'library' && currentMusicState.currentTrack?.id === item.id);
+
+      const icon = item.itemType === 'station' ? (item.icon || '📻') : (item.custom ? '✨' : '🎵');
+      const tag = item.itemType === 'station' ? `24/7 Radio • ${item.tag}` : item.category;
+      const byUser = item.addedBy ? ` • Added by ${escapeHtml(item.addedBy)}` : '';
+
+      card.innerHTML = `
+        <div class="music-lib-card-icon">${icon}</div>
+        <div class="music-lib-card-info">
+          <div class="music-lib-card-title">${escapeHtml(item.title)}</div>
+          <div class="music-lib-card-meta">
+            <span class="music-lib-card-tag">${escapeHtml(tag)}</span>
+            <span>${escapeHtml(item.artist)}${byUser}</span>
+          </div>
+        </div>
+        <div class="music-lib-card-actions">
+          ${item.custom ? `<button class="music-lib-card-del" title="Remove from Library"><i class="fas fa-trash-can"></i></button>` : ''}
+          <div class="music-lib-card-play">
+            <i class="fas ${isPlayingThis ? 'fa-volume-high' : 'fa-play'}"></i>
+          </div>
+        </div>
+      `;
+
+      // Delete custom song
+      if (item.custom) {
+        const delBtn = card.querySelector('.music-lib-card-del');
+        if (delBtn) {
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Remove "${item.title}" from the community library?`)) {
+              socket.emit('music-remove-library', { id: item.id });
+            }
+          });
+        }
+      }
+
+      card.addEventListener('click', () => {
+        if (item.itemType === 'station') {
+          currentlyPlayingStreamUrl = item.streamUrl;
+          realRadioAudio.src = item.streamUrl;
+          realRadioAudio.play().catch(e => console.error('Card play error:', e));
+          socket.emit('music-play-station', item.id);
+        } else {
+          stopAllAudio();
+          socket.emit('music-play-library', item.id);
+        }
+        musicLibraryModal.style.display = 'none';
+      });
+
+      musicLibContent.appendChild(card);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  CINEMA STAGE (100% Real-Time Synchronized HTML5 Video Player)
   // ════════════════════════════════════════════════════════════════
   let animeSearchTimeout = null;
 
@@ -802,6 +1150,59 @@
       animeSearchInput.focus();
     });
 
+    // Native Video Player Event Listeners (Broadcast play/pause/seek to room)
+    if (animeVideo) {
+      animeVideo.addEventListener('pause', () => {
+        if (isRemoteAnimeSync) return;
+        socket.emit('anime-action', { action: 'pause', currentTime: animeVideo.currentTime });
+      });
+
+      animeVideo.addEventListener('play', () => {
+        if (isRemoteAnimeSync) return;
+        socket.emit('anime-action', { action: 'play', currentTime: animeVideo.currentTime });
+      });
+
+      animeVideo.addEventListener('seeked', () => {
+        if (isRemoteAnimeSync) return;
+        const now = Date.now();
+        if (now - lastSeekEmit > 800) {
+          lastSeekEmit = now;
+          socket.emit('anime-action', { action: 'seek', currentTime: animeVideo.currentTime });
+        }
+      });
+    }
+
+    // 1-Click Stream Resync with Room
+    cinemaResyncBtn.addEventListener('click', () => {
+      if (currentAnimeState && currentAnimeState.currentAnime) {
+        const directStream = currentAnimeState.currentAnime.directStreamUrl || currentAnimeState.currentAnime.directStream;
+        if (directStream && animeVideo) {
+          if (typeof currentAnimeState.currentTime === 'number') {
+            animeVideo.currentTime = currentAnimeState.currentTime;
+          }
+          if (currentAnimeState.isPlaying) {
+            animeVideo.play().catch(() => {});
+          }
+        } else if (currentAnimeState.currentAnime.embedUrl) {
+          const url = currentAnimeState.currentAnime.embedUrl;
+          const iframe = cinemaPlayerWrap.querySelector('iframe.cinema-iframe');
+          if (iframe) iframe.remove();
+          setTimeout(() => { injectCinemaIframe(url); }, 100);
+        }
+        cinemaResyncBtn.style.color = 'var(--emerald-400)';
+        setTimeout(() => { cinemaResyncBtn.style.color = ''; }, 1000);
+      }
+    });
+
+    // Watch Party Play/Pause toggle
+    cinemaTogglePlay.addEventListener('click', () => {
+      socket.emit('anime-toggle-play');
+    });
+
+    pauseOverlayResumeBtn.addEventListener('click', () => {
+      socket.emit('anime-toggle-play');
+    });
+
     animeSearchInput.addEventListener('input', () => {
       clearTimeout(animeSearchTimeout);
       const q = animeSearchInput.value.trim();
@@ -812,6 +1213,67 @@
     cinemaPrevEp.addEventListener('click', () => changeAnimeEpisode(-1));
     cinemaNextEp.addEventListener('click', () => changeAnimeEpisode(1));
     cinemaStopBtn.addEventListener('click', () => socket.emit('anime-clear'));
+  }
+
+  function injectCinemaIframe(src) {
+    if (!src) return;
+    cinemaEmptyState.style.display = 'none';
+    if (animeVideo) {
+      animeVideo.style.display = 'none';
+      animeVideo.pause();
+    }
+
+    let iframe = cinemaPlayerWrap.querySelector('iframe.cinema-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'animeIframe';
+      iframe.className = 'cinema-iframe';
+      iframe.setAttribute('allowfullscreen', 'true');
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('marginwidth', '0');
+      iframe.setAttribute('marginheight', '0');
+      iframe.setAttribute('scrolling', 'no');
+      iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+      iframe.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;border:none;background:#000;';
+      cinemaPlayerWrap.insertBefore(iframe, cinemaPauseOverlay);
+    }
+
+    if (iframe.src !== src) {
+      iframe.src = src;
+    }
+  }
+
+  function removeCinemaIframe() {
+    const iframe = cinemaPlayerWrap.querySelector('iframe.cinema-iframe');
+    if (iframe) iframe.remove();
+  }
+
+  function handleRemoteAnimeAction(action, currentTime, username) {
+    isRemoteAnimeSync = true;
+    if (action === 'pause') {
+      if (animeVideo && animeVideo.style.display !== 'none') {
+        animeVideo.pause();
+        if (typeof currentTime === 'number') animeVideo.currentTime = currentTime;
+      }
+      cinemaPauseOverlay.style.display = 'flex';
+      pauseOverlayTitle.textContent = 'Watch Party Paused';
+      pauseOverlayDesc.textContent = `${username} paused the watch party for the room.`;
+      cinemaTogglePlay.innerHTML = '<i class="fas fa-play"></i> <span class="cinema-btn-text">Resume</span>';
+    } else if (action === 'play') {
+      if (animeVideo && animeVideo.style.display !== 'none') {
+        if (typeof currentTime === 'number' && Math.abs(animeVideo.currentTime - currentTime) > 2) {
+          animeVideo.currentTime = currentTime;
+        }
+        animeVideo.play().catch(() => {});
+      }
+      cinemaPauseOverlay.style.display = 'none';
+      cinemaTogglePlay.innerHTML = '<i class="fas fa-pause"></i> <span class="cinema-btn-text">Pause</span>';
+    } else if (action === 'seek') {
+      if (animeVideo && animeVideo.style.display !== 'none' && typeof currentTime === 'number') {
+        animeVideo.currentTime = currentTime;
+      }
+    }
+    setTimeout(() => { isRemoteAnimeSync = false; }, 400);
   }
 
   async function searchAnime(query) {
@@ -852,45 +1314,74 @@
     animeResults.style.display = 'none';
     animeSearchInput.value = '';
     try {
-      const infoRes = await fetch(`/api/anime/info/${item.id}`);
-      if (!infoRes.ok) throw new Error('Info fetch failed');
-      currentAnimeInfo = await infoRes.json();
+      const animeId = item.id.replace(/-episode-\d+.*$/, '');
+      let episodeId = item.episodeId || (item.id.includes('-episode-') ? item.id : `${animeId}-episode-1`);
+      let episodeNumber = item.episodeNumber || 1;
+      let animeTitle = item.title || 'PBG Anime';
+      let animeImage = item.image || '';
 
-      const ep = currentAnimeInfo.episodes[0];
-      if (!ep) return;
+      // 1. Fetch exact episode metadata first to get guaranteed valid episode ID
+      try {
+        const infoRes = await fetch(`/api/anime/info/${animeId}`);
+        if (infoRes.ok) {
+          const info = await infoRes.json();
+          currentAnimeInfo = info;
+          if (info.title) animeTitle = info.title;
+          if (info.image) animeImage = info.image;
+          if (info.episodes && info.episodes.length > 0) {
+            const firstEp = info.episodes.find(e => e.number === 1) || info.episodes[0];
+            if (firstEp) {
+              episodeId = firstEp.id;
+              episodeNumber = firstEp.number;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Anime info lookup warning:', e);
+      }
 
-      const watchRes = await fetch(`/api/anime/watch/${ep.id}`);
-      if (!watchRes.ok) throw new Error('Watch fetch failed');
+      // 2. Fetch the watch stream with the accurate episode ID
+      const watchRes = await fetch(`/api/anime/watch/${episodeId}`);
+      if (!watchRes.ok) throw new Error('Watch fetch failed for ' + episodeId);
       const watchData = await watchRes.json();
 
       socket.emit('anime-watch', {
-        animeId: currentAnimeInfo.id,
-        title: currentAnimeInfo.title,
-        image: currentAnimeInfo.image,
-        episodeId: ep.id,
-        episodeNumber: ep.number,
-        embedUrl: watchData.embedUrl,
+        animeId: animeId,
+        title: animeTitle || watchData.title,
+        image: animeImage || watchData.image,
+        episodeId: episodeId,
+        episodeNumber: episodeNumber,
+        embedUrl: watchData.embedUrl || watchData.iframeSrc || '',
+        directStreamUrl: watchData.directStreamUrl || '',
       });
+
+      cinemaPrevEp.disabled = episodeNumber <= 1;
+      cinemaNextEp.disabled = false;
     } catch (err) {
       console.error('Anime select error:', err);
     }
   }
 
   async function changeAnimeEpisode(delta) {
-    if (!currentAnimeInfo || !currentAnimeInfo.episodes) return;
     const currentEpNum = parseInt(cinemaAnimeEp.textContent.replace(/\D/g, '')) || 1;
-    const newEpNum = currentEpNum + delta;
-    const ep = currentAnimeInfo.episodes.find(e => e.number === newEpNum);
-    if (!ep) return;
+    const newEpNum = Math.max(1, currentEpNum + delta);
+    const animeId = currentAnimeState?.currentAnime?.animeId || 'anime';
+    let nextEpisodeId = `${animeId}-episode-${newEpNum}`;
+
+    if (currentAnimeInfo && currentAnimeInfo.episodes && currentAnimeInfo.episodes.length > 0) {
+      const found = currentAnimeInfo.episodes.find(e => e.number === newEpNum);
+      if (found) nextEpisodeId = found.id;
+    }
 
     try {
-      const watchRes = await fetch(`/api/anime/watch/${ep.id}`);
+      const watchRes = await fetch(`/api/anime/watch/${nextEpisodeId}`);
       if (!watchRes.ok) return;
       const watchData = await watchRes.json();
       socket.emit('anime-episode', {
-        episodeId: ep.id,
-        episodeNumber: ep.number,
-        embedUrl: watchData.embedUrl,
+        episodeId: nextEpisodeId,
+        episodeNumber: newEpNum,
+        embedUrl: watchData.embedUrl || watchData.iframeSrc || '',
+        directStreamUrl: watchData.directStreamUrl || '',
       });
     } catch (err) {
       console.error('Episode change error:', err);
@@ -902,14 +1393,80 @@
       cinemaAnimeTitle.textContent = state.currentAnime.title;
       cinemaAnimeEp.textContent = `EP ${state.currentAnime.episodeNumber}`;
       cinemaEmptyState.style.display = 'none';
-      animeIframe.style.display = 'block';
       cinemaStopBtn.style.display = 'flex';
+      cinemaTogglePlay.style.display = 'flex';
       cinemaPrevEp.disabled = state.currentAnime.episodeNumber <= 1;
       cinemaNextEp.disabled = false;
 
-      const currentSrc = animeIframe.src;
-      if (state.currentAnime.embedUrl && !currentSrc.includes(state.currentAnime.embedUrl.split('?')[0])) {
-        animeIframe.src = state.currentAnime.embedUrl;
+      const directStream = state.currentAnime.directStreamUrl || state.currentAnime.directStream;
+
+      if (directStream) {
+        // True 100% Native HLS Video Stream
+        removeCinemaIframe();
+        if (animeVideo) {
+          animeVideo.style.display = 'block';
+
+          if (currentLoadedDirectStream !== directStream) {
+            currentLoadedDirectStream = directStream;
+            if (hlsInstance) {
+              hlsInstance.destroy();
+              hlsInstance = null;
+            }
+            if (window.Hls && Hls.isSupported()) {
+              hlsInstance = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+              });
+              hlsInstance.loadSource(directStream);
+              hlsInstance.attachMedia(animeVideo);
+              hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (state.isPlaying !== false) {
+                  animeVideo.play().catch(() => {});
+                }
+              });
+            } else if (animeVideo.canPlayType('application/vnd.apple.mpegurl')) {
+              animeVideo.src = directStream;
+              if (state.isPlaying !== false) {
+                animeVideo.play().catch(() => {});
+              }
+            }
+          }
+
+          if (state.isPlaying === false) {
+            isRemoteAnimeSync = true;
+            animeVideo.pause();
+            setTimeout(() => { isRemoteAnimeSync = false; }, 300);
+            cinemaPauseOverlay.style.display = 'flex';
+            cinemaTogglePlay.innerHTML = '<i class="fas fa-play"></i> <span class="cinema-btn-text">Resume</span>';
+          } else {
+            isRemoteAnimeSync = true;
+            animeVideo.play().catch(() => {});
+            setTimeout(() => { isRemoteAnimeSync = false; }, 300);
+            cinemaPauseOverlay.style.display = 'none';
+            cinemaTogglePlay.innerHTML = '<i class="fas fa-pause"></i> <span class="cinema-btn-text">Pause</span>';
+          }
+        }
+      } else if (state.currentAnime.embedUrl) {
+        // Fallback Iframe Player
+        if (animeVideo) {
+          animeVideo.style.display = 'none';
+          animeVideo.pause();
+          animeVideo.src = '';
+        }
+        if (hlsInstance) {
+          hlsInstance.destroy();
+          hlsInstance = null;
+        }
+        currentLoadedDirectStream = null;
+        injectCinemaIframe(state.currentAnime.embedUrl);
+
+        if (state.isPlaying === false) {
+          cinemaPauseOverlay.style.display = 'flex';
+          cinemaTogglePlay.innerHTML = '<i class="fas fa-play"></i> <span class="cinema-btn-text">Resume</span>';
+        } else {
+          cinemaPauseOverlay.style.display = 'none';
+          cinemaTogglePlay.innerHTML = '<i class="fas fa-pause"></i> <span class="cinema-btn-text">Pause</span>';
+        }
       }
 
       if (!currentAnimeInfo || currentAnimeInfo.id !== state.currentAnime.animeId) {
@@ -926,9 +1483,20 @@
       cinemaAnimeTitle.textContent = 'PBG Anime Cinema';
       cinemaAnimeEp.textContent = 'Select an anime';
       cinemaEmptyState.style.display = 'block';
-      animeIframe.style.display = 'none';
-      animeIframe.src = '';
+      removeCinemaIframe();
+      if (animeVideo) {
+        animeVideo.style.display = 'none';
+        animeVideo.pause();
+        animeVideo.src = '';
+      }
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+      currentLoadedDirectStream = null;
+      cinemaPauseOverlay.style.display = 'none';
       cinemaStopBtn.style.display = 'none';
+      cinemaTogglePlay.style.display = 'none';
       cinemaPrevEp.disabled = true;
       cinemaNextEp.disabled = true;
     }

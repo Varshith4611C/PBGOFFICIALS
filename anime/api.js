@@ -147,15 +147,124 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// ── Get episode iframe / servers ──
+// ── Helper: Extract direct HLS stream for synchronized watch party ──
+async function resolveDirectStream(embedUrl) {
+  try {
+    const res = await client.get(embedUrl, {
+      headers: { 'Referer': BASE_URL, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      timeout: 6000,
+    });
+    
+    let streamId = null;
+    const mMatch = res.data.match(/megaplay\.buzz\/stream\/[^\/]+\/(\d+)/i);
+    if (mMatch) {
+      streamId = mMatch[1];
+    } else {
+      const epMatch = embedUrl.match(/ep=(\d+)/);
+      if (epMatch) streamId = epMatch[1];
+    }
+
+    if (streamId) {
+      const srcRes = await axios.get(`https://megaplay.buzz/stream/getSources?id=${streamId}`, {
+        headers: {
+          'Referer': `https://megaplay.buzz/stream/s-2/${streamId}/sub?autostart=true`,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        timeout: 6000,
+      });
+      if (srcRes.data && srcRes.data.sources && srcRes.data.sources.file) {
+        return {
+          directStream: srcRes.data.sources.file,
+          subtitles: srcRes.data.tracks || [],
+          intro: srcRes.data.intro || null,
+          outro: srcRes.data.outro || null,
+        };
+      }
+    }
+  } catch (err) {
+    // Non-fatal, fallback to embedUrl
+  }
+  return null;
+}
+
+// ── Stream Proxy (Proxies HLS master.m3u8, sub-playlists, and video segments) ──
+router.get('/stream-proxy', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    if (!targetUrl) return res.status(400).send('Missing url parameter');
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://megaplay.buzz/',
+      'Origin': 'https://megaplay.buzz',
+    };
+
+    const isM3U8 = targetUrl.includes('.m3u8') || req.headers.accept?.includes('application/vnd.apple.mpegurl');
+
+    if (isM3U8) {
+      const response = await axios.get(targetUrl, {
+        headers,
+        responseType: 'text',
+        timeout: 12000,
+      });
+
+      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+      const content = response.data;
+
+      const lines = content.split(/\r?\n/);
+      const rewritten = lines.map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+
+        if (line.includes('URI="')) {
+          return line.replace(/URI="([^"]+)"/g, (match, uri) => {
+            const resolved = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
+            return `URI="/api/anime/stream-proxy?url=${encodeURIComponent(resolved)}"`;
+          });
+        }
+
+        if (!trimmed.startsWith('#')) {
+          const resolved = trimmed.startsWith('http') ? trimmed : new URL(trimmed, baseUrl).href;
+          return `/api/anime/stream-proxy?url=${encodeURIComponent(resolved)}`;
+        }
+
+        return line;
+      }).join('\n');
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.send(rewritten);
+    } else {
+      // Binary stream segments (.ts, .jpg, etc)
+      const response = await axios.get(targetUrl, {
+        headers,
+        responseType: 'stream',
+        timeout: 15000,
+      });
+
+      res.setHeader('Content-Type', response.headers['content-type'] || 'video/MP2T');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return response.data.pipe(res);
+    }
+  } catch (err) {
+    console.error('Stream proxy error:', err.message);
+    res.status(502).send('Proxy streaming failed');
+  }
+});
+
+// ── Watch episode (iframe + direct HLS stream + servers + prev/next) ──
 router.get('/watch/:episodeId', async (req, res) => {
   try {
-    const episodeId = req.params.episodeId;
-    const watchUrl = `${BASE_URL}/${episodeId}/`;
-    const { data } = await client.get(watchUrl);
+    const { episodeId } = req.params;
+    const url = `${BASE_URL}/${episodeId}/`;
+
+    const { data } = await client.get(url);
     const $ = cheerio.load(data);
 
-    // Extract iframe src from the player
+    // Extract iframe player URL
     const iframeSrc = $('#pembed iframe').attr('src')
       || $('#embed_holder iframe').attr('src')
       || $('.megavid iframe').attr('src')
@@ -192,36 +301,62 @@ router.get('/watch/:episodeId', async (req, res) => {
     // Get anime title
     const animeTitle = $('h1.entry-title, h1').first().text().trim();
 
-    // Get prev/next from WordPress nav links
+    // Extract prev / next episode links
     let prevEp = '';
     let nextEp = '';
 
-    // Try multiple selectors for prev/next
-    $('a').each((_, el) => {
+    $('.pagenav a, .pagination a, .wp-pagenavi a, .ep-nav a').each((_, el) => {
       const href = $(el).attr('href') || '';
+      const text = $(el).text().toLowerCase();
       const rel = $(el).attr('rel') || '';
-      const text = $(el).text().toLowerCase().trim();
 
-      if ((rel === 'prev' || text.includes('prev')) && href.includes('-episode-')) {
+      if (text.includes('prev') || rel.includes('prev')) {
         prevEp = cleanPath(href);
       }
-      if ((rel === 'next' || text.includes('next')) && href.includes('-episode-')) {
+      if (text.includes('next') || rel.includes('next')) {
         nextEp = cleanPath(href);
       }
     });
 
-    // Also try nav-links (WordPress pagination)
     const navPrev = $('.nav-previous a, .post-navigation .nav-previous a').attr('href');
     const navNext = $('.nav-next a, .post-navigation .nav-next a').attr('href');
     if (navPrev && !prevEp) prevEp = cleanPath(navPrev);
     if (navNext && !nextEp) nextEp = cleanPath(navNext);
 
-    // Get anime image from the page
     const animeImage = $('meta[property="og:image"]').attr('content') || '';
 
     // Clean iframe src
     const cleanIframeSrc = iframeSrc.startsWith('//') ? 'https:' + iframeSrc : iframeSrc;
     const embedUrl = servers.length > 0 ? servers[0].url : cleanIframeSrc;
+
+    // Extract direct HLS stream for true 100% sync
+    let directStreamUrl = null;
+    let subtitles = [];
+    try {
+      const epMatch = (servers[0]?.url || cleanIframeSrc).match(/ep=(\d+)/);
+      if (epMatch) {
+        const epNumId = epMatch[1];
+        const srcRes = await axios.get(`https://megaplay.buzz/stream/getSources?id=${epNumId}`, {
+          headers: {
+            'Referer': `https://megaplay.buzz/stream/s-2/${epNumId}/sub?autostart=true`,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          timeout: 4000
+        });
+        if (srcRes.data && srcRes.data.sources) {
+          const rawFile = srcRes.data.sources.file || (Array.isArray(srcRes.data.sources) ? srcRes.data.sources[0]?.file : null);
+          if (rawFile) {
+            directStreamUrl = `/api/anime/stream-proxy?url=${encodeURIComponent(rawFile)}`;
+          }
+          if (srcRes.data.tracks) {
+            subtitles = srcRes.data.tracks;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Direct stream extract note:', e.message);
+    }
 
     // Extract anime ID from episode ID
     const animeId = episodeId.replace(/-episode-\d+.*$/, '');
@@ -232,6 +367,8 @@ router.get('/watch/:episodeId', async (req, res) => {
       title: animeTitle,
       image: animeImage ? `/api/anime/img?url=${encodeURIComponent(animeImage)}` : '',
       embedUrl,
+      directStreamUrl,
+      subtitles,
       iframeSrc: cleanIframeSrc,
       servers,
       prevEpisode: prevEp,
@@ -283,77 +420,70 @@ async function findMaxEpisode(animeId, knownMax) {
   return knownMax;
 }
 
-// ── Get anime info + generate full episode list ──
+// ── Get anime info + exact episode list ──
 router.get('/info/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const maxEpParam = parseInt(req.query.maxEp) || 0;
-
-    // Try to get anime title & image from episode 1 page
     let title = id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     let image = '';
     let subOrDub = id.includes('-dub') ? 'dub' : 'sub';
+    const epMap = new Map();
 
-    try {
-      const ep1Slug = `${id}-episode-1`;
-      const { data } = await client.get(`${BASE_URL}/${ep1Slug}/`);
-      const $ = cheerio.load(data);
-      
-      const pageTitle = $('h1.entry-title, h1').first().text().trim();
-      if (pageTitle) {
-        // Clean "Episode 1" from title
-        title = pageTitle.replace(/\s*Episode\s*\d+\s*$/i, '').trim();
-      }
-      
-      const ogImage = $('meta[property="og:image"]').attr('content') || '';
-      if (ogImage) image = `/api/anime/img?url=${encodeURIComponent(ogImage)}`;
-    } catch {
-      // Episode 1 page failed, use defaults
-    }
+    // 1. Try to fetch the anime detail page (contains exact episode links)
+    const detailUrls = [`${BASE_URL}/anime/${id}/`, `${BASE_URL}/category/${id}/`];
+    let pageHtml = '';
 
-    // Determine max episode count
-    let totalEpisodes = maxEpParam || 1;
-    
-    if (maxEpParam > 1) {
-      // Verify the max episode exists (quick check)
-      totalEpisodes = await findMaxEpisode(id, maxEpParam);
-    } else if (maxEpParam === 0) {
-      // No max provided — probe to find it
-      // Check common high values: 12, 24, 50, 100, 200, 500, 1000
-      const probes = [1200, 1000, 500, 200, 100, 50, 24, 12];
-      let found = 1;
-      for (const probe of probes) {
-        if (await episodeExists(`${id}-episode-${probe}`)) {
-          found = probe;
+    for (const url of detailUrls) {
+      try {
+        const response = await client.get(url);
+        if (response.data) {
+          pageHtml = response.data;
           break;
         }
-      }
-      // Now binary search between found and next probe up
-      if (found > 1) {
-        const upperIdx = probes.indexOf(found);
-        const upper = upperIdx > 0 ? probes[upperIdx - 1] : found * 2;
-        // Binary search between found and upper
-        let low = found, high = upper;
-        while (low < high) {
-          const mid = Math.ceil((low + high) / 2);
-          if (await episodeExists(`${id}-episode-${mid}`)) {
-            low = mid;
-          } else {
-            high = mid - 1;
-          }
-        }
-        totalEpisodes = low;
-      }
+      } catch {}
     }
 
-    // Generate episode list from 1 to totalEpisodes
-    const episodes = [];
-    for (let i = 1; i <= totalEpisodes; i++) {
-      episodes.push({
-        id: `${id}-episode-${i}`,
-        number: i,
+    if (pageHtml) {
+      const $ = cheerio.load(pageHtml);
+      const pageTitle = $('h1.entry-title, h1').first().text().trim();
+      if (pageTitle) title = pageTitle;
+
+      const ogImage = $('meta[property="og:image"]').attr('content') || '';
+      if (ogImage) image = `/api/anime/img?url=${encodeURIComponent(ogImage)}`;
+
+      $('a').each((_, el) => {
+        const href = $(el).attr('href') || '';
+        const m = href.match(/([a-zA-Z0-9_-]+-episode-(\d+))\/?$/i);
+        if (m) {
+          const epId = m[1];
+          const epNum = parseInt(m[2]);
+          if (!epMap.has(epNum)) {
+            epMap.set(epNum, { id: epId, number: epNum });
+          }
+        }
       });
     }
+
+    // 2. Fallback if detail page didn't have episode links (probe episode 1)
+    if (epMap.size === 0) {
+      try {
+        const ep1Slug = `${id}-episode-1`;
+        const ep1Res = await client.get(`${BASE_URL}/${ep1Slug}/`);
+        const $1 = cheerio.load(ep1Res.data);
+        const ep1Title = $1('h1.entry-title, h1').first().text().trim();
+        if (ep1Title) title = ep1Title.replace(/\s*Episode\s*\d+\s*$/i, '').trim();
+        const ep1Img = $1('meta[property="og:image"]').attr('content') || '';
+        if (ep1Img) image = `/api/anime/img?url=${encodeURIComponent(ep1Img)}`;
+        epMap.set(1, { id: ep1Slug, number: 1 });
+      } catch {}
+    }
+
+    // Default at least 1 episode if still empty
+    if (epMap.size === 0) {
+      epMap.set(1, { id: `${id}-episode-1`, number: 1 });
+    }
+
+    const episodes = Array.from(epMap.values()).sort((a, b) => a.number - b.number);
 
     res.json({
       id,
@@ -361,7 +491,7 @@ router.get('/info/:id', async (req, res) => {
       image,
       subOrDub,
       episodes,
-      totalEpisodes,
+      totalEpisodes: episodes.length,
     });
   } catch (err) {
     console.error('Info error:', err.message);

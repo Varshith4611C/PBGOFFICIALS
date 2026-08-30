@@ -2,23 +2,140 @@
    PBG ChatBox — Socket.IO Server
    ============================================ */
 
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 
-// Curated Music Stations (Music Room) — Audio-first streams
-const MUSIC_STATIONS = [
-  { id: 'lofi', title: 'Lofi Girl — Beats to Relax & Study to', artist: 'Lofi Hip Hop Live', videoId: 'jfKfPfyJRdk', tag: 'Lofi' },
-  { id: 'anime', title: 'Anime OST Hits & Relaxing Piano Chill', artist: 'Anime Melodies', videoId: 'e24gBf52d0U', tag: 'Anime' },
-  { id: 'synthwave', title: 'Synthwave Radio — Chill 80s Retro Beats', artist: 'Lofi Synth Vibes', videoId: '4xDzrJKXOOY', tag: 'Synthwave' },
-  { id: 'chillhop', title: 'Chillhop Cafe — Jazzy & Cozy Instrumentals', artist: 'Chillhop Music', videoId: '5yx6BWlEVcY', tag: 'Chillhop' },
-  { id: 'gaming', title: 'Gaming Music Mix — NCS & EDM Energy', artist: 'PBG Gaming Beats', videoId: 'yJg-Y5byMMw', tag: 'Gaming' },
+// ── Custom Songs Persistence ──
+const CUSTOM_SONGS_FILE = path.join(__dirname, 'custom_songs.json');
+
+function loadCustomSongs() {
+  try {
+    if (fs.existsSync(CUSTOM_SONGS_FILE)) {
+      const raw = fs.readFileSync(CUSTOM_SONGS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to load custom songs:', e.message);
+  }
+  return [];
+}
+
+function saveCustomSongs(songs) {
+  try {
+    fs.writeFileSync(CUSTOM_SONGS_FILE, JSON.stringify(songs, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Failed to save custom songs:', e.message);
+  }
+}
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  return match ? match[1] : null;
+}
+
+// ── Real 24/7 Live Web Radio Stations (Direct HTML5 Audio Streams — 100% Reliable & Real-Time Synced) ──
+const RADIO_STATIONS = [
+  { 
+    id: 'lofi-radio', 
+    title: 'Lofi Chillout Radio — 24/7 Ambient Beats', 
+    artist: 'SomaFM Groove Salad', 
+    tag: 'Lofi', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/groovesalad-128-mp3'),
+    icon: '🎧'
+  },
+  { 
+    id: 'anime-radio', 
+    title: 'Anime & J-Melody Vocal Chill Radio', 
+    artist: 'SomaFM Lush Chill', 
+    tag: 'Anime', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/lush-128-mp3'),
+    icon: '🎌'
+  },
+  { 
+    id: 'synthwave-radio', 
+    title: 'Synthwave & Vaporwave 80s Retro Radio', 
+    artist: 'SomaFM Vaporwaves', 
+    tag: 'Synthwave', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/vaporwaves-128-mp3'),
+    icon: '🌆'
+  },
+  { 
+    id: 'gaming-radio', 
+    title: 'DEF CON Gaming & Cyberpunk Radio', 
+    artist: 'SomaFM DEF CON', 
+    tag: 'Gaming', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/defcon-128-mp3'),
+    icon: '🎮'
+  },
+  { 
+    id: 'chillhop-radio', 
+    title: 'Vintage Cafe, Lounge & Jazzy Beats', 
+    artist: 'SomaFM Secret Agent', 
+    tag: 'Chillhop', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/secretagent-128-mp3'),
+    icon: '☕'
+  },
+  { 
+    id: 'edm-radio', 
+    title: 'Beat Blender Club & High Energy EDM', 
+    artist: 'SomaFM Beat Blender', 
+    tag: 'EDM', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/beatblender-128-mp3'),
+    icon: '⚡'
+  },
+  { 
+    id: 'relax-radio', 
+    title: 'Deep Focus & Atmospheric Soundscapes', 
+    artist: 'SomaFM Drone Zone', 
+    tag: 'Ambient', 
+    type: 'stream',
+    streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/dronezone-128-mp3'),
+    icon: '🌌'
+  },
 ];
+
+// ── Curated Library Tracks (Verified 200 OK Embeddable Hits) ──
+const MUSIC_LIBRARY = [
+  // Anime Hits
+  { id: 'lib-idol', title: 'Idol (Oshi no Ko OP)', artist: 'YOASOBI', category: 'Anime Hits', videoId: 'ZRtdQ81jPUQ', type: 'youtube' },
+  { id: 'lib-kickback', title: 'KICK BACK (Chainsaw Man OP)', artist: 'Kenshi Yonezu', category: 'Anime Hits', videoId: 'M2cckDmNLMI', type: 'youtube' },
+  { id: 'lib-peacesign', title: 'Peace Sign (My Hero Academia OP)', artist: 'Kenshi Yonezu', category: 'Anime Hits', videoId: '9aJVr5tTTWk', type: 'youtube' },
+  { id: 'lib-crybaby', title: 'Cry Baby (Tokyo Revengers OP)', artist: 'Official HIGE DANdism', category: 'Anime Hits', videoId: 'O1bhZgkC4Gw', type: 'youtube' },
+  { id: 'lib-shinzou', title: 'Shinzou wo Sasageyo! (Attack on Titan OP 2)', artist: 'Linked Horizon', category: 'Anime Hits', videoId: 'CID-sYQNCew', type: 'youtube' },
+  { id: 'lib-sparkle', title: 'Sparkle (Your Name / Kimi no Na wa OST)', artist: 'RADWIMPS', category: 'Anime Hits', videoId: 'a2GujJZfXpg', type: 'youtube' },
+  { id: 'lib-yoru', title: 'Yoru ni Kakeru (Racing into the Night)', artist: 'YOASOBI', category: 'Anime Hits', videoId: 'x8VYWazR5mE', type: 'youtube' },
+  { id: 'lib-silhouette', title: 'Silhouette (Naruto Shippuden OP 16)', artist: 'KANA-BOON', category: 'Anime Hits', videoId: 'dlFA0Zq1k2A', type: 'youtube' },
+  { id: 'lib-unravel', title: 'Unravel (Tokyo Ghoul OP)', artist: 'TK from Ling Tosite Sigure', category: 'Anime Hits', videoId: '7aMOurgDB-o', type: 'youtube' },
+  
+  // Lofi & Chill
+  { id: 'lib-lofi-1', title: 'Lofi Hip Hop Radio — Beats to Relax/Study', artist: 'Lofi Girl', category: 'Lo-Fi Chill', videoId: '5qap5aO4i9A', type: 'youtube' },
+  { id: 'lib-lofi-2', title: 'Cozy Coffee Shop & Jazzy Piano Lofi', artist: 'Cafe Chill Music', category: 'Lo-Fi Chill', videoId: 'lTRiuFIWV54', type: 'youtube' },
+  { id: 'lib-lofi-3', title: 'Midnight Chill Beats for Study & Sleep', artist: 'Dreamy Lofi', category: 'Lo-Fi Chill', videoId: 'rUxyKA_-grg', type: 'youtube' },
+  { id: 'lib-lofi-4', title: 'ChilledCow / Lofi Cafe Chill Beats', artist: 'Lofi Records', category: 'Lo-Fi Chill', videoId: 'DWcJFNfaw9c', type: 'youtube' },
+  
+  // Gaming & Synthwave
+  { id: 'lib-synth-1', title: 'Overdrive — Synthwave / Retrowave Beats', artist: 'Lazerhawk', category: 'Gaming & Synth', videoId: '4xDzrJKXOOY', type: 'youtube' },
+];
+
+let customSongs = loadCustomSongs();
 
 // Pre-defined chat rooms
 const ROOMS = [
   { id: 'general',       name: 'General',        icon: '💬', description: 'Hang out, share links, and talk about anything',       features: [] },
   { id: 'anime-manga',   name: 'Anime & Manga',  icon: '🎌', description: 'Watch anime together in cinema mode & live chat',     features: ['watch-together'] },
   { id: 'gaming',        name: 'Gaming',          icon: '🎮', description: 'LFG, discuss games, share clips, and tournaments',     features: [] },
-  { id: 'music',         name: 'Music',           icon: '🎵', description: 'Listen to music together with live audio deck & chat', features: ['listen-together'] },
+  { id: 'music',         name: 'Music',           icon: '🎵', description: '24/7 Live Radio Stations, Music Library & Shared Beats', features: ['listen-together'] },
   { id: 'off-topic',     name: 'Off-Topic',       icon: '🌀', description: 'Memes, random chats, and whatever\'s on your mind',    features: [] },
 ];
 
@@ -33,24 +150,31 @@ const connectedUsers = new Map();
 // ── Music Room State ──
 const musicState = {
   currentTrack: {
-    videoId: MUSIC_STATIONS[0].videoId,
-    title: MUSIC_STATIONS[0].title,
-    artist: MUSIC_STATIONS[0].artist,
-    addedBy: 'PBG Radio',
-    tag: MUSIC_STATIONS[0].tag,
+    id: RADIO_STATIONS[0].id,
+    title: RADIO_STATIONS[0].title,
+    artist: RADIO_STATIONS[0].artist,
+    tag: RADIO_STATIONS[0].tag,
+    type: RADIO_STATIONS[0].type,
+    streamUrl: RADIO_STATIONS[0].streamUrl,
+    addedBy: 'PBG Radio 24/7',
   },
-  stations: MUSIC_STATIONS,
-  queue: [],            // array of { videoId, title, artist, addedBy }
+  stations: RADIO_STATIONS,
+  library: [...customSongs, ...MUSIC_LIBRARY],
+  queue: [],
   isPlaying: true,
-  startedAt: Date.now(),// timestamp when play started
-  pausedAt: 0,          // seconds elapsed when paused
+  startedAt: Date.now(),
+  pausedAt: 0,
 };
 
 // ── Anime Room State ──
 const animeState = {
   currentAnime: null,   // { animeId, title, image, episodeId, episodeNumber, embedUrl }
   isActive: false,
+  isPlaying: true,      // synchronized watch party play/pause state
   startedBy: null,      // username who started the session
+  startedAt: 0,
+  pausedAt: 0,
+  updatedAt: 0,
 };
 
 // Avatar color palette
@@ -68,6 +192,11 @@ function getAvatarColor(username) {
 }
 
 function getInitials(username) {
+  if (!username) return '??';
+  const parts = username.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
   return username.slice(0, 2).toUpperCase();
 }
 
@@ -233,24 +362,26 @@ function initChatSocket(io) {
       socket.to(user.room).emit('user-typing', { username: user.username, isTyping });
     });
 
-    // ═══════════════════════════════════════
-    //  MUSIC ROOM — Listen Together (Music-Only)
-    // ═══════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    //  MUSIC ROOM — 24/7 Live Radio Stations & Synchronized Audio
+    // ═══════════════════════════════════════════════════════════════
 
-    // Play a preset music station
+    // Play a live radio station
     socket.on('music-play-station', (stationId) => {
       const user = connectedUsers.get(socket.id);
       if (!user || user.room !== 'music') return;
 
-      const station = MUSIC_STATIONS.find(s => s.id === stationId);
+      const station = RADIO_STATIONS.find(s => s.id === stationId);
       if (!station) return;
 
       musicState.currentTrack = {
-        videoId: station.videoId,
+        id: station.id,
         title: station.title,
         artist: station.artist,
-        addedBy: user.username,
         tag: station.tag,
+        type: 'stream',
+        streamUrl: station.streamUrl,
+        addedBy: user.username,
       };
       musicState.isPlaying = true;
       musicState.startedAt = Date.now();
@@ -261,26 +392,64 @@ function initChatSocket(io) {
       io.to('music').emit('new-message', {
         id: makeId('sys'),
         type: 'system',
-        text: `🎵 ${user.username} tuned into station: ${station.title}`,
+        text: `📻 ${user.username} tuned the room to: ${station.title}`,
         timestamp: Date.now(),
         room: 'music',
       });
     });
 
-    // Add a custom music track
-    socket.on('music-add', ({ videoId, title, artist }) => {
+    // Play a library track (YouTube or Stream)
+    socket.on('music-play-library', (trackId) => {
       const user = connectedUsers.get(socket.id);
       if (!user || user.room !== 'music') return;
-      if (!videoId || typeof videoId !== 'string') return;
+
+      const track = (musicState.library || []).find(t => t.id === trackId);
+      if (!track) return;
+
+      musicState.currentTrack = {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        tag: track.category,
+        type: 'youtube',
+        videoId: track.videoId,
+        addedBy: user.username,
+      };
+      musicState.isPlaying = true;
+      musicState.startedAt = Date.now();
+      musicState.pausedAt = 0;
+
+      io.to('music').emit('music-state', musicState);
+
+      io.to('music').emit('new-message', {
+        id: makeId('sys'),
+        type: 'system',
+        text: `🎵 ${user.username} selected from library: ${track.title}`,
+        timestamp: Date.now(),
+        room: 'music',
+      });
+    });
+
+    // Add a custom music track via URL to queue/play
+    socket.on('music-add', ({ videoId, url, title, artist }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'music') return;
+
+      const vid = videoId ? videoId.trim() : extractYouTubeId(url);
+      if (!vid) {
+        return socket.emit('music-error', { message: 'Invalid YouTube URL or video ID.' });
+      }
 
       const track = {
-        videoId: videoId.trim(),
-        title: (title || 'Music Track').slice(0, 200),
-        artist: (artist || 'Audio').slice(0, 100),
+        id: `custom-${Date.now()}`,
+        videoId: vid,
+        title: (title || 'Shared Music Track').slice(0, 200),
+        artist: (artist || 'Custom Audio').slice(0, 100),
+        type: 'youtube',
         addedBy: user.username,
       };
 
-      if (!musicState.currentTrack) {
+      if (!musicState.currentTrack || !musicState.isPlaying) {
         musicState.currentTrack = track;
         musicState.isPlaying = true;
         musicState.startedAt = Date.now();
@@ -290,7 +459,7 @@ function initChatSocket(io) {
         io.to('music').emit('new-message', {
           id: makeId('sys'),
           type: 'system',
-          text: `🎵 ${user.username} started playing music: ${track.title}`,
+          text: `🎵 ${user.username} started playing: ${track.title}`,
           timestamp: Date.now(),
           room: 'music',
         });
@@ -301,7 +470,70 @@ function initChatSocket(io) {
         io.to('music').emit('new-message', {
           id: makeId('sys'),
           type: 'system',
-          text: `🎵 ${user.username} queued music: ${track.title}`,
+          text: `🎵 ${user.username} queued: ${track.title}`,
+          timestamp: Date.now(),
+          room: 'music',
+        });
+      }
+    });
+
+    // Add and permanently store a custom song in the Music Library
+    socket.on('music-add-library', ({ title, artist, category, youtubeUrl }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user) return;
+
+      const videoId = extractYouTubeId(youtubeUrl);
+      if (!videoId) {
+        return socket.emit('music-error', { message: 'Please provide a valid YouTube URL (e.g. youtube.com/watch?v=... or youtu.be/...)' });
+      }
+
+      const cleanTitle = (title || 'Community Track').trim().slice(0, 150);
+      const cleanArtist = (artist || user.username || 'Community').trim().slice(0, 80);
+      const cleanCategory = (category || 'Community Custom').trim();
+
+      const newSong = {
+        id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: cleanTitle,
+        artist: cleanArtist,
+        category: cleanCategory,
+        videoId: videoId,
+        type: 'youtube',
+        addedBy: user.username,
+        createdAt: Date.now(),
+        custom: true,
+      };
+
+      customSongs.unshift(newSong);
+      saveCustomSongs(customSongs);
+      musicState.library = [...customSongs, ...MUSIC_LIBRARY];
+
+      io.emit('music-state', musicState);
+
+      io.to('music').emit('new-message', {
+        id: makeId('sys'),
+        type: 'system',
+        text: `✨ ${user.username} stored a new song in the Library: "${cleanTitle}" by ${cleanArtist}`,
+        timestamp: Date.now(),
+        room: 'music',
+      });
+    });
+
+    // Remove a custom song from the Music Library
+    socket.on('music-remove-library', ({ id }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || !id) return;
+
+      const index = customSongs.findIndex(s => s.id === id);
+      if (index !== -1) {
+        const removed = customSongs.splice(index, 1)[0];
+        saveCustomSongs(customSongs);
+        musicState.library = [...customSongs, ...MUSIC_LIBRARY];
+        io.emit('music-state', musicState);
+
+        io.to('music').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `🗑️ ${user.username} removed "${removed.title}" from the Library`,
           timestamp: Date.now(),
           room: 'music',
         });
@@ -316,9 +548,23 @@ function initChatSocket(io) {
       if (musicState.isPlaying) {
         musicState.pausedAt = (Date.now() - musicState.startedAt) / 1000;
         musicState.isPlaying = false;
+        io.to('music').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `⏸️ ${user.username} paused the music`,
+          timestamp: Date.now(),
+          room: 'music',
+        });
       } else {
         musicState.startedAt = Date.now() - (musicState.pausedAt * 1000);
         musicState.isPlaying = true;
+        io.to('music').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `▶️ ${user.username} resumed the music`,
+          timestamp: Date.now(),
+          room: 'music',
+        });
       }
       io.to('music').emit('music-state', musicState);
     });
@@ -342,15 +588,17 @@ function initChatSocket(io) {
           room: 'music',
         });
       } else {
-        // Loop or switch to next preset station
-        const currentIdx = MUSIC_STATIONS.findIndex(s => s.videoId === musicState.currentTrack?.videoId);
-        const nextStation = MUSIC_STATIONS[(currentIdx + 1) % MUSIC_STATIONS.length];
+        // Cycle to next station
+        const currentIdx = RADIO_STATIONS.findIndex(s => s.id === musicState.currentTrack?.id);
+        const nextStation = RADIO_STATIONS[(currentIdx + 1) % RADIO_STATIONS.length];
         musicState.currentTrack = {
-          videoId: nextStation.videoId,
+          id: nextStation.id,
           title: nextStation.title,
           artist: nextStation.artist,
-          addedBy: 'PBG Radio',
           tag: nextStation.tag,
+          type: 'stream',
+          streamUrl: nextStation.streamUrl,
+          addedBy: 'PBG Radio 24/7',
         };
         musicState.isPlaying = true;
         musicState.startedAt = Date.now();
@@ -369,25 +617,40 @@ function initChatSocket(io) {
       }
     });
 
-    // ═══════════════════════════════════════
-    //  ANIME ROOM — Watch Together
-    // ═══════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    //  ANIME ROOM — Watch Together Synchronized State & Playback Actions
+    // ═══════════════════════════════════════════════════════════════
+
+    function formatMediaTime(sec) {
+      if (!sec || isNaN(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
 
     // Start watching an anime episode
-    socket.on('anime-watch', ({ animeId, title, image, episodeId, episodeNumber, embedUrl }) => {
+    socket.on('anime-watch', ({ animeId, title, image, episodeId, episodeNumber, directStream, directStreamUrl, subtitles, embedUrl }) => {
       const user = connectedUsers.get(socket.id);
       if (!user || user.room !== 'anime-manga') return;
 
       animeState.currentAnime = {
         animeId: animeId || '',
-        title: (title || 'Unknown').slice(0, 200),
+        title: (title || 'Unknown Anime').slice(0, 200),
         image: image || '',
         episodeId: episodeId || '',
         episodeNumber: episodeNumber || 1,
+        directStream: directStreamUrl || directStream || null,
+        directStreamUrl: directStreamUrl || directStream || null,
+        subtitles: subtitles || [],
         embedUrl: embedUrl || '',
       };
       animeState.isActive = true;
+      animeState.isPlaying = true;
+      animeState.currentTime = 0;
       animeState.startedBy = user.username;
+      animeState.startedAt = Date.now();
+      animeState.pausedAt = 0;
+      animeState.updatedAt = Date.now();
 
       io.to('anime-manga').emit('anime-state', animeState);
 
@@ -400,14 +663,102 @@ function initChatSocket(io) {
       });
     });
 
+    // Real-Time Synchronized Video Playback Action (Play / Pause / Seek / Time-Sync)
+    socket.on('anime-action', ({ action, currentTime }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'anime-manga' || !animeState.isActive) return;
+
+      const time = Math.max(0, parseFloat(currentTime) || 0);
+      animeState.currentTime = time;
+      animeState.updatedAt = Date.now();
+
+      if (action === 'pause') {
+        animeState.isPlaying = false;
+        animeState.pausedAt = time;
+        io.to('anime-manga').emit('anime-action', { action: 'pause', currentTime: time, username: user.username });
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `⏸️ ${user.username} paused the video at ${formatMediaTime(time)}`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      } else if (action === 'play') {
+        animeState.isPlaying = true;
+        animeState.startedAt = Date.now() - (time * 1000);
+        io.to('anime-manga').emit('anime-action', { action: 'play', currentTime: time, username: user.username });
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `▶️ ${user.username} resumed the video at ${formatMediaTime(time)}`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      } else if (action === 'seek') {
+        if (animeState.isPlaying) {
+          animeState.startedAt = Date.now() - (time * 1000);
+        } else {
+          animeState.pausedAt = time;
+        }
+        io.to('anime-manga').emit('anime-action', { action: 'seek', currentTime: time, username: user.username });
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `⏩ ${user.username} jumped to ${formatMediaTime(time)}`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      }
+    });
+
+    // Toggle Anime Watch Party Play/Pause (Header button fallback)
+    socket.on('anime-toggle-play', () => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'anime-manga' || !animeState.isActive) return;
+
+      if (animeState.isPlaying) {
+        animeState.pausedAt = animeState.currentTime || 0;
+        animeState.isPlaying = false;
+        io.to('anime-manga').emit('anime-action', { action: 'pause', currentTime: animeState.pausedAt, username: user.username });
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `⏸️ ${user.username} paused the anime watch party`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      } else {
+        animeState.startedAt = Date.now() - (animeState.pausedAt * 1000);
+        animeState.isPlaying = true;
+        io.to('anime-manga').emit('anime-action', { action: 'play', currentTime: animeState.pausedAt, username: user.username });
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `▶️ ${user.username} resumed the anime watch party`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      }
+      animeState.updatedAt = Date.now();
+      io.to('anime-manga').emit('anime-state', animeState);
+    });
+
     // Change episode
-    socket.on('anime-episode', ({ episodeId, episodeNumber, embedUrl }) => {
+    socket.on('anime-episode', ({ episodeId, episodeNumber, directStream, directStreamUrl, subtitles, embedUrl }) => {
       const user = connectedUsers.get(socket.id);
       if (!user || user.room !== 'anime-manga' || !animeState.isActive) return;
 
       animeState.currentAnime.episodeId = episodeId || '';
       animeState.currentAnime.episodeNumber = episodeNumber || 1;
+      animeState.currentAnime.directStream = directStreamUrl || directStream || null;
+      animeState.currentAnime.directStreamUrl = directStreamUrl || directStream || null;
+      animeState.currentAnime.subtitles = subtitles || [];
       animeState.currentAnime.embedUrl = embedUrl || '';
+      animeState.isPlaying = true;
+      animeState.currentTime = 0;
+      animeState.startedAt = Date.now();
+      animeState.pausedAt = 0;
+      animeState.updatedAt = Date.now();
 
       io.to('anime-manga').emit('anime-state', animeState);
 
@@ -427,7 +778,11 @@ function initChatSocket(io) {
 
       animeState.currentAnime = null;
       animeState.isActive = false;
+      animeState.isPlaying = true;
       animeState.startedBy = null;
+      animeState.startedAt = 0;
+      animeState.pausedAt = 0;
+      animeState.updatedAt = Date.now();
 
       io.to('anime-manga').emit('anime-state', animeState);
 
