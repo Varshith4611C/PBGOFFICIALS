@@ -1,6 +1,6 @@
 /* ============================================
    PBG Business Board Game — Multiplayer Client
-   Socket.IO client for online multiplayer
+   Real-time Online Multiplayer Engine (Socket.IO)
    ============================================ */
 
 class MultiplayerClient {
@@ -21,7 +21,7 @@ class MultiplayerClient {
 
     this.socket.on('connect', () => {
       this.connected = true;
-      console.log('[MP] Connected to game server');
+      console.log('[MP] Connected to game server. Socket ID:', this.socket.id);
     });
 
     this.socket.on('disconnect', () => {
@@ -33,12 +33,14 @@ class MultiplayerClient {
       showToast(message, 'error');
     });
 
-    // Room events
-    this.socket.on('room-created', ({ roomCode, player }) => {
+    // ── Room Events ──
+    this.socket.on('room-created', ({ roomCode, player, players }) => {
       this.roomCode = roomCode;
       this.playerId = player.id;
       this.isHost = true;
       this.showWaitingRoom(roomCode);
+      this.updatePlayersList(players || [player]);
+      showToast(`Room created! Code: ${roomCode}`, 'success');
     });
 
     this.socket.on('room-joined', ({ roomCode, player, players }) => {
@@ -47,6 +49,7 @@ class MultiplayerClient {
       this.isHost = false;
       this.showWaitingRoom(roomCode);
       this.updatePlayersList(players);
+      showToast(`Joined Room ${roomCode}!`, 'success');
     });
 
     this.socket.on('players-update', ({ players }) => {
@@ -57,48 +60,57 @@ class MultiplayerClient {
       this.startMultiplayerGame(players, currentPlayerIndex);
     });
 
-    // Game events
-    this.socket.on('game-action', (action) => {
+    // ── Game Action Synchronization ──
+    this.socket.on('remote-action', (action) => {
       if (game && game.isMultiplayer) {
         this.handleRemoteAction(action);
       }
     });
 
-    this.socket.on('state-update', (state) => {
-      if (game && game.isMultiplayer && !this.isHost) {
-        // Sync state from host if needed
+    // ── Chat Messages ──
+    this.socket.on('chat-message', (data) => {
+      if (game) {
+        game.receiveChatMessage(data);
+      }
+    });
+
+    // ── Voice Chat Status ──
+    this.socket.on('voice-status-update', (data) => {
+      if (voiceManager) {
+        voiceManager.handleRemoteVoiceStatus(data.playerId, data.isSpeaking, data.isMuted);
       }
     });
 
     this.socket.on('player-left', ({ playerId: leftId }) => {
-      showToast(`Player ${leftId + 1} disconnected`, 'warning');
       if (game && game.isMultiplayer) {
         const player = game.players.find(p => p.id === leftId);
         if (player && !player.isBankrupt) {
           player.isAI = true;
-          player.name += ' (AI)';
-          game.log(`🤖 ${player.name} disconnected. AI takes over.`);
+          player.isRemote = false;
+          player.name += ' (Bot)';
+          game.log(`🤖 <strong>${player.name}</strong> disconnected. Bot substitute activated.`);
           game.updateUI();
+          if (game.currentPlayerIndex === leftId) {
+            game.processAITurn();
+          }
         }
       }
     });
   }
 
   createRoom(playerName) {
+    this.connect();
     if (!this.connected) {
-      showToast('Connecting to server...', 'info');
-      this.connect();
-      setTimeout(() => this.socket?.emit('create-room', { playerName }), 500);
+      setTimeout(() => this.socket?.emit('create-room', { playerName }), 400);
       return;
     }
     this.socket.emit('create-room', { playerName });
   }
 
   joinRoom(roomCode, playerName) {
+    this.connect();
     if (!this.connected) {
-      showToast('Connecting to server...', 'info');
-      this.connect();
-      setTimeout(() => this.socket?.emit('join-room', { roomCode, playerName }), 500);
+      setTimeout(() => this.socket?.emit('join-room', { roomCode, playerName }), 400);
       return;
     }
     this.socket.emit('join-room', { roomCode, playerName });
@@ -124,6 +136,18 @@ class MultiplayerClient {
     }
   }
 
+  sendChat(text, emoji) {
+    if (this.socket && this.connected) {
+      this.socket.emit('send-chat', { text, emoji });
+    }
+  }
+
+  sendVoiceStatus(isSpeaking, isMuted) {
+    if (this.socket && this.connected) {
+      this.socket.emit('voice-signal', { isSpeaking, isMuted });
+    }
+  }
+
   showWaitingRoom(roomCode) {
     document.getElementById('lobby-join-section').style.display = 'none';
     document.getElementById('lobby-waiting-section').style.display = 'block';
@@ -131,77 +155,157 @@ class MultiplayerClient {
 
     const startBtn = document.getElementById('btn-lobby-start');
     startBtn.disabled = !this.isHost;
-    startBtn.innerHTML = this.isHost ? '<i class="fas fa-play"></i> Start Game' : 'Waiting for host...';
+    startBtn.innerHTML = this.isHost ? '<i class="fas fa-play"></i> Start Game' : 'Waiting for host to start...';
   }
 
   updatePlayersList(players) {
     const list = document.getElementById('lobby-players');
     if (!list) return;
-    list.innerHTML = players.map((p, i) => `
-      <li>
-        <div class="player-dot" style="background: ${PLAYER_TOKENS[i % PLAYER_TOKENS.length]?.color || '#64748b'}"></div>
-        <span class="player-name">${p.name}</span>
-        ${p.isHost ? '<span class="player-badge">HOST</span>' : ''}
-      </li>
-    `).join('');
+
+    list.innerHTML = players.map((p, i) => {
+      const preset = PLAYER_TOKENS[i % PLAYER_TOKENS.length];
+      return `
+        <li>
+          <div class="player-dot" style="background: ${preset.color}"></div>
+          <span class="player-name">${p.name} ${p.id === this.playerId ? '<strong>(You)</strong>' : ''}</span>
+          ${p.isHost ? '<span class="player-badge">HOST</span>' : ''}
+        </li>
+      `;
+    }).join('');
 
     if (this.isHost) {
-      document.getElementById('btn-lobby-start').disabled = players.length < 2;
+      const startBtn = document.getElementById('btn-lobby-start');
+      startBtn.disabled = players.length < 2;
+      startBtn.innerHTML = players.length < 2
+        ? 'Need at least 2 players to start'
+        : '<i class="fas fa-play"></i> Start Game';
     }
   }
 
-  startMultiplayerGame(players, currentPlayerIndex) {
+  startMultiplayerGame(playersData, currentPlayerIndex) {
     game = new Game();
     game.isMultiplayer = true;
-    game.players = players.map((p, i) => ({
-      ...p,
-      ...PLAYER_TOKENS[i % PLAYER_TOKENS.length],
-      name: p.name,
-      isAI: i !== this.playerId,
-      cash: STARTING_CASH,
-      position: 0,
-      isBankrupt: false,
-      inJail: false,
-      jailTurns: 0
-    }));
+    game.myPlayerId = this.playerId;
 
-    game.players[this.playerId].isAI = false;
+    // Map all human players (NONE are AI by default!)
+    game.players = playersData.map((p, i) => {
+      const preset = PLAYER_TOKENS[i % PLAYER_TOKENS.length];
+      return {
+        ...preset,
+        id: i,
+        name: p.name,
+        isAI: false, // REAL HUMAN PLAYER!
+        isRemote: i !== this.playerId,
+        cash: STARTING_CASH,
+        position: 0,
+        isBankrupt: false,
+        inJail: false,
+        jailTurns: 0
+      };
+    });
 
     // Initialize properties
     game.properties = {};
     BOARD_SPACES.forEach(s => {
       if (s.type === 'property' || s.type === 'station' || s.type === 'utility') {
-        game.properties[s.id] = { owner: null, houses: 0, mortgaged: false };
+        game.properties[s.id] = {
+          owner: null,
+          houses: 0,
+          mortgaged: false
+        };
       }
     });
 
-    game.currentPlayerIndex = currentPlayerIndex;
+    game.currentPlayerIndex = currentPlayerIndex || 0;
     game.turnPhase = 'roll';
-    game.ai = new AIPlayer('normal');
+    game.ai = new AIPlayer('normal'); // Only for disconnected fallbacks
 
     game.renderBoard();
     game.renderPlayersBar();
     game.updateUI();
     showScreen('game-screen');
-    game.log(`🌐 Multiplayer game started! ${game.players.length} players in room.`);
+
+    const me = game.players[this.playerId];
+    game.log(`🌐 Online Multiplayer Game Started! You are <strong>${me.name}</strong> (${me.emoji}).`);
+
+    if (game.currentPlayerIndex === this.playerId) {
+      showToast("It's your turn to roll!", 'success');
+    } else {
+      const active = game.players[game.currentPlayerIndex];
+      showToast(`Waiting for ${active.name}'s turn...`, 'info');
+    }
   }
 
-  handleRemoteAction(action) {
+  async handleRemoteAction(action) {
+    // If we were the sender of this action, ignore (already processed locally)
+    if (action.senderId === this.playerId) return;
+
+    const player = game.players[action.senderId];
+    if (!player) return;
+
     switch (action.type) {
       case 'roll':
         game.lastDice = action.dice;
+        await game.animateRemoteRoll(player, action.dice[0], action.dice[1], action.isDoubles);
         break;
+
       case 'buy':
-        game.buyProperty(game.players[action.playerId], BOARD_SPACES[action.spaceId]);
+        game.buyProperty(player, BOARD_SPACES[action.spaceId]);
+        game.turnPhase = 'done';
+        game.updateUI();
         break;
+
+      case 'passBuy':
+        game.log(`❌ <strong>${player.name}</strong> passed on buying ${BOARD_SPACES[action.spaceId]?.name}.`);
+        game.turnPhase = 'done';
+        game.updateUI();
+        break;
+
       case 'build':
-        game.buildHouse(game.players[action.playerId], action.spaceId);
+        game.buildHouse(player, action.spaceId);
         break;
+
+      case 'sell':
+        game.sellHouse(action.spaceId);
+        break;
+
+      case 'mortgage':
+        game.mortgageProperty(action.spaceId);
+        break;
+
+      case 'unmortgage':
+        game.unmortgageProperty(action.spaceId);
+        break;
+
+      case 'payBail':
+        await game.payBailAndMove(action.diceSum);
+        break;
+
+      case 'stayJail':
+        game.stayInJail();
+        break;
+
+      case 'tradeOffer':
+        if (action.toPlayerId === this.playerId) {
+          game.showIncomingTradeModal(action);
+        }
+        break;
+
+      case 'tradeAccepted':
+        game.executeTrade(action.fromPlayerId, action.toPlayerId, action.offeredPropIds, action.offeredCash, action.requestedPropIds, action.requestedCash, false);
+        break;
+
+      case 'tradeDeclined':
+        if (action.fromPlayerId === this.playerId) {
+          showToast(`❌ ${player.name} declined your trade offer.`, 'warning');
+          game.log(`❌ <strong>${player.name}</strong> declined the trade proposal.`);
+        }
+        break;
+
       case 'endTurn':
-        game.endTurn();
+        game.endTurn(true); // true = remote call
         break;
     }
-    game.updateUI();
   }
 }
 

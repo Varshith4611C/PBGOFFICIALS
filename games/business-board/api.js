@@ -10,7 +10,7 @@ function generateRoomCode() {
   return code;
 }
 
-const gameRooms = new Map(); // roomCode → { players, gameState, host }
+const gameRooms = new Map(); // roomCode → { players, gameState, host, started }
 
 function initGameSocket(io) {
   const gameNsp = io.of('/game-business');
@@ -32,17 +32,17 @@ function initGameSocket(io) {
 
       gameRooms.set(roomCode, {
         players: [player],
-        gameState: null,
         host: socket.id,
-        started: false
+        started: false,
+        currentPlayerIndex: 0
       });
 
       currentRoom = roomCode;
       playerId = 0;
       socket.join(roomCode);
 
-      socket.emit('room-created', { roomCode, player });
-      gameNsp.to(roomCode).emit('players-update', { players: gameRooms.get(roomCode).players });
+      socket.emit('room-created', { roomCode, player, players: [player] });
+      gameNsp.to(roomCode).emit('players-update', { players: [player] });
     });
 
     // ── Join Room ──
@@ -51,15 +51,15 @@ function initGameSocket(io) {
       const room = gameRooms.get(roomCode);
 
       if (!room) {
-        socket.emit('error-msg', { message: 'Room not found! Check the code and try again.' });
+        socket.emit('error-msg', { message: `Room "${roomCode}" not found! Check code and try again.` });
         return;
       }
       if (room.started) {
-        socket.emit('error-msg', { message: 'Game already in progress!' });
+        socket.emit('error-msg', { message: 'Game in this room is already in progress!' });
         return;
       }
       if (room.players.length >= 4) {
-        socket.emit('error-msg', { message: 'Room is full! (max 4 players)' });
+        socket.emit('error-msg', { message: 'Room is full! (Maximum 4 players)' });
         return;
       }
 
@@ -81,62 +81,80 @@ function initGameSocket(io) {
       gameNsp.to(roomCode).emit('players-update', { players: room.players });
     });
 
-    // ── Start Game (host only) ──
+    // ── Start Game (Host only) ──
     socket.on('start-game', () => {
       if (!currentRoom) return;
       const room = gameRooms.get(currentRoom);
       if (!room || room.host !== socket.id) return;
       if (room.players.length < 2) {
-        socket.emit('error-msg', { message: 'Need at least 2 players to start!' });
+        socket.emit('error-msg', { message: 'Need at least 2 players in room to start multiplayer!' });
         return;
       }
 
       room.started = true;
-      // Initialize game state on server
-      room.gameState = {
-        currentPlayerIndex: 0,
-        properties: {},
-        players: room.players.map((p, i) => ({
-          id: i, name: p.name, cash: 1500, position: 0,
-          inJail: false, jailTurns: 0, isBankrupt: false
-        }))
-      };
+      room.currentPlayerIndex = 0;
 
       gameNsp.to(currentRoom).emit('game-started', {
-        players: room.gameState.players,
+        players: room.players.map((p, i) => ({
+          id: i,
+          name: p.name,
+          isHost: p.isHost
+        })),
         currentPlayerIndex: 0
       });
     });
 
-    // ── Game Actions ──
+    // ── Broadcast Game Action to all peers in room ──
     socket.on('game-action', (action) => {
       if (!currentRoom) return;
       const room = gameRooms.get(currentRoom);
       if (!room || !room.started) return;
 
-      // Validate it's this player's turn
-      if (room.gameState.currentPlayerIndex !== playerId) {
-        socket.emit('error-msg', { message: 'Not your turn!' });
-        return;
+      if (action.type === 'endTurn') {
+        room.currentPlayerIndex = action.nextPlayerIndex;
       }
 
-      // Broadcast action to all players in room
-      gameNsp.to(currentRoom).emit('game-action', {
+      // Broadcast to ALL sockets in the room (including sender or to others)
+      gameNsp.to(currentRoom).emit('remote-action', {
         ...action,
-        playerId: playerId
+        senderId: playerId
       });
     });
 
-    // ── Sync State ──
-    socket.on('sync-state', (state) => {
+    // ── In-Game Text Chat & Reactions ──
+    socket.on('send-chat', ({ text, emoji, time }) => {
       if (!currentRoom) return;
       const room = gameRooms.get(currentRoom);
-      if (!room || room.host !== socket.id) return;
-      room.gameState = state;
-      socket.to(currentRoom).emit('state-update', state);
+      const sender = room?.players.find(p => p.socketId === socket.id);
+      gameNsp.to(currentRoom).emit('chat-message', {
+        playerId,
+        playerName: sender?.name || `Player ${playerId + 1}`,
+        text,
+        emoji,
+        time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
     });
 
-    // ── Leave / Disconnect ──
+    // ── WebRTC Voice Chat Signaling ──
+    socket.on('voice-signal', ({ targetSocketId, signal, isSpeaking, isMuted }) => {
+      if (!currentRoom) return;
+      if (targetSocketId) {
+        gameNsp.to(targetSocketId).emit('voice-signal', {
+          fromSocketId: socket.id,
+          fromPlayerId: playerId,
+          signal
+        });
+      } else {
+        // Broadcast speaking / mute status
+        socket.to(currentRoom).emit('voice-status-update', {
+          playerId,
+          isSpeaking,
+          isMuted
+        });
+      }
+    });
+
+    // ── Disconnect & Leave ──
     socket.on('leave-room', () => handleLeave());
     socket.on('disconnect', () => handleLeave());
 
@@ -151,7 +169,7 @@ function initGameSocket(io) {
       if (room.players.length === 0) {
         gameRooms.delete(currentRoom);
       } else {
-        // Transfer host if needed
+        // Transfer host if host left
         if (room.host === socket.id) {
           room.host = room.players[0].socketId;
           room.players[0].isHost = true;

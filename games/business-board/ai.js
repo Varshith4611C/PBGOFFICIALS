@@ -86,4 +86,55 @@ class AIPlayer {
     }
     return Math.random() < 0.3;
   }
+
+  /** Decide whether to accept an incoming trade proposal */
+  evaluateTradeOffer(proposer, aiPlayer, offeredPropIds, offeredCash, requestedPropIds, requestedCash, gameState) {
+    if (requestedCash > aiPlayer.cash) return false; // Cannot pay cash AI doesn't have
+
+    let valueReceived = offeredCash;
+    let valueGiven = requestedCash;
+
+    // Value of properties AI receives
+    offeredPropIds.forEach(id => {
+      const space = BOARD_SPACES[id];
+      if (!space) return;
+      valueReceived += space.price;
+
+      // Check if this gives AI a complete monopoly
+      if (space.group && COLOR_GROUPS[space.group]) {
+        const group = COLOR_GROUPS[space.group];
+        const alreadyOwned = group.properties.filter(pid => gameState.properties[pid]?.owner === aiPlayer.id).length;
+        if (alreadyOwned === group.properties.length - 1) {
+          valueReceived += 350; // High value for completing a monopoly
+        }
+      }
+    });
+
+    // Value of properties AI gives away
+    requestedPropIds.forEach(id => {
+      const space = BOARD_SPACES[id];
+      if (!space) return;
+      valueGiven += space.price;
+
+      // Check if giving this completes a monopoly for opponent
+      if (space.group && COLOR_GROUPS[space.group]) {
+        const group = COLOR_GROUPS[space.group];
+        const opponentOwned = group.properties.filter(pid => gameState.properties[pid]?.owner === proposer.id).length;
+        if (opponentOwned === group.properties.length - 1) {
+          valueGiven += 300; // Penalty for granting opponent a monopoly
+        }
+      }
+    });
+
+    const netValue = valueReceived - valueGiven;
+
+    if (this.difficulty === 'easy') {
+      return netValue >= -50;
+    } else if (this.difficulty === 'normal') {
+      return netValue >= 0;
+    } else {
+      return netValue >= 50; // Hard AI requires a profitable deal
+    }
+  }
 }
+

@@ -87,7 +87,7 @@ body::before {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .landing-logo img {
@@ -102,6 +102,53 @@ body::before {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-secondary);
+}
+
+/* Audio Controls Bar */
+.audio-controls-bar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.in-game-audio-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.in-game-audio-bar .audio-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.audio-btn {
+  background: var(--navy-800);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.audio-btn:hover {
+  background: var(--navy-700);
+  color: var(--text-primary);
+}
+
+.audio-btn.active {
+  background: rgba(34, 211, 238, 0.15);
+  border-color: var(--cyan-400);
+  color: var(--cyan-400);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
 }
 
 .landing-title {
@@ -534,36 +581,50 @@ body::before {
   position: absolute;
   bottom: 2px;
   right: 2px;
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 1.5px solid white;
+  border: 1px solid white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  z-index: 4;
-}
-
-/* ── Player Pawns / Pin Tokens on Board ── */
-.player-token {
-  position: absolute;
-  width: clamp(12px, 1.8vw, 18px);
-  height: clamp(12px, 1.8vw, 18px);
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(6px, 0.9vw, 9px);
-  font-weight: 900;
+  z-index: 4;
+}
+
+/* ── Player Pawns / 3D Tokens on Board ── */
+.player-token {
+  position: absolute;
+  width: clamp(14px, 2.2vw, 22px);
+  height: clamp(14px, 2.2vw, 22px);
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(8px, 1.2vw, 12px);
   color: white;
   pointer-events: none;
   z-index: 20;
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.player-token i {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  line-height: 1;
 }
 
 .player-token.active-token {
-  transform: scale(1.3);
-  box-shadow: 0 0 12px var(--token-color, white), 0 4px 10px rgba(0, 0, 0, 0.8);
+  transform: scale(1.35);
+  box-shadow: 0 0 14px var(--token-color, #22d3ee), 0 4px 12px rgba(0, 0, 0, 0.8), inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  animation: tokenPulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes tokenPulse {
+  from { transform: scale(1.28) translateY(0); }
+  to { transform: scale(1.42) translateY(-2px); }
 }
 
 /* ══════════════════════════════════════════
@@ -824,6 +885,106 @@ body::before {
   border: 1px solid #86efac;
 }
 
+.btn-trade {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  border: 1px solid #fde68a;
+}
+
+/* ── Trade Negotiator Styles ── */
+.trade-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.trade-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.trade-col {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trade-col-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.trade-prop-list {
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trade-prop-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trade-prop-item:hover {
+  border-color: #0284c7;
+}
+
+.trade-prop-item.selected {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+}
+
+.trade-cash-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trade-cash-input-wrap label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.trade-cash-input-wrap input {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.trade-cash-input-wrap input:focus {
+  outline: none;
+  border-color: #0284c7;
+}
+
 /* ══════════════════════════════════════════
    PLAYERS STATUS BAR (MATCHING THE IMAGE)
    Avatar | Pin Token | Name | Cash Balance
@@ -922,15 +1083,245 @@ body::before {
 }
 
 /* ══════════════════════════════════════════
-   SIDE PANEL — ACTIVITY LOG & GUIDE
+   SIDE PANEL — ACTIVITY LOG, CHAT & VOICE
    ══════════════════════════════════════════ */
 .side-panel {
   flex: 1;
-  min-width: 260px;
-  max-width: 320px;
+  min-width: 270px;
+  max-width: 330px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+}
+
+.voice-btn.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+/* Speaking glow on avatar */
+.player-status-card.speaking .player-avatar-img {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 12px #22c55e, 0 0 20px rgba(34, 197, 94, 0.6);
+  animation: speakingPulse 1s infinite alternate;
+}
+
+@keyframes speakingPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+/* Side Panel Tabs */
+.side-panel-tabs {
+  display: flex;
+  background: var(--navy-900);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.side-tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.side-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.side-tab-btn.active {
+  background: var(--navy-800);
+  color: var(--cyan-400);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.chat-unread-count {
+  background: #ef4444;
+  color: white;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+/* Tab Panels */
+.side-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Chat Wrapper */
+.game-chat-wrapper {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 380px;
+  backdrop-filter: blur(10px);
+}
+
+/* Quick Reactions Bar */
+.chat-reactions-bar {
+  display: flex;
+  gap: 4px;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 8px;
+}
+
+.emote-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 1rem;
+  padding: 4px 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emote-btn:hover {
+  transform: scale(1.25);
+  background: rgba(34, 211, 238, 0.15);
+  border-color: var(--cyan-400);
+}
+
+/* Chat Messages Container */
+.chat-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+  margin-bottom: 8px;
+}
+
+.chat-system-msg {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 6px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 6px;
+}
+
+.chat-msg-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fadeIn 0.15s ease;
+}
+
+.chat-msg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+}
+
+.chat-msg-sender {
+  font-weight: 800;
+}
+
+.chat-msg-time {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.chat-msg-bubble {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.chat-msg-item.is-me .chat-msg-bubble {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(34, 211, 238, 0.3);
+  color: #ffffff;
+}
+
+/* Chat Input Form */
+.chat-input-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.chat-input-form input {
+  flex: 1;
+  background: var(--navy-900);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+}
+
+.chat-input-form input:focus {
+  outline: none;
+  border-color: var(--cyan-400);
+}
+
+.btn-chat-send {
+  background: linear-gradient(135deg, var(--cyan-400), var(--cyan-500));
+  color: var(--navy-950);
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.btn-chat-send:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(34, 211, 238, 0.3);
+}
+
+/* Floating Emoji Reactions */
+.floating-emote {
+  position: absolute;
+  font-size: 2rem;
+  pointer-events: none;
+  z-index: 50;
+  animation: floatUpFade 2s ease-out forwards;
+}
+
+@keyframes floatUpFade {
+  0% { transform: translateY(0) scale(0.6); opacity: 1; }
+  50% { transform: translateY(-40px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-80px) scale(1); opacity: 0; }
 }
 
 .game-log {

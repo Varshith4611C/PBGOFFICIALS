@@ -219,10 +219,10 @@ const COMMUNITY_CHEST_CARDS = [
 
 // ── Player Profiles & Pin Tokens ──
 const PLAYER_TOKENS = [
-  { id: 0, name: 'Guddu', emoji: '🧑‍💼', color: '#ef4444', pinColor: '#ef4444', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Guddu&backgroundColor=ef4444' },
-  { id: 1, name: 'Iava', emoji: '👩‍💼', color: '#22c55e', pinColor: '#22c55e', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Iava&backgroundColor=22c55e' },
-  { id: 2, name: 'Raj', emoji: '👨‍💼', color: '#3b82f6', pinColor: '#3b82f6', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Raj&backgroundColor=3b82f6' },
-  { id: 3, name: 'Priya', emoji: '👩‍💻', color: '#eab308', pinColor: '#eab308', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Priya&backgroundColor=eab308' },
+  { id: 0, name: 'Guddu', emoji: '🧑‍💼', tokenIcon: 'fa-chess-pawn', tokenSymbol: '♟', color: '#ef4444', pinColor: '#ef4444', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Guddu&backgroundColor=ef4444' },
+  { id: 1, name: 'Iava', emoji: '👩‍💼', tokenIcon: 'fa-chess-knight', tokenSymbol: '♞', color: '#22c55e', pinColor: '#22c55e', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Iava&backgroundColor=22c55e' },
+  { id: 2, name: 'Raj', emoji: '👨‍💼', tokenIcon: 'fa-car-side', tokenSymbol: '🏎️', color: '#3b82f6', pinColor: '#3b82f6', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Raj&backgroundColor=3b82f6' },
+  { id: 3, name: 'Priya', emoji: '👩‍💻', tokenIcon: 'fa-crown', tokenSymbol: '👑', color: '#eab308', pinColor: '#eab308', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Priya&backgroundColor=eab308' },
 ];
 
 // ── AI Difficulty presets ──

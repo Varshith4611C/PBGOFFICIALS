@@ -17,9 +17,18 @@
   <!-- ========== LANDING SCREEN ========== -->
   <div class="screen active" id="landing-screen">
     <div class="landing-content">
-      <div class="landing-logo">
+      <a href="/games/" class="landing-logo" title="Back to PBG Games Portal" style="text-decoration:none;">
         <img src="/assets/images/logo.jpg" alt="PBG Logo" />
-        <span>PBG Games</span>
+        <span>PBG Games <i class="fas fa-chevron-left" style="font-size:0.75rem; margin-left:4px; opacity:0.7;"></i></span>
+      </a>
+      <!-- Audio Toggle Controls -->
+      <div class="audio-controls-bar">
+        <button class="audio-btn active" id="btn-toggle-sfx" title="Toggle Sound Effects">
+          <i class="fas fa-volume-high"></i> <span>SFX ON</span>
+        </button>
+        <button class="audio-btn" id="btn-toggle-music" title="Toggle Background Music">
+          <i class="fas fa-music"></i> <span>Music OFF</span>
+        </button>
       </div>
       <h1 class="landing-title">
         <span class="gradient-text">Business Board</span>
@@ -125,7 +134,7 @@
           </div>
         </div>
 
-        <!-- Classic Game Controls Action Bar (Matching the image: MENU, BUILD, SELL, MORTGAGE) -->
+        <!-- Classic Game Controls Action Bar (Matching the image: MENU, BUILD, SELL, MORTGAGE, TRADE) -->
         <div class="game-action-bar">
           <button class="game-btn btn-menu" id="btn-bar-menu" onclick="game.openMenuModal()">
             <i class="fas fa-bars"></i> MENU
@@ -139,6 +148,9 @@
           <button class="game-btn btn-mortgage" id="btn-bar-mortgage" onclick="game.openMortgageMenu()">
             <i class="fas fa-hand-holding-dollar"></i> MORTGAGE
           </button>
+          <button class="game-btn btn-trade" id="btn-bar-trade" onclick="game.openTradeMenu()">
+            <i class="fas fa-handshake"></i> TRADE
+          </button>
         </div>
 
         <!-- Players Status Cards (Matching image: Avatar, Pin token, Name, Cash balance) -->
@@ -147,26 +159,85 @@
         </div>
       </div>
 
-      <!-- Right Column: Game Log & Quick Actions -->
+      <!-- Right Column: Game Log, Chat & Voice Controls -->
       <div class="side-panel" id="side-panel">
-        <div class="game-log" id="game-log-panel">
-          <div class="game-log-title">
-            <span><i class="fas fa-scroll"></i> Activity Log</span>
-            <button class="btn-clean" onclick="game.clearLog()" title="Clear Log"><i class="fas fa-trash-alt"></i></button>
-          </div>
-          <div class="log-entries-container" id="game-log-entries"></div>
+        <!-- In-game audio & voice controls -->
+        <div class="in-game-audio-bar">
+          <button class="audio-btn active" id="btn-ingame-sfx" title="Toggle Sound Effects">
+            <i class="fas fa-volume-high"></i> <span>SFX</span>
+          </button>
+          <button class="audio-btn" id="btn-ingame-music" title="Toggle Music">
+            <i class="fas fa-music"></i> <span>Music</span>
+          </button>
+          <button class="audio-btn voice-btn" id="btn-ingame-voice" title="Toggle Voice Chat">
+            <i class="fas fa-microphone-slash"></i> <span>Voice</span>
+          </button>
         </div>
 
-        <!-- Quick Rules Card -->
-        <div class="quick-info-card">
-          <h4><i class="fas fa-info-circle"></i> Quick Guide</h4>
-          <ul>
-            <li>Pass <strong>GO</strong> to collect <strong>₹200</strong></li>
-            <li>Own all properties of a color to build <strong>Houses</strong></li>
-            <li>4 Houses → 1 <strong>Hotel</strong> for massive rent!</li>
-            <li>Stations rent doubles with each station owned</li>
-          </ul>
+        <!-- Side Panel Navigation Tabs (Log / Chat) -->
+        <div class="side-panel-tabs">
+          <button class="side-tab-btn active" id="tab-btn-log" onclick="game.switchSideTab('log')">
+            <i class="fas fa-scroll"></i> Activity Log
+          </button>
+          <button class="side-tab-btn" id="tab-btn-chat" onclick="game.switchSideTab('chat')">
+            <i class="fas fa-comments"></i> Game Chat <span class="chat-unread-count" id="chat-unread-badge" style="display:none">0</span>
+          </button>
         </div>
+
+        <!-- Tab 1: Activity Log Panel -->
+        <div class="side-tab-panel active" id="panel-log">
+          <div class="game-log" id="game-log-panel">
+            <div class="game-log-title">
+              <span><i class="fas fa-history"></i> Live Activity</span>
+              <button class="btn-clean" onclick="game.clearLog()" title="Clear Log"><i class="fas fa-trash-alt"></i></button>
+            </div>
+            <div class="log-entries-container" id="game-log-entries"></div>
+          </div>
+
+          <!-- Quick Rules Card -->
+          <div class="quick-info-card">
+            <h4><i class="fas fa-info-circle"></i> Quick Guide</h4>
+            <ul>
+              <li>Pass <strong>GO</strong> to collect <strong>₹200</strong></li>
+              <li>Own all properties of a color to build <strong>Houses</strong></li>
+              <li>4 Houses → 1 <strong>Hotel</strong> for massive rent!</li>
+              <li>Stations rent doubles with each station owned</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Tab 2: Game Chat & Emotes Panel -->
+        <div class="side-tab-panel" id="panel-chat" style="display:none;">
+          <div class="game-chat-wrapper">
+            <!-- Quick Reactions Bar -->
+            <div class="chat-reactions-bar">
+              <button class="emote-btn" onclick="game.sendQuickEmote('🎲')" title="Roll Dice!">🎲</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('💰')" title="Money / Cash">💰</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('🤝')" title="Let's Trade">🤝</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('😂')" title="Laughing">😂</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('😭')" title="Crying">😭</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('🔥')" title="Fire move!">🔥</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('🏆')" title="Victory!">🏆</button>
+              <button class="emote-btn" onclick="game.sendQuickEmote('💀')" title="Bankrupt">💀</button>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="chat-messages-container" id="chat-messages-container">
+              <div class="chat-system-msg">
+                <i class="fas fa-shield-halved"></i> Room chat connected. Say hello to other tycoons!
+              </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <form class="chat-input-form" id="chat-form" onsubmit="event.preventDefault(); game.sendChatMessage();">
+              <input type="text" id="chat-input" placeholder="Type a message..." maxlength="120" autocomplete="off" />
+              <button type="submit" class="btn-chat-send" title="Send Message">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -176,10 +247,12 @@
   <div class="screen" id="gameover-screen">
     <div class="gameover-content">
       <div class="gameover-trophy">🏆</div>
-      <h2 class="gameover-title"><span class="gradient-text" id="winner-name">Guddu</span> Wins!</h2>
-      <p class="gameover-subtitle" id="winner-subtitle">Master of the Indian Business Empire!</p>
-      
-      <div class="gameover-stats" id="gameover-stats">
+      <h1 class="gameover-title">Game Over!</h1>
+      <p class="gameover-winner">
+        👑 <span id="winner-name">Player 1</span> is the Ultimate Business Tycoon!
+      </p>
+
+      <div class="stats-grid">
         <div class="stat-box">
           <div class="stat-value" id="winner-cash">₹0</div>
           <div class="stat-label">Final Cash</div>
@@ -213,6 +286,8 @@
 
   <!-- Scripts -->
   <script src="/socket.io/socket.io.js"></script>
+  <script src="sound.js"></script>
+  <script src="voice.js"></script>
   <script src="data.js"></script>
   <script src="ai.js"></script>
   <script src="game.js"></script>
