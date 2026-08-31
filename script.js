@@ -243,4 +243,269 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   }
 
+  // ============================================================
+  // PBG AI CHAT WIDGET CONTROLLER (NVIDIA NIM)
+  // ============================================================
+  const initPbgAi = () => {
+    const trigger = document.getElementById('pbgAiTrigger');
+    const chatWindow = document.getElementById('pbgAiChatWindow');
+    const closeBtn = document.getElementById('pbgAiCloseBtn');
+    const settingsBtn = document.getElementById('pbgAiSettingsBtn');
+    const settingsPanel = document.getElementById('pbgAiSettingsPanel');
+    const settingsClose = document.getElementById('pbgAiSettingsClose');
+    const keyInput = document.getElementById('pbgAiKeyInput');
+    const keyToggle = document.getElementById('pbgAiKeyToggle');
+    const modelSelect = document.getElementById('pbgAiModelSelect');
+    const saveSettingsBtn = document.getElementById('pbgAiSaveSettings');
+    const modelLabel = document.getElementById('pbgAiModelLabel');
+    const clearBtn = document.getElementById('pbgAiClearBtn');
+    const messagesContainer = document.getElementById('pbgAiMessages');
+    const welcomeScreen = document.getElementById('pbgAiWelcome');
+    const typingIndicator = document.getElementById('pbgAiTyping');
+    const inputForm = document.getElementById('pbgAiInputForm');
+    const input = document.getElementById('pbgAiInput');
+    const sendBtn = document.getElementById('pbgAiSendBtn');
+
+    if (!trigger || !chatWindow) return;
+
+    // Load Settings
+    let apiKey = localStorage.getItem('pbg_ai_nvidia_key') || '';
+    let currentModel = localStorage.getItem('pbg_ai_model') || 'meta/llama-3.2-11b-vision-instruct';
+
+    // Auto-migrate if user has deprecated 410 model saved in localStorage
+    if (currentModel.includes('llama-3.3') || currentModel.includes('llama-3.1') || currentModel.includes('deepseek-r1')) {
+      currentModel = 'meta/llama-3.2-11b-vision-instruct';
+      localStorage.setItem('pbg_ai_model', currentModel);
+    }
+    let conversation = [];
+
+    // Initialize fields
+    if (keyInput) keyInput.value = apiKey;
+    if (modelSelect) modelSelect.value = currentModel;
+    const updateModelLabel = () => {
+      if (modelLabel) {
+        const option = modelSelect?.querySelector(`option[value="${currentModel}"]`);
+        modelLabel.textContent = option ? option.textContent.split(' (')[0] : 'Llama 3.2';
+      }
+    };
+    updateModelLabel();
+
+    // Toggle Chat Window
+    const toggleChat = (open) => {
+      const isOpen = open !== undefined ? open : !chatWindow.classList.contains('open');
+      chatWindow.classList.toggle('open', isOpen);
+      if (isOpen) {
+        setTimeout(() => input?.focus(), 150);
+      } else {
+        settingsPanel?.classList.remove('open');
+      }
+    };
+
+    trigger.addEventListener('click', () => toggleChat());
+    closeBtn?.addEventListener('click', () => toggleChat(false));
+
+    // Toggle Settings Panel
+    settingsBtn?.addEventListener('click', () => {
+      settingsPanel?.classList.toggle('open');
+    });
+    settingsClose?.addEventListener('click', () => {
+      settingsPanel?.classList.remove('open');
+    });
+
+    // Toggle Key Visibility
+    keyToggle?.addEventListener('click', () => {
+      const isPassword = keyInput.type === 'password';
+      keyInput.type = isPassword ? 'text' : 'password';
+      keyToggle.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+    });
+
+    // Save Settings
+    saveSettingsBtn?.addEventListener('click', () => {
+      apiKey = (keyInput?.value || '').trim();
+      currentModel = modelSelect?.value || 'meta/llama-3.3-70b-instruct';
+      localStorage.setItem('pbg_ai_nvidia_key', apiKey);
+      localStorage.setItem('pbg_ai_model', currentModel);
+      updateModelLabel();
+      settingsPanel?.classList.remove('open');
+      
+      // Temporary confirmation feedback
+      const originalText = saveSettingsBtn.textContent;
+      saveSettingsBtn.textContent = 'Saved! ✓';
+      setTimeout(() => { saveSettingsBtn.textContent = originalText; }, 1500);
+    });
+
+    // Auto-grow textarea
+    input?.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+    });
+
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        inputForm?.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    // Escape HTML helper
+    const escapeHtml = (text) => {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
+    // Lightweight Markdown Formatter
+    const formatMarkdown = (rawText) => {
+      let text = escapeHtml(rawText);
+
+      // Code blocks ```lang ... ```
+      text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+        const language = lang || 'code';
+        return `<pre><div class="pbg-ai-code-header"><span>${language}</span><button class="pbg-ai-copy-btn" type="button" onclick="navigator.clipboard.writeText(this.closest('pre').querySelector('code').innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500)"><i class="fas fa-copy"></i> Copy</button></div><code>${code.trim()}</code></pre>`;
+      });
+
+      // Inline code `code`
+      text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Bold **text**
+      text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Italic *text*
+      text = text.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+
+      // Bullet lists
+      const lines = text.split('\n');
+      let inList = false;
+      let html = '';
+
+      for (let line of lines) {
+        const listMatch = line.match(/^\s*[\-\*]\s+(.*)$/);
+        const numMatch = line.match(/^\s*(\d+)\.\s+(.*)$/);
+
+        if (listMatch) {
+          if (!inList) { html += '<ul>'; inList = true; }
+          html += `<li>${listMatch[1]}</li>`;
+        } else if (numMatch) {
+          if (!inList) { html += '<ol>'; inList = true; }
+          html += `<li>${numMatch[2]}</li>`;
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          if (line.trim().length > 0) {
+            html += `<p>${line}</p>`;
+          }
+        }
+      }
+      if (inList) html += '</ul>';
+
+      return html;
+    };
+
+    // Append Message to UI
+    const appendMessage = (role, text) => {
+      if (welcomeScreen) welcomeScreen.style.display = 'none';
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `pbg-ai-msg ${role}`;
+
+      const avatarDiv = document.createElement('div');
+      avatarDiv.className = 'pbg-ai-msg-avatar';
+      avatarDiv.innerHTML = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-brain"></i>';
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'pbg-ai-msg-content';
+
+      if (role === 'ai') {
+        contentDiv.innerHTML = formatMarkdown(text);
+      } else {
+        contentDiv.textContent = text;
+      }
+
+      msgDiv.appendChild(avatarDiv);
+      msgDiv.appendChild(contentDiv);
+      messagesContainer.appendChild(msgDiv);
+
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      return msgDiv;
+    };
+
+    // Send message to backend
+    const sendMessage = async (userText) => {
+      const text = (userText || input.value || '').trim();
+      if (!text) return;
+
+      appendMessage('user', text);
+      conversation.push({ role: 'user', content: text });
+
+      input.value = '';
+      input.style.height = 'auto';
+      sendBtn.disabled = true;
+      if (typingIndicator) typingIndicator.style.display = 'flex';
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      try {
+        const payload = {
+          messages: conversation.slice(-10), // keep context window compact
+          model: currentModel,
+        };
+        if (apiKey) payload.apiKey = apiKey;
+
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (typingIndicator) typingIndicator.style.display = 'none';
+        sendBtn.disabled = false;
+
+        if (!res.ok) {
+          const errMsg = data.error || 'Failed to get response from PBG AI.';
+          appendMessage('ai', `⚠️ **Error:** ${errMsg}`);
+          if (res.status === 401) {
+            // Open settings panel automatically so user can enter key
+            settingsPanel?.classList.add('open');
+          }
+          return;
+        }
+
+        const reply = data.reply || 'No response received.';
+        appendMessage('ai', reply);
+        conversation.push({ role: 'assistant', content: reply });
+
+      } catch (err) {
+        if (typingIndicator) typingIndicator.style.display = 'none';
+        sendBtn.disabled = false;
+        appendMessage('ai', `⚠️ **Network Error:** Could not reach the server (${err.message}).`);
+      }
+    };
+
+    // Submit handler
+    inputForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendMessage();
+    });
+
+    // Chips click handler
+    document.querySelectorAll('.pbg-ai-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = chip.getAttribute('data-prompt');
+        if (prompt) sendMessage(prompt);
+      });
+    });
+
+    // Clear Chat
+    clearBtn?.addEventListener('click', () => {
+      conversation = [];
+      const messages = messagesContainer.querySelectorAll('.pbg-ai-msg');
+      messages.forEach(m => m.remove());
+      if (welcomeScreen) welcomeScreen.style.display = 'flex';
+    });
+  };
+
+  initPbgAi();
+
 });
+

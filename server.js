@@ -32,9 +32,125 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 // ── Serve .well-known directory explicitly ──
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
+// ── Load .env file if present ──
+const fs = require('fs');
+if (fs.existsSync(path.join(__dirname, '.env'))) {
+  try {
+    const envContent = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+    envContent.split(/\r?\n/).forEach(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match && !process.env[match[1]]) {
+        let val = (match[2] || '').trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        process.env[match[1]] = val;
+      }
+    });
+  } catch (e) {
+    console.warn('Could not read .env file:', e.message);
+  }
+}
+
+// ── Body Parser ──
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
+
 // ── Anime API routes ──
 const animeApi = require('./anime/api');
 app.use('/api/anime', animeApi);
+
+// ── PBG AI Endpoint (NVIDIA NIM Integration) ──
+const DEFAULT_AI_MODEL = 'meta/llama-3.2-11b-vision-instruct';
+
+app.post('/api/ai/chat', async (req, res) => {
+  let { messages, model = DEFAULT_AI_MODEL, apiKey: clientKey } = req.body || {};
+
+  const apiKey = (clientKey && typeof clientKey === 'string' && clientKey.trim())
+    ? clientKey.trim()
+    : (process.env.NVIDIA_API_KEY || '').trim();
+
+  if (!apiKey) {
+    return res.status(401).json({
+      error: 'NVIDIA API Key not found. Please click the Settings ⚙️ icon in PBG AI to add your NVIDIA API key.'
+    });
+  }
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'Messages array is required.' });
+  }
+
+  const systemPrompt = {
+    role: 'system',
+    content: `You are PBG AI, the official cybernetic intelligent AI assistant for PBG Officials (https://pbgofficials.dev).
+You are smart, helpful, witty, friendly, and tech-savvy.
+PBG Officials is a multi-platform digital entertainment hub featuring:
+- PBG Anime: Free HD anime streaming, latest trending episodes, sub & dub player (/anime/).
+- PBG Manga: Fast, clean manga reading platform.
+- PBG TV: Live IPTV streaming entertainment.
+- PBG ChatBox: Real-time community chat rooms, synchronized 24/7 live music radio stations, anime cinema watch parties (/chatbox/).
+- PBG Games & Tech: High-speed gaming experiences and digital creations.
+
+Guidelines:
+- Answer questions about PBG Officials platforms, features, and site navigation.
+- Recommend anime, discuss characters, manga, music, gaming, tech, and code.
+- Write clean code, explain concepts, and format responses cleanly with Markdown (bold, bullet points, syntax-highlighted code blocks).
+- Be engaging, conversational, and concise.`
+  };
+
+  const formattedMessages = [systemPrompt, ...messages.filter(m => m && m.role !== 'system')];
+
+  // Helper function to call NVIDIA NIM
+  const callNvidia = async (selectedModel) => {
+    return await axios.post(
+      'https://integrate.api.nvidia.com/v1/chat/completions',
+      {
+        model: selectedModel,
+        messages: formattedMessages,
+        temperature: 0.6,
+        top_p: 0.9,
+        max_tokens: 1024,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        timeout: 45000,
+      }
+    );
+  };
+
+  try {
+    let response;
+    let usedModel = model || DEFAULT_AI_MODEL;
+
+    try {
+      response = await callNvidia(usedModel);
+    } catch (modelErr) {
+      // If requested model was sunset/deprecated (410) or not found (404), fallback to active default model
+      if ((modelErr.response?.status === 410 || modelErr.response?.status === 404) && usedModel !== DEFAULT_AI_MODEL) {
+        console.warn(`Model ${usedModel} returned ${modelErr.response?.status}, falling back to ${DEFAULT_AI_MODEL}`);
+        usedModel = DEFAULT_AI_MODEL;
+        response = await callNvidia(usedModel);
+      } else {
+        throw modelErr;
+      }
+    }
+
+    const reply = response.data?.choices?.[0]?.message?.content || 'No response generated.';
+    res.json({
+      reply,
+      model: usedModel,
+      usage: response.data?.usage
+    });
+  } catch (err) {
+    console.error('NVIDIA AI API error:', err.response?.data || err.message);
+    const errorDetail = err.response?.data?.message || err.response?.data?.error?.message || err.response?.data?.error || err.message || 'Failed to communicate with NVIDIA AI.';
+    res.status(err.response?.status || 500).json({ error: errorDetail });
+  }
+});
 
 // ── Music Live Radio Proxy Endpoint ──
 const http = require('http');

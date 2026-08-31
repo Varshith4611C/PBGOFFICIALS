@@ -565,6 +565,112 @@
     </div>
   </footer>
 
+  <!-- ==================== PBG AI FLOATING WIDGET ==================== -->
+  <div class="pbg-ai-widget" id="pbgAiWidget">
+    <!-- Floating Trigger Button -->
+    <button class="pbg-ai-trigger" id="pbgAiTrigger" aria-label="Open PBG AI Assistant">
+      <div class="pbg-ai-glow"></div>
+      <div class="pbg-ai-icon-wrap">
+        <i class="fas fa-wand-magic-sparkles pbg-ai-icon"></i>
+      </div>
+      <span class="pbg-ai-badge">AI</span>
+      <div class="pbg-ai-tooltip">Chat with PBG AI ✨</div>
+    </button>
+
+    <!-- Floating Chat Window -->
+    <div class="pbg-ai-chat-window" id="pbgAiChatWindow">
+      <!-- Chat Header -->
+      <div class="pbg-ai-header">
+        <div class="pbg-ai-header-left">
+          <div class="pbg-ai-avatar">
+            <i class="fas fa-brain"></i>
+            <span class="pbg-ai-status-dot"></span>
+          </div>
+          <div class="pbg-ai-title-wrap">
+            <div class="pbg-ai-title">PBG AI <span class="pbg-ai-pill">NVIDIA</span></div>
+            <div class="pbg-ai-subtitle" id="pbgAiModelLabel">Llama 3.2 11B</div>
+          </div>
+        </div>
+        <div class="pbg-ai-header-actions">
+          <button class="pbg-ai-action-btn" id="pbgAiSettingsBtn" title="AI Settings (API Key / Model)" aria-label="Settings">
+            <i class="fas fa-gear"></i>
+          </button>
+          <button class="pbg-ai-action-btn" id="pbgAiClearBtn" title="Clear Chat" aria-label="Clear Chat">
+            <i class="fas fa-trash-can"></i>
+          </button>
+          <button class="pbg-ai-action-btn" id="pbgAiCloseBtn" title="Close" aria-label="Close">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Panel (Collapsible) -->
+      <div class="pbg-ai-settings-panel" id="pbgAiSettingsPanel">
+        <div class="pbg-ai-settings-header">
+          <span><i class="fas fa-sliders"></i> AI Configuration</span>
+          <button id="pbgAiSettingsClose" class="pbg-ai-settings-close" type="button"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="pbg-ai-field">
+          <label for="pbgAiKeyInput">NVIDIA API Key</label>
+          <div class="pbg-ai-key-row">
+            <input type="password" id="pbgAiKeyInput" placeholder="nvapi-..." autocomplete="off" />
+            <button id="pbgAiKeyToggle" type="button" title="Toggle visibility"><i class="fas fa-eye"></i></button>
+          </div>
+          <small>Enter your free NVIDIA key (from <a href="https://build.nvidia.com" target="_blank" rel="noopener">build.nvidia.com</a>). Saved securely in your browser.</small>
+        </div>
+        <div class="pbg-ai-field">
+          <label for="pbgAiModelSelect">Model</label>
+          <select id="pbgAiModelSelect">
+            <option value="meta/llama-3.2-11b-vision-instruct" selected>Llama 3.2 11B (Fast &amp; Recommended)</option>
+            <option value="meta/llama-3.2-90b-vision-instruct">Llama 3.2 90B (Deep Reasoning)</option>
+            <option value="google/diffusiongemma-26b-a4b-it">Gemma 26B</option>
+            <option value="poolside/laguna-xs-2.1">Laguna XS 2.1</option>
+          </select>
+        </div>
+        <div class="pbg-ai-settings-actions">
+          <button id="pbgAiSaveSettings" class="pbg-ai-btn-primary" type="button">Save Settings</button>
+        </div>
+      </div>
+
+      <!-- Chat Messages Container -->
+      <div class="pbg-ai-messages" id="pbgAiMessages">
+        <!-- Welcome Screen -->
+        <div class="pbg-ai-welcome" id="pbgAiWelcome">
+          <div class="pbg-ai-welcome-icon">
+            <i class="fas fa-wand-magic-sparkles"></i>
+          </div>
+          <h3>Welcome to PBG AI</h3>
+          <p>Your intelligent assistant for anime streaming, manga, live radio chat, tech, and code.</p>
+          <div class="pbg-ai-chips">
+            <button class="pbg-ai-chip" data-prompt="What platforms and features does PBG Officials offer?">🚀 Explore PBG</button>
+            <button class="pbg-ai-chip" data-prompt="Recommend top 5 must-watch anime right now with brief summaries.">🎬 Top Anime</button>
+            <button class="pbg-ai-chip" data-prompt="What is PBG ChatBox and how does sync music radio work?">💬 PBG ChatBox</button>
+            <button class="pbg-ai-chip" data-prompt="Help me write a modern JavaScript async function with retry logic.">💻 Code Helper</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="pbg-ai-typing" id="pbgAiTyping" style="display: none;">
+        <div class="pbg-ai-typing-dot"></div>
+        <div class="pbg-ai-typing-dot"></div>
+        <div class="pbg-ai-typing-dot"></div>
+        <span>PBG AI is thinking...</span>
+      </div>
+
+      <!-- Input Area -->
+      <form class="pbg-ai-input-form" id="pbgAiInputForm">
+        <textarea id="pbgAiInput" rows="1" placeholder="Ask PBG AI anything..." maxlength="2000"></textarea>
+        <button type="submit" id="pbgAiSendBtn" aria-label="Send message">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>
+      <div class="pbg-ai-footer-note">
+        <span>Powered by NVIDIA NIM &bull; PBG Officials</span>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
