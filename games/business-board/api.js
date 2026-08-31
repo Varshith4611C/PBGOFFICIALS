@@ -97,6 +97,7 @@ function initGameSocket(io) {
       gameNsp.to(currentRoom).emit('game-started', {
         players: room.players.map((p, i) => ({
           id: i,
+          socketId: p.socketId,
           name: p.name,
           isHost: p.isHost
         })),
@@ -135,22 +136,28 @@ function initGameSocket(io) {
       });
     });
 
-    // ── WebRTC Voice Chat Signaling ──
-    socket.on('voice-signal', ({ targetSocketId, signal, isSpeaking, isMuted }) => {
+    // ── WebRTC Voice Chat Signaling (SDP Offer/Answer & ICE Candidates) ──
+    socket.on('voice-signal', (data) => {
       if (!currentRoom) return;
-      if (targetSocketId) {
-        gameNsp.to(targetSocketId).emit('voice-signal', {
-          fromSocketId: socket.id,
-          fromPlayerId: playerId,
-          signal
-        });
+      const room = gameRooms.get(currentRoom);
+      if (!room) return;
+
+      const payload = {
+        ...data,
+        fromSocketId: socket.id,
+        fromPlayerId: playerId
+      };
+
+      if (data.targetSocketId) {
+        gameNsp.to(data.targetSocketId).emit('voice-signal', payload);
+      } else if (data.targetPlayerId !== undefined) {
+        const targetPlayer = room.players.find(p => p.id === data.targetPlayerId);
+        if (targetPlayer) {
+          gameNsp.to(targetPlayer.socketId).emit('voice-signal', payload);
+        }
       } else {
-        // Broadcast speaking / mute status
-        socket.to(currentRoom).emit('voice-status-update', {
-          playerId,
-          isSpeaking,
-          isMuted
-        });
+        // Broadcast to other peers in room
+        socket.to(currentRoom).emit('voice-signal', payload);
       }
     });
 

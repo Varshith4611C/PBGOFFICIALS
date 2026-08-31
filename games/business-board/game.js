@@ -97,6 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceBtn.innerHTML = `<i class="fas fa-microphone${isLive ? '' : '-slash'}"></i> <span>Voice ${isLive ? 'ON' : 'OFF'}</span>`;
   });
 
+  // Speaker Button Handler (Deafen / Listen to other players)
+  const speakerBtn = document.getElementById('btn-ingame-speaker');
+  speakerBtn?.addEventListener('click', () => {
+    sound.playClick();
+    voiceManager.toggleSpeaker();
+  });
+
   updateAudioButtons();
 
   // Mode Selection

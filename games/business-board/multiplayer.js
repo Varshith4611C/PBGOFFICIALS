@@ -74,10 +74,20 @@ class MultiplayerClient {
       }
     });
 
-    // ── Voice Chat Status ──
+    // ── Voice Chat Status & WebRTC Signals ──
     this.socket.on('voice-status-update', (data) => {
       if (voiceManager) {
         voiceManager.handleRemoteVoiceStatus(data.playerId, data.isSpeaking, data.isMuted);
+      }
+    });
+
+    this.socket.on('voice-signal', (data) => {
+      if (voiceManager) {
+        if (data.type === 'offer' || data.type === 'answer' || data.type === 'candidate') {
+          voiceManager.handleIncomingSignal(data);
+        } else if (data.isSpeaking !== undefined || data.isMuted !== undefined) {
+          voiceManager.handleRemoteVoiceStatus(data.fromPlayerId, data.isSpeaking, data.isMuted);
+        }
       }
     });
 
@@ -145,6 +155,12 @@ class MultiplayerClient {
   sendVoiceStatus(isSpeaking, isMuted) {
     if (this.socket && this.connected) {
       this.socket.emit('voice-signal', { isSpeaking, isMuted });
+    }
+  }
+
+  sendVoiceSignal(signalData) {
+    if (this.socket && this.connected) {
+      this.socket.emit('voice-signal', signalData);
     }
   }
 
