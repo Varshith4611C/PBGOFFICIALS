@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PBG Business Board — Indian Business Board Game | PBG Games</title>
+  <meta name="description" content="Play PBG Business Board — the classic Indian Business board game. Buy Mumbai, Delhi, Bengaluru, build houses & hotels, collect rent, and bankrupt your rivals!" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48x48.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+
+  <!-- ========== LANDING SCREEN ========== -->
+  <div class="screen active" id="landing-screen">
+    <div class="landing-content">
+      <div class="landing-logo">
+        <img src="/assets/images/logo.jpg" alt="PBG Logo" />
+        <span>PBG Games</span>
+      </div>
+      <h1 class="landing-title">
+        <span class="gradient-text">Business Board</span>
+      </h1>
+      <p class="landing-desc">
+        The classic Indian Business Board game! Buy cities across India, build houses &amp; hotels, trade stations &amp; utilities, and build your business empire.
+      </p>
+      <div class="mode-cards">
+        <div class="mode-card" id="btn-singleplayer" style="--card-gradient: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(167,139,250,0.1))">
+          <div class="mode-card-icon">🤖</div>
+          <h3>Single Player</h3>
+          <p>Challenge AI opponents with customizable difficulty</p>
+        </div>
+        <div class="mode-card" id="btn-multiplayer" style="--card-gradient: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(52,211,153,0.1))">
+          <div class="mode-card-icon">🌐</div>
+          <h3>Multiplayer</h3>
+          <p>Create private rooms and play with family &amp; friends</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SETUP SCREEN (Single Player) ========== -->
+  <div class="screen" id="setup-screen">
+    <div class="setup-panel">
+      <h2 class="setup-title">⚙️ Game Setup</h2>
+      <p class="setup-subtitle">Configure your single-player business board game</p>
+
+      <div class="setup-field">
+        <label for="player-name">Your Name</label>
+        <input type="text" id="player-name" placeholder="Enter your name" maxlength="16" value="Guddu" />
+      </div>
+
+      <div class="setup-field">
+        <label for="ai-count">AI Opponents</label>
+        <select id="ai-count">
+          <option value="1">1 Opponent (2 Players)</option>
+          <option value="2">2 Opponents (3 Players)</option>
+          <option value="3" selected>3 Opponents (4 Players)</option>
+        </select>
+      </div>
+
+      <div class="setup-field">
+        <label for="ai-difficulty">AI Difficulty</label>
+        <select id="ai-difficulty">
+          <option value="easy">Easy — Casual player</option>
+          <option value="normal" selected>Normal — Strategic trading &amp; building</option>
+          <option value="hard">Hard — Aggressive monopoly tycoon</option>
+        </select>
+      </div>
+
+      <div class="setup-actions">
+        <button class="btn btn-secondary" id="btn-setup-back"><i class="fas fa-arrow-left"></i> Back</button>
+        <button class="btn btn-primary" id="btn-start-game"><i class="fas fa-play"></i> Start Game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MULTIPLAYER LOBBY ========== -->
+  <div class="screen" id="lobby-screen">
+    <div class="lobby-panel">
+      <h2 class="setup-title">🌐 Private Room Lobby</h2>
+      <p class="setup-subtitle" id="lobby-status">Challenge family &amp; friends in a private room</p>
+
+      <div id="lobby-join-section">
+        <div class="setup-field">
+          <label for="mp-player-name">Your Name</label>
+          <input type="text" id="mp-player-name" placeholder="Enter your name" maxlength="16" value="Guddu" />
+        </div>
+        <div class="setup-field">
+          <label for="room-code-input">Room Code (Leave empty to CREATE room)</label>
+          <input type="text" id="room-code-input" placeholder="e.g. PBG-8K2Q" maxlength="8" style="text-transform: uppercase; font-family: monospace; letter-spacing: 2px;" />
+        </div>
+        <div class="setup-actions">
+          <button class="btn btn-secondary" id="btn-lobby-back"><i class="fas fa-arrow-left"></i> Back</button>
+          <button class="btn btn-primary" id="btn-lobby-join"><i class="fas fa-right-to-bracket"></i> Join / Create</button>
+        </div>
+      </div>
+
+      <div id="lobby-waiting-section" style="display: none;">
+        <div class="room-code-display">
+          <div class="code" id="room-code-show">----</div>
+          <small>Share this code with friends to join your room</small>
+        </div>
+        <ul class="players-list" id="lobby-players"></ul>
+        <div class="setup-actions">
+          <button class="btn btn-secondary" id="btn-lobby-leave"><i class="fas fa-arrow-left"></i> Leave</button>
+          <button class="btn btn-primary" id="btn-lobby-start" disabled><i class="fas fa-play"></i> Start Game</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== GAME SCREEN ========== -->
+  <div class="screen" id="game-screen">
+    <div class="game-layout">
+
+      <!-- Left / Main Column: Game Board -->
+      <div class="board-column">
+        <div class="board-container">
+          <div class="board" id="board">
+            <!-- 40 spaces rendered dynamically by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Classic Game Controls Action Bar (Matching the image: MENU, BUILD, SELL, MORTGAGE) -->
+        <div class="game-action-bar">
+          <button class="game-btn btn-menu" id="btn-bar-menu" onclick="game.openMenuModal()">
+            <i class="fas fa-bars"></i> MENU
+          </button>
+          <button class="game-btn btn-build" id="btn-bar-build" onclick="game.openBuildMenu()">
+            <i class="fas fa-home"></i> BUILD
+          </button>
+          <button class="game-btn btn-sell" id="btn-bar-sell" onclick="game.openSellMenu()">
+            <i class="fas fa-coins"></i> SELL
+          </button>
+          <button class="game-btn btn-mortgage" id="btn-bar-mortgage" onclick="game.openMortgageMenu()">
+            <i class="fas fa-hand-holding-dollar"></i> MORTGAGE
+          </button>
+        </div>
+
+        <!-- Players Status Cards (Matching image: Avatar, Pin token, Name, Cash balance) -->
+        <div class="players-bar" id="players-panel">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Right Column: Game Log & Quick Actions -->
+      <div class="side-panel" id="side-panel">
+        <div class="game-log" id="game-log-panel">
+          <div class="game-log-title">
+            <span><i class="fas fa-scroll"></i> Activity Log</span>
+            <button class="btn-clean" onclick="game.clearLog()" title="Clear Log"><i class="fas fa-trash-alt"></i></button>
+          </div>
+          <div class="log-entries-container" id="game-log-entries"></div>
+        </div>
+
+        <!-- Quick Rules Card -->
+        <div class="quick-info-card">
+          <h4><i class="fas fa-info-circle"></i> Quick Guide</h4>
+          <ul>
+            <li>Pass <strong>GO</strong> to collect <strong>₹200</strong></li>
+            <li>Own all properties of a color to build <strong>Houses</strong></li>
+            <li>4 Houses → 1 <strong>Hotel</strong> for massive rent!</li>
+            <li>Stations rent doubles with each station owned</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========== GAME OVER SCREEN ========== -->
+  <div class="screen" id="gameover-screen">
+    <div class="gameover-content">
+      <div class="gameover-trophy">🏆</div>
+      <h2 class="gameover-title"><span class="gradient-text" id="winner-name">Guddu</span> Wins!</h2>
+      <p class="gameover-subtitle" id="winner-subtitle">Master of the Indian Business Empire!</p>
+      
+      <div class="gameover-stats" id="gameover-stats">
+        <div class="stat-box">
+          <div class="stat-value" id="winner-cash">₹0</div>
+          <div class="stat-label">Final Cash</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="winner-networth">₹0</div>
+          <div class="stat-label">Total Net Worth</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="winner-properties">0</div>
+          <div class="stat-label">Properties Owned</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="winner-turns">0</div>
+          <div class="stat-label">Total Turns</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn btn-primary" onclick="location.reload()"><i class="fas fa-redo"></i> Play Again</button>
+        <button class="btn btn-secondary" onclick="showScreen('landing-screen')"><i class="fas fa-home"></i> Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== MODAL OVERLAY ========== -->
+  <div class="modal-overlay hidden" id="modal-overlay"></div>
+
+  <!-- ========== TOAST NOTIFICATIONS ========== -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="data.js"></script>
+  <script src="ai.js"></script>
+  <script src="game.js"></script>
+  <script src="multiplayer.js"></script>
+</body>
+</html>

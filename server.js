@@ -4,6 +4,7 @@ const axios = require('axios');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
+const { initGameSocket } = require('./games/business-board/api');
 
 const app = express();
 const httpServer = createServer(app);
@@ -290,8 +291,17 @@ app.use('/chatbox', express.static(path.join(__dirname, 'chatbox'), {
   index: 'index.html',
 }));
 
+// ── Serve games frontend ──
+app.use('/games', express.static(path.join(__dirname, 'games'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
+
 // ── Initialize Socket.IO for ChatBox ──
 initChatSocket(io);
+
+// ── Initialize Socket.IO for Business Board Game ──
+initGameSocket(io);
 
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──
 app.get('/{*path}', (_req, res) => {
