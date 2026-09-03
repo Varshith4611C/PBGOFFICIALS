@@ -170,33 +170,99 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ---------- CONTACT FORM ----------
+  // ---------- CONTACT FORM (GMAIL DISPATCH) ----------
   const contactForm = document.getElementById('contactForm');
   const submitBtn = document.getElementById('submitBtn');
+  const formStatus = document.getElementById('formStatus');
 
-  contactForm.addEventListener('submit', (e) => {
-    e.preventDefault();
+  if (contactForm && submitBtn) {
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    // Button loading state
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-    submitBtn.disabled = true;
-    submitBtn.style.opacity = '0.7';
+      const name = (document.getElementById('name')?.value || '').trim();
+      const email = (document.getElementById('email')?.value || '').trim();
+      const subject = (document.getElementById('subject')?.value || '').trim();
+      const message = (document.getElementById('message')?.value || '').trim();
 
-    // Simulate send
-    setTimeout(() => {
-      submitBtn.innerHTML = '<i class="fas fa-check"></i> Message Sent!';
-      submitBtn.style.background = 'linear-gradient(135deg, #34d399, #14b8a6)';
+      if (!name || !email || !message) {
+        if (formStatus) {
+          formStatus.className = 'form-status error';
+          formStatus.style.display = 'flex';
+          formStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> <div>Please fill in all required fields (Name, Email, Message).</div>';
+        }
+        return;
+      }
 
-      setTimeout(() => {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        submitBtn.style.background = '';
-        contactForm.reset();
-      }, 2500);
-    }, 1500);
-  });
+      // Button loading state
+      const originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending to Gmail...';
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.7';
+      if (formStatus) formStatus.style.display = 'none';
+
+      try {
+        const response = await fetch('https://formsubmit.co/ajax/pbgofficial143@gmail.com', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name,
+            email: email,
+            _replyto: email,
+            _subject: subject ? `[PBG Officials] ${subject}` : `New Message from ${name} (PBG Officials)`,
+            message: message,
+            _template: 'table',
+            _captcha: 'false'
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && (data.success === 'true' || data.success === true || data.message)) {
+          submitBtn.innerHTML = '<i class="fas fa-check"></i> Message Sent!';
+          submitBtn.style.background = 'linear-gradient(135deg, #34d399, #14b8a6)';
+
+          if (formStatus) {
+            formStatus.className = 'form-status success';
+            formStatus.style.display = 'flex';
+            formStatus.innerHTML = '<i class="fas fa-check-circle"></i> <div><strong>Success!</strong> Your message was sent to <strong>pbgofficial143@gmail.com</strong>. We will get back to you shortly!</div>';
+          }
+
+          contactForm.reset();
+
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.background = '';
+          }, 3500);
+        } else {
+          throw new Error(data.message || 'Submission failed');
+        }
+      } catch (err) {
+        console.error('Contact form submission error:', err);
+        submitBtn.innerHTML = '<i class="fas fa-exclamation-circle"></i> Failed to Send';
+        submitBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+
+        const mailtoUrl = `mailto:pbgofficial143@gmail.com?subject=${encodeURIComponent(subject || 'Inquiry from PBG Officials Website')}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`;
+
+        if (formStatus) {
+          formStatus.className = 'form-status error';
+          formStatus.style.display = 'flex';
+          formStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> <div>Automatic send error. <a href="${mailtoUrl}">Click here to open Gmail and send directly</a>.</div>`;
+        }
+
+        setTimeout(() => {
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.background = '';
+        }, 4000);
+      }
+    });
+  }
 
   // ---------- CARD TILT EFFECT ----------
   const cards = document.querySelectorAll('.project-card');

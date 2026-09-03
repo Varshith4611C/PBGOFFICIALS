@@ -1067,6 +1067,57 @@ img {
   box-shadow: 0 8px 30px rgba(34, 211, 238, 0.35);
 }
 
+.contact-info-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.contact-info-link:hover .contact-info-text p {
+  color: var(--cyan-400);
+}
+
+.contact-info-link:hover .contact-info-icon {
+  background: rgba(34, 211, 238, 0.2);
+  color: var(--cyan-400);
+}
+
+.form-status {
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+}
+
+.form-status.success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.form-status.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.form-status a {
+  color: var(--cyan-400);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.form-status a:hover {
+  color: #ffffff;
+}
+
 /* ---------- FOOTER ---------- */
 .footer {
   padding: 60px 0 30px;

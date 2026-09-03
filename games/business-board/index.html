@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PBG Business Board — Indian Business Board Game | PBG Games</title>
-  <meta name="description" content="Play PBG Business Board — the classic Indian Business board game. Buy Mumbai, Delhi, Bengaluru, build houses & hotels, collect rent, and bankrupt your rivals!" />
-  <meta name="theme-color" content="#020617" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>PBG Business Board — 3D Classic Board Game | PBG Games</title>
+  <meta name="description" content="Play PBG Business Board — the classic Business board game with 3D dynamic follow-pawn camera view, full-board view, AI & multiplayer!" />
+  <meta name="theme-color" content="#1a0f08" />
   <link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48x48.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
@@ -34,15 +34,15 @@
         <span class="gradient-text">Business Board</span>
       </h1>
       <p class="landing-desc">
-        The classic Indian Business Board game! Buy cities across India, build houses &amp; hotels, trade stations &amp; utilities, and build your business empire.
+        The ultimate 3D Business Board game! Experience dynamic follow-pawn camera zoom, build houses &amp; hotels, trade stations &amp; utilities, and dominate the board!
       </p>
       <div class="mode-cards">
-        <div class="mode-card" id="btn-singleplayer" style="--card-gradient: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(167,139,250,0.1))">
+        <div class="mode-card" id="btn-singleplayer" style="--card-gradient: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.25))">
           <div class="mode-card-icon">🤖</div>
           <h3>Single Player</h3>
-          <p>Challenge AI opponents with customizable difficulty</p>
+          <p>Challenge smart AI tycoons with dynamic 3D follow camera</p>
         </div>
-        <div class="mode-card" id="btn-multiplayer" style="--card-gradient: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(52,211,153,0.1))">
+        <div class="mode-card" id="btn-multiplayer" style="--card-gradient: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(59,130,246,0.25))">
           <div class="mode-card-icon">🌐</div>
           <h3>Multiplayer</h3>
           <p>Create private rooms and play with family &amp; friends</p>
@@ -59,7 +59,7 @@
 
       <div class="setup-field">
         <label for="player-name">Your Name</label>
-        <input type="text" id="player-name" placeholder="Enter your name" maxlength="16" value="Guddu" />
+        <input type="text" id="player-name" placeholder="Enter your name" maxlength="16" value="VARSHITHGAMING" />
       </div>
 
       <div class="setup-field">
@@ -96,7 +96,7 @@
       <div id="lobby-join-section">
         <div class="setup-field">
           <label for="mp-player-name">Your Name</label>
-          <input type="text" id="mp-player-name" placeholder="Enter your name" maxlength="16" value="Guddu" />
+          <input type="text" id="mp-player-name" placeholder="Enter your name" maxlength="16" value="VARSHITHGAMING" />
         </div>
         <div class="setup-field">
           <label for="room-code-input">Room Code (Leave empty to CREATE room)</label>
@@ -124,126 +124,112 @@
 
   <!-- ========== GAME SCREEN ========== -->
   <div class="screen" id="game-screen">
-    <div class="game-layout">
+    
+    <!-- TOP HUD BAR (2-Tier Layout: Top Buttons + Centered Player Cards) -->
+    <header class="game-top-bar" id="game-top-bar">
+      <!-- Tier 1: Top Navigation Strip -->
+      <div class="top-nav-bar">
+        <button class="top-icon-btn btn-info" id="btn-info" onclick="game.showGameRules()" title="Game Rules & Guide">
+          <i class="fas fa-info"></i>
+        </button>
 
-      <!-- Left / Main Column: Game Board -->
-      <div class="board-column">
-        <div class="board-container">
-          <div class="board" id="board">
-            <!-- 40 spaces rendered dynamically by JavaScript -->
-          </div>
+        <div class="top-title-badge">
+          <span>BUSINESS BOARD</span>
         </div>
 
-        <!-- Classic Game Controls Action Bar (Matching the image: MENU, BUILD, SELL, MORTGAGE, TRADE) -->
-        <div class="game-action-bar">
-          <button class="game-btn btn-menu" id="btn-bar-menu" onclick="game.openMenuModal()">
-            <i class="fas fa-bars"></i> MENU
+        <div class="top-right-controls">
+          <button class="top-icon-btn btn-camera" id="btn-camera-toggle" onclick="game.toggleCameraView()" title="Toggle 3D Follow / Full Board Camera">
+            <i class="fas fa-video" id="camera-icon"></i>
+            <span class="cam-badge" id="camera-mode-badge">3D</span>
           </button>
-          <button class="game-btn btn-build" id="btn-bar-build" onclick="game.openBuildMenu()">
-            <i class="fas fa-home"></i> BUILD
+          <button class="top-icon-btn btn-fullscreen" id="btn-fullscreen-toggle" onclick="game.toggleFullscreen()" title="Toggle Fullscreen">
+            <i class="fas fa-expand" id="fullscreen-icon"></i>
           </button>
-          <button class="game-btn btn-sell" id="btn-bar-sell" onclick="game.openSellMenu()">
-            <i class="fas fa-coins"></i> SELL
-          </button>
-          <button class="game-btn btn-mortgage" id="btn-bar-mortgage" onclick="game.openMortgageMenu()">
-            <i class="fas fa-hand-holding-dollar"></i> MORTGAGE
-          </button>
-          <button class="game-btn btn-trade" id="btn-bar-trade" onclick="game.openTradeMenu()">
-            <i class="fas fa-handshake"></i> TRADE
+          <button class="top-icon-btn btn-exit" id="btn-exit-game" onclick="game.openMenuModal()" title="Game Menu & Exit">
+            <i class="fas fa-arrow-right-from-bracket"></i>
           </button>
         </div>
+      </div>
 
-        <!-- Players Status Cards (Matching image: Avatar, Pin token, Name, Cash balance) -->
-        <div class="players-bar" id="players-panel">
+      <!-- Tier 2: Player Status Cards Row (Centered, No Overlap) -->
+      <div class="top-players-row">
+        <div class="players-hud-bar" id="players-panel">
           <!-- Rendered dynamically -->
         </div>
       </div>
+    </header>
 
-      <!-- Right Column: Game Log, Chat & Voice Controls -->
-      <div class="side-panel" id="side-panel">
-        <!-- In-game audio & voice controls -->
-        <div class="in-game-audio-bar">
-          <button class="audio-btn active" id="btn-ingame-sfx" title="Toggle Sound Effects">
-            <i class="fas fa-volume-high"></i> <span>SFX</span>
-          </button>
-          <button class="audio-btn" id="btn-ingame-music" title="Toggle Music">
-            <i class="fas fa-music"></i> <span>Music</span>
-          </button>
-          <button class="audio-btn voice-btn" id="btn-ingame-voice" title="Toggle Microphone">
-            <i class="fas fa-microphone-slash"></i> <span>Voice</span>
-          </button>
-          <button class="audio-btn active" id="btn-ingame-speaker" title="Toggle Speaker / Hear Other Players">
-            <i class="fas fa-volume-high"></i> <span>Speaker</span>
-          </button>
-        </div>
-
-        <!-- Side Panel Navigation Tabs (Log / Chat) -->
-        <div class="side-panel-tabs">
-          <button class="side-tab-btn active" id="tab-btn-log" onclick="game.switchSideTab('log')">
-            <i class="fas fa-scroll"></i> Activity Log
-          </button>
-          <button class="side-tab-btn" id="tab-btn-chat" onclick="game.switchSideTab('chat')">
-            <i class="fas fa-comments"></i> Game Chat <span class="chat-unread-count" id="chat-unread-badge" style="display:none">0</span>
-          </button>
-        </div>
-
-        <!-- Tab 1: Activity Log Panel -->
-        <div class="side-tab-panel active" id="panel-log">
-          <div class="game-log" id="game-log-panel">
-            <div class="game-log-title">
-              <span><i class="fas fa-history"></i> Live Activity</span>
-              <button class="btn-clean" onclick="game.clearLog()" title="Clear Log"><i class="fas fa-trash-alt"></i></button>
-            </div>
-            <div class="log-entries-container" id="game-log-entries"></div>
-          </div>
-
-          <!-- Quick Rules Card -->
-          <div class="quick-info-card">
-            <h4><i class="fas fa-info-circle"></i> Quick Guide</h4>
-            <ul>
-              <li>Pass <strong>GO</strong> to collect <strong>₹200</strong></li>
-              <li>Own all properties of a color to build <strong>Houses</strong></li>
-              <li>4 Houses → 1 <strong>Hotel</strong> for massive rent!</li>
-              <li>Stations rent doubles with each station owned</li>
-            </ul>
+    <!-- 3D BOARD STAGE & CAMERA RIG -->
+    <main class="board-stage" id="board-stage">
+      <div class="board-camera-rig camera-follow" id="board-camera-rig">
+        <div class="board-container" id="board-container">
+          <div class="board" id="board">
+            <!-- 40 spaces and center board rendered dynamically by JavaScript -->
           </div>
         </div>
-
-        <!-- Tab 2: Game Chat & Emotes Panel -->
-        <div class="side-tab-panel" id="panel-chat" style="display:none;">
-          <div class="game-chat-wrapper">
-            <!-- Quick Reactions Bar -->
-            <div class="chat-reactions-bar">
-              <button class="emote-btn" onclick="game.sendQuickEmote('🎲')" title="Roll Dice!">🎲</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('💰')" title="Money / Cash">💰</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('🤝')" title="Let's Trade">🤝</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('😂')" title="Laughing">😂</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('😭')" title="Crying">😭</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('🔥')" title="Fire move!">🔥</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('🏆')" title="Victory!">🏆</button>
-              <button class="emote-btn" onclick="game.sendQuickEmote('💀')" title="Bankrupt">💀</button>
-            </div>
-
-            <!-- Messages Area -->
-            <div class="chat-messages-container" id="chat-messages-container">
-              <div class="chat-system-msg">
-                <i class="fas fa-shield-halved"></i> Room chat connected. Say hello to other tycoons!
-              </div>
-            </div>
-
-            <!-- Chat Input Form -->
-            <form class="chat-input-form" id="chat-form" onsubmit="event.preventDefault(); game.sendChatMessage();">
-              <input type="text" id="chat-input" placeholder="Type a message..." maxlength="120" autocomplete="off" />
-              <button type="submit" class="btn-chat-send" title="Send Message">
-                <i class="fas fa-paper-plane"></i>
-              </button>
-            </form>
-          </div>
-        </div>
-
       </div>
+    </main>
 
+    <!-- FLOATING QUICK CHAT BAR (Bottom Right, above dock) -->
+    <div class="quick-chat-float" id="quick-chat-float">
+      <div class="quick-emote-row" id="quick-emote-row">
+        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🎲')">🎲</button>
+        <button class="quick-emote-btn" onclick="game.sendQuickEmote('💰')">💰</button>
+        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🤝')">🤝</button>
+        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🔥')">🔥</button>
+      </div>
+      <form class="quick-chat-form" id="quick-chat-form" onsubmit="event.preventDefault(); game.sendChatMessage();">
+        <input type="text" id="chat-input" placeholder="Chat..." maxlength="120" autocomplete="off" />
+        <button type="submit" class="btn-quick-send" title="Send">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>
     </div>
+
+    <!-- BOTTOM ACTION DOCK (Fixed firmly to bottom on all devices) -->
+    <!-- [TRADE, BUILD, SELL, MORTGAGE, PORTFOLIO, MENU] -->
+    <nav class="bottom-action-dock" id="bottom-action-dock">
+      <button class="dock-btn btn-dock-trade" id="dock-btn-trade" onclick="game.openTradeMenu()" title="Trade Properties">
+        <div class="dock-icon-box dock-trade-icon">
+          <i class="fas fa-arrow-right-arrow-left"></i>
+        </div>
+      </button>
+
+      <button class="dock-btn btn-dock-build" id="dock-btn-build" onclick="game.openBuildMenu()" title="Build Houses & Hotels">
+        <div class="dock-icon-box dock-build-icon">
+          <i class="fas fa-house"></i>
+          <span class="dock-mini-badge badge-green"><i class="fas fa-plus"></i></span>
+        </div>
+      </button>
+
+      <button class="dock-btn btn-dock-sell" id="dock-btn-sell" onclick="game.openSellMenu()" title="Sell Buildings">
+        <div class="dock-icon-box dock-sell-icon">
+          <i class="fas fa-house"></i>
+          <span class="dock-mini-badge badge-gold"><i class="fas fa-dollar-sign"></i></span>
+        </div>
+      </button>
+
+      <button class="dock-btn btn-dock-mortgage" id="dock-btn-mortgage" onclick="game.openMortgageMenu()" title="Mortgage Properties">
+        <div class="dock-icon-box dock-mortgage-icon">
+          <i class="fas fa-file-invoice-dollar"></i>
+        </div>
+      </button>
+
+      <button class="dock-btn btn-dock-portfolio" id="dock-btn-portfolio" onclick="game.openPortfolioMenu()" title="My Deeds Portfolio">
+        <div class="dock-icon-box dock-portfolio-icon">
+          <i class="fas fa-receipt"></i>
+        </div>
+      </button>
+
+      <button class="dock-btn btn-dock-menu" id="dock-btn-menu" onclick="game.openMenuModal()" title="Game Menu">
+        <div class="dock-icon-box dock-menu-icon">
+          <i class="fas fa-bars"></i>
+        </div>
+      </button>
+    </nav>
+
+    <!-- FLOATING REACTION CONTAINER -->
+    <div id="floating-reaction-container"></div>
   </div>
 
   <!-- ========== GAME OVER SCREEN ========== -->
