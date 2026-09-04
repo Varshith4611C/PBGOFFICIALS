@@ -109,11 +109,22 @@
       </div>
 
       <div id="lobby-waiting-section" style="display: none;">
-        <div class="room-code-display">
+        <div class="room-code-display" onclick="navigator.clipboard.writeText(document.getElementById('room-code-show').textContent); showToast('📋 Room code copied to clipboard!', 'success');" style="cursor: pointer;" title="Click to copy room code">
           <div class="code" id="room-code-show">----</div>
-          <small>Share this code with friends to join your room</small>
+          <small><i class="fas fa-copy"></i> Click to copy room code for friends</small>
         </div>
         <ul class="players-list" id="lobby-players"></ul>
+        <div class="lobby-voice-bar" id="lobby-voice-bar">
+          <div class="lobby-voice-title"><i class="fas fa-headset"></i> Voice Chat:</div>
+          <div class="lobby-voice-buttons">
+            <button type="button" class="btn btn-secondary btn-small btn-lobby-mic" id="btn-lobby-mic" onclick="voiceManager.toggleMic()" title="Toggle Microphone">
+              <i class="fas fa-microphone-slash"></i> <span>Mic Muted</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-small btn-lobby-speaker active" id="btn-lobby-speaker" onclick="voiceManager.toggleSpeaker()" title="Toggle Speaker">
+              <i class="fas fa-volume-high"></i> <span>Speaker ON</span>
+            </button>
+          </div>
+        </div>
         <div class="setup-actions">
           <button class="btn btn-secondary" id="btn-lobby-leave"><i class="fas fa-arrow-left"></i> Leave</button>
           <button class="btn btn-primary" id="btn-lobby-start" disabled><i class="fas fa-play"></i> Start Game</button>
@@ -138,6 +149,12 @@
         </div>
 
         <div class="top-right-controls">
+          <button class="top-icon-btn btn-mic muted" id="btn-top-mic" onclick="voiceManager.toggleMic()" title="Toggle Microphone (Voice Chat)">
+            <i class="fas fa-microphone-slash" id="mic-icon"></i>
+          </button>
+          <button class="top-icon-btn btn-speaker active" id="btn-top-speaker" onclick="voiceManager.toggleSpeaker()" title="Toggle Speaker (Deafen Voice)">
+            <i class="fas fa-volume-high" id="speaker-icon"></i>
+          </button>
           <button class="top-icon-btn btn-camera" id="btn-camera-toggle" onclick="game.toggleCameraView()" title="Toggle 3D Follow / Full Board Camera">
             <i class="fas fa-video" id="camera-icon"></i>
             <span class="cam-badge" id="camera-mode-badge">3D</span>
@@ -275,6 +292,13 @@
 
   <!-- Scripts -->
   <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
   <script src="sound.js"></script>
   <script src="voice.js"></script>
   <script src="data.js"></script>

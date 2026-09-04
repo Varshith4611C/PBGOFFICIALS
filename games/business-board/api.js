@@ -63,6 +63,16 @@ function initGameSocket(io) {
         return;
       }
 
+      // Re-use existing player entry if socket already registered
+      const existing = room.players.find(p => p.socketId === socket.id);
+      if (existing) {
+        if (playerName) existing.name = playerName;
+        currentRoom = roomCode;
+        playerId = existing.id;
+        socket.emit('room-joined', { roomCode, player: existing, players: room.players });
+        return;
+      }
+
       const newId = room.players.length;
       const player = {
         id: newId,
@@ -94,14 +104,20 @@ function initGameSocket(io) {
       room.started = true;
       room.currentPlayerIndex = 0;
 
-      gameNsp.to(currentRoom).emit('game-started', {
-        players: room.players.map((p, i) => ({
-          id: i,
-          socketId: p.socketId,
-          name: p.name,
-          isHost: p.isHost
-        })),
-        currentPlayerIndex: 0
+      const playersPayload = room.players.map((p, i) => ({
+        id: i,
+        socketId: p.socketId,
+        name: p.name,
+        isHost: p.isHost
+      }));
+
+      // Deliver targeted myPlayerId to each connected peer
+      room.players.forEach(p => {
+        gameNsp.to(p.socketId).emit('game-started', {
+          players: playersPayload,
+          currentPlayerIndex: 0,
+          myPlayerId: p.id
+        });
       });
     });
 
@@ -111,11 +127,24 @@ function initGameSocket(io) {
       const room = gameRooms.get(currentRoom);
       if (!room || !room.started) return;
 
-      if (action.type === 'endTurn') {
+      // Authoritative Turn Validation: only active player (or host if active player is disconnected/AI) can roll or end turn
+      if (action.type === 'roll' || action.type === 'endTurn') {
+        const currentActive = room.players[room.currentPlayerIndex];
+        const isCurrentActive = currentActive && currentActive.socketId === socket.id;
+        const isHost = room.host === socket.id;
+        const isAI = currentActive && (currentActive.isAI || currentActive.disconnected);
+
+        if (!isCurrentActive && !(isHost && isAI)) {
+          console.warn(`[MP] Blocked unauthorized ${action.type} from player ${playerId} (Active: ${room.currentPlayerIndex})`);
+          return;
+        }
+      }
+
+      if (action.type === 'endTurn' && action.nextPlayerIndex !== undefined) {
         room.currentPlayerIndex = action.nextPlayerIndex;
       }
 
-      // Broadcast to ALL sockets in the room (including sender or to others)
+      // Broadcast to ALL sockets in the room
       gameNsp.to(currentRoom).emit('remote-action', {
         ...action,
         senderId: playerId
@@ -159,6 +188,14 @@ function initGameSocket(io) {
         // Broadcast to other peers in room
         socket.to(currentRoom).emit('voice-signal', payload);
       }
+    });
+
+    socket.on('voice-status-update', (data) => {
+      if (!currentRoom) return;
+      socket.to(currentRoom).emit('voice-status-update', {
+        ...data,
+        playerId
+      });
     });
 
     // ── Disconnect & Leave ──

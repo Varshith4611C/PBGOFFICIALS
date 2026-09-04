@@ -15,14 +15,29 @@ class MultiplayerClient {
   connect() {
     if (this.socket) return;
 
-    this.socket = io('/game-business', {
-      transports: ['websocket', 'polling']
-    });
+    if (typeof io === 'undefined') {
+      console.warn('Socket.IO is not loaded.');
+      showToast('Multiplayer server unavailable. Please make sure server is running.', 'error');
+      return;
+    }
 
-    this.socket.on('connect', () => {
-      this.connected = true;
-      console.log('[MP] Connected to game server. Socket ID:', this.socket.id);
-    });
+    try {
+      this.socket = io('/game-business', {
+        transports: ['websocket', 'polling']
+      });
+
+      this.socket.on('connect', () => {
+        this.connected = true;
+        console.log('[MP] Connected to game server. Socket ID:', this.socket.id);
+      });
+
+      this.socket.on('connect_error', (err) => {
+        console.warn('Multiplayer connection error:', err);
+      });
+    } catch (e) {
+      console.error('Socket initialization error:', e);
+      return;
+    }
 
     this.socket.on('disconnect', () => {
       this.connected = false;
@@ -56,7 +71,10 @@ class MultiplayerClient {
       this.updatePlayersList(players);
     });
 
-    this.socket.on('game-started', ({ players, currentPlayerIndex }) => {
+    this.socket.on('game-started', ({ players, currentPlayerIndex, myPlayerId }) => {
+      if (myPlayerId !== undefined && myPlayerId !== null) {
+        this.playerId = myPlayerId;
+      }
       this.startMultiplayerGame(players, currentPlayerIndex);
     });
 
@@ -96,11 +114,12 @@ class MultiplayerClient {
         const player = game.players.find(p => p.id === leftId);
         if (player && !player.isBankrupt) {
           player.isAI = true;
-          player.isRemote = false;
-          player.name += ' (Bot)';
+          player.isRemote = !this.isHost;
+          player.name = player.name.replace(' (Bot)', '') + ' (Bot)';
           game.log(`🤖 <strong>${player.name}</strong> disconnected. Bot substitute activated.`);
           game.updateUI();
-          if (game.currentPlayerIndex === leftId) {
+          // In multiplayer, ONLY the room host simulates AI bot turns to prevent duplicate concurrent rolls!
+          if (this.isHost && game.currentPlayerIndex === leftId) {
             game.processAITurn();
           }
         }
@@ -172,6 +191,10 @@ class MultiplayerClient {
     const startBtn = document.getElementById('btn-lobby-start');
     startBtn.disabled = !this.isHost;
     startBtn.innerHTML = this.isHost ? '<i class="fas fa-play"></i> Start Game' : 'Waiting for host to start...';
+
+    if (typeof voiceManager !== 'undefined' && voiceManager) {
+      voiceManager.updateUI();
+    }
   }
 
   updatePlayersList(players) {
@@ -200,6 +223,7 @@ class MultiplayerClient {
 
   startMultiplayerGame(playersData, currentPlayerIndex) {
     game = new Game();
+    window.game = game;
     game.isMultiplayer = true;
     game.myPlayerId = this.playerId;
 
@@ -209,6 +233,7 @@ class MultiplayerClient {
       return {
         ...preset,
         id: i,
+        socketId: p.socketId, // PRESERVED FOR WEBRTC VOICE P2P SIGNALING!
         name: p.name,
         isAI: false, // REAL HUMAN PLAYER!
         isRemote: i !== this.playerId,
@@ -241,6 +266,12 @@ class MultiplayerClient {
     game.updateUI();
     showScreen('game-screen');
 
+    // Connect WebRTC voice chat mesh
+    if (typeof voiceManager !== 'undefined' && voiceManager) {
+      voiceManager.connectAllPeers();
+      voiceManager.updateUI();
+    }
+
     const me = game.players[this.playerId];
     game.log(`🌐 Online Multiplayer Game Started! You are <strong>${me.name}</strong> (${me.emoji}).`);
 
@@ -262,19 +293,31 @@ class MultiplayerClient {
     switch (action.type) {
       case 'roll':
         game.lastDice = action.dice;
-        await game.animateRemoteRoll(player, action.dice[0], action.dice[1], action.isDoubles);
+        await game.animateRemoteRoll(player, action.dice[0], action.dice[1], action.isDoubles, action.total);
         break;
 
       case 'buy':
         game.buyProperty(player, BOARD_SPACES[action.spaceId]);
-        game.turnPhase = 'done';
+        if (action.isDoubles && !player.inJail && !game.gameOver) {
+          game.turnPhase = 'roll';
+        } else {
+          game.turnPhase = 'done';
+        }
         game.updateUI();
         break;
 
       case 'passBuy':
         game.log(`❌ <strong>${player.name}</strong> passed on buying ${BOARD_SPACES[action.spaceId]?.name}.`);
-        game.turnPhase = 'done';
+        if (action.isDoubles && !player.inJail && !game.gameOver) {
+          game.turnPhase = 'roll';
+        } else {
+          game.turnPhase = 'done';
+        }
         game.updateUI();
+        break;
+
+      case 'drawCard':
+        game.handleRemoteCardDraw(action.deck, action.cardIndex, player);
         break;
 
       case 'build':
@@ -294,11 +337,12 @@ class MultiplayerClient {
         break;
 
       case 'payBail':
-        await game.payBailAndMove(action.diceSum);
-        break;
-
-      case 'stayJail':
-        game.stayInJail();
+        player.cash -= (action.amount || 50);
+        player.inJail = false;
+        player.jailTurns = 0;
+        sound.playCash();
+        game.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${action.amount || 50} bail to escape Jail!`);
+        game.updateUI();
         break;
 
       case 'tradeOffer':
@@ -308,7 +352,8 @@ class MultiplayerClient {
         break;
 
       case 'tradeAccepted':
-        game.executeTrade(action.fromPlayerId, action.toPlayerId, action.offeredPropIds, action.offeredCash, action.requestedPropIds, action.requestedCash, false);
+        game.executeTrade(action.fromPlayerId, action.toPlayerId, action.offeredPropIds, action.offeredCash, action.requestedPropIds, action.requestedCash);
+        showToast('Trade completed!', 'success');
         break;
 
       case 'tradeDeclined':
@@ -319,7 +364,7 @@ class MultiplayerClient {
         break;
 
       case 'endTurn':
-        game.endTurn(true); // true = remote call
+        game.endTurn(true, action.nextPlayerIndex); // true = remote call, pass authoritative nextPlayerIndex
         break;
     }
   }

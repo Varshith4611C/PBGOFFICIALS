@@ -33,8 +33,10 @@ function showModal(html) {
 
 function hideModal() {
   const overlay = document.getElementById('modal-overlay');
-  overlay.classList.add('hidden');
-  overlay.innerHTML = '';
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.innerHTML = '';
+  }
 }
 
 function showToast(msg, type = 'info') {
@@ -118,15 +120,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Window resize & orientation change
   window.addEventListener('resize', () => {
-    if (game && !game.gameOver) {
-      game.renderTokens();
-      game.updateCameraPosition(game.currentPlayer?.position || 0);
+    if (window.game && !window.game.gameOver) {
+      window.game.renderTokens();
+      window.game.updateCameraPosition(window.game.currentPlayer?.position || 0);
+    }
+  });
+
+  // Spacebar quick action (Roll / End Turn)
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !e.repeat) {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+      const modal = document.getElementById('modal-overlay');
+      if (modal && !modal.classList.contains('hidden')) return;
+
+      if (window.game && !window.game.gameOver && window.game.isMyTurn) {
+        e.preventDefault();
+        window.game.handleMainAction();
+      }
     }
   });
 });
 
 function startSinglePlayerGame(name, aiCount, difficulty) {
   game = new Game();
+  window.game = game;
   game.isMultiplayer = false;
   game.myPlayerId = 0;
 
@@ -151,6 +169,7 @@ function startSinglePlayerGame(name, aiCount, difficulty) {
 // ══════════════════════════════════════════
 class Game {
   constructor() {
+    window.game = this;
     this.players = [];
     this.properties = {};
     this.currentPlayerIndex = 0;
@@ -261,10 +280,13 @@ class Game {
       return;
     }
 
-    // Center view: focus directly on the dice and roll button in the board center
+    // Center view: focus directly on the dice and action button in the board center with clearance above dock
     if (target === 'center') {
+      const boardEl = document.getElementById('board');
+      const size = boardEl && boardEl.offsetWidth > 0 ? boardEl.offsetWidth : 380;
+      const centerPanY = -Math.round(size * 0.13); // Upward shift ~50px to center stage in visible window
       rig.style.setProperty('--cam-pan-x', '0px');
-      rig.style.setProperty('--cam-pan-y', '0px');
+      rig.style.setProperty('--cam-pan-y', `${centerPanY}px`);
       return;
     }
 
@@ -385,8 +407,10 @@ class Game {
           <div class="die-3d" id="die-1">1</div>
           <div class="die-3d" id="die-2">1</div>
         </div>
-        <button class="btn-center-roll-3d" id="btn-roll-3d" onclick="game.rollDice()">🎲 ROLL DICE</button>
-        <button class="btn-center-end-3d" id="btn-end-3d" onclick="game.endTurn()">END TURN ➡️</button>
+        <button class="btn-center-roll-3d" id="btn-roll-3d" style="display: none;" onclick="game.rollDice()">🎲 ROLL DICE</button>
+        <button class="btn-center-bail-3d" id="btn-bail-3d" style="display: none;" onclick="game.payJailBail()">🔓 PAY BAIL ₹50</button>
+        <button class="btn-center-end-3d" id="btn-end-3d" style="display: none;" onclick="game.endTurn()">END TURN ➡️</button>
+        <div class="turn-wait-badge" id="turn-wait-badge" style="display: none;"></div>
       </div>
 
       <!-- Bottom Deck: Golden Treasure Chest (Community Chest) -->
@@ -394,6 +418,32 @@ class Game {
         <span class="deck-chest-icon">📦</span>
       </div>
     `;
+
+    // Direct event listener bindings for rock-solid click responsiveness
+    const rollBtnEl = center.querySelector('#btn-roll-3d');
+    if (rollBtnEl) {
+      rollBtnEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.rollDice();
+      });
+    }
+    const endBtnEl = center.querySelector('#btn-end-3d');
+    if (endBtnEl) {
+      endBtnEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.endTurn();
+      });
+    }
+    const bailBtnEl = center.querySelector('#btn-bail-3d');
+    if (bailBtnEl) {
+      bailBtnEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.payJailBail();
+      });
+    }
 
     board.appendChild(center);
   }
@@ -411,10 +461,17 @@ class Game {
       card.className = `hud-player-card ${p.isBankrupt ? 'bankrupt' : ''}`;
       card.id = `hud-player-card-${p.id}`;
       card.style.setProperty('--card-color', p.color);
+      card.style.cursor = 'pointer';
+      card.title = `Click to inspect ${p.name}'s portfolio`;
+      card.onclick = () => this.openPortfolioMenu(p.id);
 
       const initial = p.name.charAt(0).toUpperCase();
 
       card.innerHTML = `
+        ${p.inJail ? `<div class="hud-card-jail-badge">🔒 JAIL (${p.jailTurns}/3)</div>` : ''}
+        <div class="hud-card-voice-tag" id="voice-tag-${p.id}" title="${p.isAI ? 'AI Player (No Mic)' : 'Microphone Muted'}">
+          <i class="fas ${p.isAI ? 'fa-robot' : 'fa-microphone-slash'}"></i>
+        </div>
         <div class="hud-card-header" title="${p.name}">
           ${p.name}
         </div>
@@ -444,15 +501,69 @@ class Game {
 
     const rollBtn = document.getElementById('btn-roll-3d');
     const endBtn = document.getElementById('btn-end-3d');
+    const bailBtn = document.getElementById('btn-bail-3d');
+    const waitBadge = document.getElementById('turn-wait-badge');
 
-    if (rollBtn) {
-      rollBtn.disabled = this.turnPhase !== 'roll' || !this.isMyTurn;
-      rollBtn.style.display = this.turnPhase === 'roll' ? 'block' : 'none';
-      rollBtn.textContent = this.isMyTurn ? '🎲 ROLL DICE' : `⏳ ${player.name.toUpperCase()}`;
-    }
+    if (this.isMyTurn) {
+      // ── Active Player's Turn ──
+      if (waitBadge) {
+        waitBadge.style.display = 'none';
+      }
 
-    if (endBtn) {
-      endBtn.classList.toggle('visible', this.turnPhase === 'done' && this.isMyTurn);
+      if (rollBtn) {
+        const canRoll = this.turnPhase === 'roll' || this.turnPhase === 'rolling';
+        rollBtn.style.display = canRoll ? 'flex' : 'none';
+        rollBtn.disabled = this.turnPhase !== 'roll';
+        rollBtn.textContent = this.doublesCount > 0
+          ? '🎲 ROLL AGAIN'
+          : (player.inJail ? '🎲 ROLL DOUBLES' : '🎲 ROLL DICE');
+      }
+
+      if (bailBtn) {
+        const canBail = player.inJail && this.turnPhase === 'roll' && player.cash >= JAIL_BAIL;
+        bailBtn.classList.toggle('visible', canBail);
+        bailBtn.style.display = canBail ? 'flex' : 'none';
+      }
+
+      if (endBtn) {
+        const isDone = this.turnPhase === 'done';
+        endBtn.classList.toggle('visible', isDone);
+        endBtn.style.display = isDone ? 'flex' : 'none';
+        endBtn.disabled = !isDone;
+        endBtn.textContent = 'END TURN ➡️';
+      }
+    } else {
+      // ── Observing Remote Player or AI Turn ──
+      // Completely HIDE all interactive action buttons from non-active players
+      if (rollBtn) {
+        rollBtn.style.display = 'none';
+        rollBtn.disabled = true;
+      }
+      if (bailBtn) {
+        bailBtn.classList.remove('visible');
+        bailBtn.style.display = 'none';
+      }
+      if (endBtn) {
+        endBtn.classList.remove('visible');
+        endBtn.style.display = 'none';
+        endBtn.disabled = true;
+      }
+
+      // Display non-interactive neutral status badge
+      if (waitBadge) {
+        waitBadge.style.display = 'flex';
+        if (this.turnPhase === 'roll') {
+          waitBadge.innerHTML = `⏳ Waiting for <strong>${player.name}</strong> to roll...`;
+        } else if (this.turnPhase === 'rolling') {
+          waitBadge.innerHTML = `🎲 <strong>${player.name}</strong> is rolling...`;
+        } else if (this.turnPhase === 'action') {
+          waitBadge.innerHTML = `⏳ <strong>${player.name}</strong> is deciding...`;
+        } else if (this.turnPhase === 'done') {
+          waitBadge.innerHTML = `⏳ <strong>${player.name}</strong> finishing turn...`;
+        } else {
+          waitBadge.innerHTML = `⏳ <strong>${player.name}'s</strong> turn`;
+        }
+      }
     }
 
     // Update active player highlight on Top HUD
@@ -461,6 +572,19 @@ class Game {
       if (card) {
         card.classList.toggle('active-turn', p.id === this.currentPlayerIndex);
         card.classList.toggle('bankrupt', p.isBankrupt);
+
+        // Update jail badge if present
+        let badge = card.querySelector('.hud-card-jail-badge');
+        if (p.inJail) {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'hud-card-jail-badge';
+            card.appendChild(badge);
+          }
+          badge.textContent = `🔒 JAIL (${p.jailTurns}/3)`;
+        } else if (badge) {
+          badge.remove();
+        }
       }
       const cashEl = document.getElementById(`cash-val-${p.id}`);
       if (cashEl) cashEl.textContent = `${p.cash}`;
@@ -507,11 +631,23 @@ class Game {
     // Render 3D Pawns
     this.renderTokens();
 
-    // When it's roll phase and player's turn, center camera on dice and roll button
-    if (this.turnPhase === 'roll' && this.isMyTurn) {
+    // Center camera on the inside-board dice and action buttons whenever it's the player's turn to roll or end turn
+    if (this.isMyTurn && (this.turnPhase === 'roll' || this.turnPhase === 'rolling' || this.turnPhase === 'done')) {
       this.updateCameraPosition('center');
     } else {
       this.updateCameraPosition(player.position);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // SPACEBAR & QUICK ACTION DISPATCHER
+  // ══════════════════════════════════════════
+  handleMainAction() {
+    if (this.gameOver || !this.isMyTurn) return;
+    if (this.turnPhase === 'roll') {
+      this.rollDice();
+    } else if (this.turnPhase === 'done') {
+      this.endTurn();
     }
   }
 
@@ -536,10 +672,10 @@ class Game {
 
       playersAtPos.forEach(p => {
         const token = document.createElement('div');
-        token.className = `player-token ${p.id === this.currentPlayerIndex ? 'active-token' : ''}`;
+        token.className = `player-token ${p.id === this.currentPlayerIndex ? 'active-token' : ''} ${p.inJail ? 'token-in-jail' : ''}`;
         token.style.color = p.color;
         token.innerHTML = `<i class="fa-solid ${p.tokenIcon || 'fa-chess-pawn'}"></i>`;
-        token.title = `${p.name}`;
+        token.title = `${p.name}${p.inJail ? ' (In Jail)' : ''}`;
         cont.appendChild(token);
       });
     });
@@ -550,8 +686,20 @@ class Game {
   // ══════════════════════════════════════════
   async rollDice() {
     const player = this.currentPlayer;
-    if (this.turnPhase !== 'roll' || this.gameOver || (!this.isMyTurn && !player.isAI)) return;
+    const isLocalAI = player.isAI && (!this.isMultiplayer || (mpClient && mpClient.isHost));
+    if (this.turnPhase !== 'roll' || this.gameOver || (!this.isMyTurn && !isLocalAI)) return;
     this.turnPhase = 'rolling';
+
+    // If AI in jail, check if AI wants to pay bail
+    if (player.inJail && player.isAI && this.ai && this.ai.shouldPayBail(player, this)) {
+      player.cash -= JAIL_BAIL;
+      player.inJail = false;
+      player.jailTurns = 0;
+      sound.playCash();
+      this.showCashFloat(player, -JAIL_BAIL);
+      this.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${JAIL_BAIL} bail and left Jail!`);
+      this.updateUI();
+    }
 
     // Focus camera directly on dice while rolling
     this.updateCameraPosition('center');
@@ -575,6 +723,7 @@ class Game {
     if (die2) { die2.textContent = d2; die2.classList.remove('rolling'); }
 
     const isDoubles = d1 === d2;
+    this._lastRollDoubles = isDoubles;
     const total = d1 + d2;
     this.log(`🎲 <strong>${player.name}</strong> rolled <strong>${d1} + ${d2} = ${total}</strong>${isDoubles ? ' (Doubles! 🎉)' : ''}`);
 
@@ -598,7 +747,9 @@ class Game {
         this.sendToJail(player);
         this.turnPhase = 'done';
         this.updateUI();
-        if (player.isAI) await this.aiEndTurn();
+        if (player.isAI) {
+          await this.aiEndTurn();
+        }
         return;
       }
     } else {
@@ -606,7 +757,7 @@ class Game {
     }
 
     // Camera now transitions smoothly to follow the active pawn hopping across the board
-    await this.stepMovePlayer(player, total);
+    await this.stepMovePlayer(player, total, this.isMyTurn);
 
     // If doubles and not in jail, player rolls again
     if (isDoubles && !player.inJail && !this.gameOver) {
@@ -614,6 +765,13 @@ class Game {
       this.turnPhase = 'roll';
       this.updateUI();
       if (player.isAI) await this.processAITurn();
+    } else if (this.turnPhase !== 'action' && !this.gameOver) {
+      this.turnPhase = 'done';
+      this.updateUI();
+      if (player.isAI) {
+        await this.aiBuildPhase(player);
+        await this.aiEndTurn();
+      }
     }
   }
 
@@ -625,8 +783,8 @@ class Game {
       player.position = (player.position + 1) % 40;
       sound.playTokenStep();
 
-      // Collect GO salary if passed
-      if (player.position === 0) {
+      // Collect GO salary if passed (only if not stopping on GO, since landing on GO handles salary)
+      if (player.position === 0 && s < steps) {
         player.cash += GO_SALARY;
         sound.playPassGo();
         this.log(`💵 <strong>${player.name}</strong> passed GO and collected ${CURRENCY} ${GO_SALARY}!`);
@@ -635,7 +793,7 @@ class Game {
 
       this.renderTokens();
       this.updateCameraPosition(player.position);
-      await delay(220);
+      await delay(200);
     }
 
     this.updateUI();
@@ -646,7 +804,7 @@ class Game {
   async moveToPosition(player, targetPos, collectGo = true, isLocalTurn = true) {
     const oldPos = player.position;
 
-    if (collectGo && targetPos < oldPos && targetPos !== JAIL_POSITION) {
+    if (collectGo && targetPos < oldPos && targetPos !== JAIL_POSITION && targetPos !== 0) {
       player.cash += GO_SALARY;
       this.log(`💵 <strong>${player.name}</strong> passed GO and collected ${CURRENCY} ${GO_SALARY}!`);
       this.showCashFloat(player, GO_SALARY);
@@ -690,12 +848,9 @@ class Game {
         } else {
           this.log(`❌ <strong>${player.name}</strong> chose not to buy ${space.name}.`);
         }
-        this.turnPhase = 'done';
         this.updateUI();
-        await this.aiBuildPhase(player);
-        await this.aiEndTurn();
       } else if (this.isMyTurn && isLocalTurn) {
-        this.showBuyModal(player, space);
+        await this.showBuyModal(player, space);
       } else {
         this.turnPhase = 'action';
         this.updateUI();
@@ -707,17 +862,10 @@ class Game {
         const rent = this.calculatePropertyRent(space, prop);
         this.payRent(player, this.players[prop.owner], rent, space.name);
       }
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) await this.aiEndTurn();
     } else {
       this.log(`🏠 <strong>${player.name}</strong> visits their own property ${space.name}.`);
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) {
-        await this.aiBuildPhase(player);
-        await this.aiEndTurn();
-      }
     }
   }
 
@@ -730,11 +878,9 @@ class Game {
         const wantBuy = this.ai.shouldBuy(player, space, this);
         if (wantBuy) this.buyProperty(player, space);
         else this.log(`❌ <strong>${player.name}</strong> passed on ${space.name}.`);
-        this.turnPhase = 'done';
         this.updateUI();
-        await this.aiEndTurn();
       } else if (this.isMyTurn && isLocalTurn) {
-        this.showBuyModal(player, space);
+        await this.showBuyModal(player, space);
       } else {
         this.turnPhase = 'action';
         this.updateUI();
@@ -745,13 +891,9 @@ class Game {
         const rent = STATION_RENT[stationsOwned];
         this.payRent(player, this.players[prop.owner], rent, space.name);
       }
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) await this.aiEndTurn();
     } else {
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) await this.aiEndTurn();
     }
   }
 
@@ -764,11 +906,9 @@ class Game {
         const wantBuy = this.ai.shouldBuy(player, space, this);
         if (wantBuy) this.buyProperty(player, space);
         else this.log(`❌ <strong>${player.name}</strong> passed on ${space.name}.`);
-        this.turnPhase = 'done';
         this.updateUI();
-        await this.aiEndTurn();
       } else if (this.isMyTurn && isLocalTurn) {
-        this.showBuyModal(player, space);
+        await this.showBuyModal(player, space);
       } else {
         this.turnPhase = 'action';
         this.updateUI();
@@ -782,13 +922,9 @@ class Game {
         this.log(`⚡ Utility rent: ${diceSum} (dice) × ${mult} = ${CURRENCY} ${rent}`);
         this.payRent(player, this.players[prop.owner], rent, space.name);
       }
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) await this.aiEndTurn();
     } else {
-      this.turnPhase = 'done';
       this.updateUI();
-      if (player.isAI) await this.aiEndTurn();
     }
   }
 
@@ -796,84 +932,117 @@ class Game {
   showBuyModal(player, space) {
     sound.playCardDraw();
     this.turnPhase = 'action';
+    this.updateUI();
 
-    const canAfford = player.cash >= space.price;
-    const isStation = space.type === 'station';
-    const isUtility = space.type === 'utility';
+    return new Promise(resolve => {
+      this._buyResolve = resolve;
 
-    let rentHtml = '';
-    if (isStation) {
-      rentHtml = `
-        <div class="buy-card-rent-table">
-          <div><strong>RENT</strong></div>
-          <div>With 1 station: ₹25</div>
-          <div>With 2 stations: ₹50</div>
-          <div>With 3 stations: ₹100</div>
-          <div>With 4 stations: ₹200</div>
-          <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
-        </div>
-      `;
-    } else if (isUtility) {
-      rentHtml = `
-        <div class="buy-card-rent-table">
-          <div><strong>RENT</strong></div>
-          <div>1 Utility: 4× Dice</div>
-          <div>2 Utilities: 10× Dice</div>
-          <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
-        </div>
-      `;
-    } else if (space.rent) {
-      rentHtml = `
-        <div class="buy-card-rent-table">
-          <div><strong>RENT</strong></div>
-          <div>Site only: ₹${space.rent[0]}</div>
-          <div>With 1 House: ₹${space.rent[1]}</div>
-          <div>With 2 Houses: ₹${space.rent[2]}</div>
-          <div>With Hotel: ₹${space.rent[5]}</div>
-          <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
-        </div>
-      `;
-    }
+      const canAfford = player.cash >= space.price;
+      const isStation = space.type === 'station';
+      const isUtility = space.type === 'utility';
 
-    const modalHtml = `
-      <div class="buy-modal-popup" id="buy-modal-popup">
-        <div class="buy-modal-header">
-          FOR SALE - ${CURRENCY} ${space.price}
-        </div>
-        <div class="buy-modal-body">
-          <div class="buy-card-preview">
-            <div class="buy-card-title">${space.name}</div>
-            <div style="font-size:1.4rem; margin:2px 0;">${space.icon}</div>
-            ${rentHtml}
+      let rentHtml = '';
+      if (isStation) {
+        rentHtml = `
+          <div class="buy-card-rent-table">
+            <div><strong>RENT</strong></div>
+            <div>With 1 station: ₹25</div>
+            <div>With 2 stations: ₹50</div>
+            <div>With 3 stations: ₹100</div>
+            <div>With 4 stations: ₹200</div>
+            <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
           </div>
-          <div class="buy-modal-actions">
-            <button class="btn-buy-confirm" ${!canAfford ? 'disabled' : ''} onclick="game.confirmBuyProperty(${space.id})">
-              <i class="fas fa-plus"></i> BUY FOR ${CURRENCY} ${space.price}
-            </button>
-            <button class="btn-buy-pass" onclick="game.passBuyProperty(${space.id})">
-              <i class="fas fa-gavel"></i> PASS / AUCTION
-            </button>
+        `;
+      } else if (isUtility) {
+        rentHtml = `
+          <div class="buy-card-rent-table">
+            <div><strong>RENT</strong></div>
+            <div>1 Utility: 4× Dice</div>
+            <div>2 Utilities: 10× Dice</div>
+            <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
+          </div>
+        `;
+      } else if (space.rent) {
+        rentHtml = `
+          <div class="buy-card-rent-table">
+            <div><strong>RENT</strong></div>
+            <div>Site only: ₹${space.rent[0]}</div>
+            <div>With 1 House: ₹${space.rent[1]}</div>
+            <div>With 2 Houses: ₹${space.rent[2]}</div>
+            <div>With Hotel: ₹${space.rent[5]}</div>
+            <div style="margin-top:2px; font-size:0.62rem; color:#64748b;">Mortgage value ₹${space.price / 2}</div>
+          </div>
+        `;
+      }
+
+      const modalHtml = `
+        <div class="buy-modal-popup" id="buy-modal-popup">
+          <div class="buy-modal-header">
+            FOR SALE - ${CURRENCY} ${space.price}
+          </div>
+          <div class="buy-modal-body">
+            <div class="buy-card-preview">
+              <div class="buy-card-title">${space.name}</div>
+              <div style="font-size:1.4rem; margin:2px 0;">${space.icon}</div>
+              ${rentHtml}
+            </div>
+            <div class="buy-modal-actions">
+              <button class="btn-buy-confirm" ${!canAfford ? 'disabled' : ''} onclick="game.confirmBuyProperty(${space.id})">
+                <i class="fas fa-plus"></i> BUY FOR ${CURRENCY} ${space.price}
+              </button>
+              <button class="btn-buy-pass" onclick="game.passBuyProperty(${space.id})">
+                <i class="fas fa-gavel"></i> PASS / AUCTION
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
 
-    showModal(modalHtml);
+      showModal(modalHtml);
+    });
   }
 
   confirmBuyProperty(spaceId) {
+    if (!this.isMyTurn) return;
     hideModal();
     const space = BOARD_SPACES[spaceId];
     this.buyProperty(this.currentPlayer, space);
-    this.turnPhase = 'done';
+
+    if (this._lastRollDoubles && !this.currentPlayer.inJail && !this.gameOver) {
+      this.log(`🎯 <strong>${this.currentPlayer.name}</strong> gets another roll for doubles!`);
+      this.turnPhase = 'roll';
+    } else {
+      this.turnPhase = 'done';
+    }
     this.updateUI();
+
+    if (this._buyResolve) {
+      this._buyResolve();
+      this._buyResolve = null;
+    }
   }
 
   passBuyProperty(spaceId) {
+    if (!this.isMyTurn) return;
     hideModal();
     this.log(`❌ <strong>${this.currentPlayer.name}</strong> passed on buying ${BOARD_SPACES[spaceId].name}.`);
-    this.turnPhase = 'done';
+
+    if (this.isMultiplayer && mpClient && this.isMyTurn) {
+      mpClient.sendAction({ type: 'passBuy', spaceId, isDoubles: !!this._lastRollDoubles });
+    }
+
+    if (this._lastRollDoubles && !this.currentPlayer.inJail && !this.gameOver) {
+      this.log(`🎯 <strong>${this.currentPlayer.name}</strong> gets another roll for doubles!`);
+      this.turnPhase = 'roll';
+    } else {
+      this.turnPhase = 'done';
+    }
     this.updateUI();
+
+    if (this._buyResolve) {
+      this._buyResolve();
+      this._buyResolve = null;
+    }
   }
 
   buyProperty(player, space) {
@@ -885,7 +1054,7 @@ class Game {
     this.log(`🏰 <strong>${player.name}</strong> bought <strong>${space.name}</strong> for ${CURRENCY} ${space.price}!`);
 
     if (this.isMultiplayer && mpClient && this.isMyTurn) {
-      mpClient.sendAction({ type: 'buy', spaceId: space.id });
+      mpClient.sendAction({ type: 'buy', spaceId: space.id, isDoubles: !!this._lastRollDoubles });
     }
 
     this.updateUI();
@@ -921,24 +1090,54 @@ class Game {
 
   // ── Chance Space ──
   async handleChance(player, isLocalTurn = true) {
-    const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
-    if (this.isMyTurn || !this.isMultiplayer) {
-      await this.showCardModal(card, 'chance');
+    let cardIndex;
+    if (this.isMyTurn) {
+      cardIndex = Math.floor(Math.random() * CHANCE_CARDS.length);
+      if (this.isMultiplayer && mpClient) {
+        mpClient.sendAction({ type: 'drawCard', deck: 'chance', cardIndex });
+      }
+    } else if (this._pendingRemoteCard && this._pendingRemoteCard.deck === 'chance') {
+      cardIndex = this._pendingRemoteCard.cardIndex;
+      this._pendingRemoteCard = null;
+    } else {
+      cardIndex = Math.floor(Math.random() * CHANCE_CARDS.length);
     }
-    await this.executeCardAction(player, card);
+
+    const card = CHANCE_CARDS[cardIndex];
+    if (this.isMyTurn || !this.isMultiplayer) {
+      await this.showCardModal(card, 'chance', player.isAI);
+    } else if (this.isMultiplayer) {
+      await this.showCardModal(card, 'chance', true);
+    }
+    await this.executeCardAction(player, card, isLocalTurn);
   }
 
   // ── Community Chest Space ──
   async handleCommunity(player, isLocalTurn = true) {
-    const card = COMMUNITY_CHEST_CARDS[Math.floor(Math.random() * COMMUNITY_CHEST_CARDS.length)];
-    if (this.isMyTurn || !this.isMultiplayer) {
-      await this.showCardModal(card, 'community');
+    let cardIndex;
+    if (this.isMyTurn) {
+      cardIndex = Math.floor(Math.random() * COMMUNITY_CHEST_CARDS.length);
+      if (this.isMultiplayer && mpClient) {
+        mpClient.sendAction({ type: 'drawCard', deck: 'community', cardIndex });
+      }
+    } else if (this._pendingRemoteCard && this._pendingRemoteCard.deck === 'community') {
+      cardIndex = this._pendingRemoteCard.cardIndex;
+      this._pendingRemoteCard = null;
+    } else {
+      cardIndex = Math.floor(Math.random() * COMMUNITY_CHEST_CARDS.length);
     }
-    await this.executeCardAction(player, card);
+
+    const card = COMMUNITY_CHEST_CARDS[cardIndex];
+    if (this.isMyTurn || !this.isMultiplayer) {
+      await this.showCardModal(card, 'community', player.isAI);
+    } else if (this.isMultiplayer) {
+      await this.showCardModal(card, 'community', true);
+    }
+    await this.executeCardAction(player, card, isLocalTurn);
   }
 
   // ── Card Action Execution ──
-  async executeCardAction(player, card) {
+  async executeCardAction(player, card, isLocalTurn = true) {
     switch (card.action) {
       case 'collect':
         player.cash += card.amount;
@@ -953,7 +1152,7 @@ class Game {
         break;
 
       case 'goto':
-        await this.moveToPosition(player, card.target, true);
+        await this.moveToPosition(player, card.target, true, isLocalTurn);
         return;
 
       case 'jail':
@@ -964,7 +1163,7 @@ class Game {
         player.position = (player.position - card.spaces + 40) % 40;
         this.updateUI();
         await delay(300);
-        await this.landOnSpace(player, player.position);
+        await this.landOnSpace(player, player.position, isLocalTurn);
         return;
 
       case 'payAll':
@@ -994,7 +1193,7 @@ class Game {
       case 'nearestStation':
         const stations = [5, 15, 25, 35];
         const nextStation = stations.find(s => s > player.position) ?? stations[0];
-        await this.moveToPosition(player, nextStation, true);
+        await this.moveToPosition(player, nextStation, true, isLocalTurn);
         return;
 
       case 'repairs':
@@ -1012,9 +1211,7 @@ class Game {
     }
 
     this.checkBankruptcy(player);
-    this.turnPhase = 'done';
     this.updateUI();
-    if (player.isAI) await this.aiEndTurn();
   }
 
   // ── Tax Space ──
@@ -1023,9 +1220,7 @@ class Game {
     this.showCashFloat(player, -space.amount);
     this.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${space.amount} for ${space.name}`);
     this.checkBankruptcy(player);
-    this.turnPhase = 'done';
     this.updateUI();
-    if (player.isAI) await this.aiEndTurn();
   }
 
   // ── Corner Space ──
@@ -1038,9 +1233,7 @@ class Game {
       this.showCashFloat(player, GO_SALARY);
       this.log(`💵 <strong>${player.name}</strong> landed directly on GO — Collected ${CURRENCY} ${GO_SALARY}`);
     }
-    this.turnPhase = 'done';
     this.updateUI();
-    if (player.isAI) await this.aiEndTurn();
   }
 
   // ══════════════════════════════════════════
@@ -1062,7 +1255,15 @@ class Game {
       this.doublesCount = 0;
       sound.playPassGo();
       this.log(`🔓 <strong>${player.name}</strong> rolled doubles and escaped Jail!`);
-      await this.stepMovePlayer(player, d1 + d2);
+      await this.stepMovePlayer(player, d1 + d2, this.isMyTurn);
+      if (this.turnPhase !== 'action' && !this.gameOver) {
+        this.turnPhase = 'done';
+        this.updateUI();
+        if (player.isAI) {
+          await this.aiBuildPhase(player);
+          await this.aiEndTurn();
+        }
+      }
     } else {
       player.jailTurns++;
       if (player.jailTurns >= MAX_JAIL_TURNS) {
@@ -1072,12 +1273,23 @@ class Game {
         sound.playCash();
         this.showCashFloat(player, -JAIL_BAIL);
         this.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${JAIL_BAIL} bail after 3 turns in jail.`);
-        await this.stepMovePlayer(player, d1 + d2);
+        this.checkBankruptcy(player);
+        await this.stepMovePlayer(player, d1 + d2, this.isMyTurn);
+        if (this.turnPhase !== 'action' && !this.gameOver) {
+          this.turnPhase = 'done';
+          this.updateUI();
+          if (player.isAI) {
+            await this.aiBuildPhase(player);
+            await this.aiEndTurn();
+          }
+        }
       } else {
         this.log(`🔒 <strong>${player.name}</strong> remains in Jail. (Turn ${player.jailTurns}/${MAX_JAIL_TURNS})`);
         this.turnPhase = 'done';
         this.updateUI();
-        if (player.isAI) await this.aiEndTurn();
+        if (player.isAI) {
+          await this.aiEndTurn();
+        }
       }
     }
   }
@@ -1255,10 +1467,11 @@ class Game {
 
     const refund = Math.floor(group.buildCost / 2);
     prop.houses--;
-    this.currentPlayer.cash += refund;
+    const owner = this.players[prop.owner] || this.currentPlayer;
+    owner.cash += refund;
     sound.playCash();
-    this.showCashFloat(this.currentPlayer, refund);
-    this.log(`🏠 <strong>${this.currentPlayer.name}</strong> sold a building on ${space.name} for +${CURRENCY} ${refund}`);
+    this.showCashFloat(owner, refund);
+    this.log(`🏠 <strong>${owner.name}</strong> sold a building on ${space.name} for +${CURRENCY} ${refund}`);
 
     if (this.isMultiplayer && mpClient && this.isMyTurn) {
       mpClient.sendAction({ type: 'sell', spaceId });
@@ -1339,10 +1552,11 @@ class Game {
 
     const val = Math.floor(space.price / 2);
     prop.mortgaged = true;
-    this.currentPlayer.cash += val;
+    const owner = this.players[prop.owner] || this.currentPlayer;
+    owner.cash += val;
     sound.playCash();
-    this.showCashFloat(this.currentPlayer, val);
-    this.log(`🏦 <strong>${this.currentPlayer.name}</strong> mortgaged ${space.name} for +${CURRENCY} ${val}`);
+    this.showCashFloat(owner, val);
+    this.log(`🏦 <strong>${owner.name}</strong> mortgaged ${space.name} for +${CURRENCY} ${val}`);
 
     if (this.isMultiplayer && mpClient && this.isMyTurn) {
       mpClient.sendAction({ type: 'mortgage', spaceId });
@@ -1357,16 +1571,17 @@ class Game {
     if (!prop || !prop.mortgaged) return;
 
     const cost = Math.floor((space.price / 2) * 1.1);
-    if (this.currentPlayer.cash < cost) {
+    const owner = this.players[prop.owner] || this.currentPlayer;
+    if (owner.cash < cost) {
       showToast('Not enough cash to unmortgage!', 'error');
       return;
     }
 
-    this.currentPlayer.cash -= cost;
+    owner.cash -= cost;
     prop.mortgaged = false;
     sound.playCash();
-    this.showCashFloat(this.currentPlayer, -cost);
-    this.log(`🏦 <strong>${this.currentPlayer.name}</strong> unmortgaged ${space.name} for -${CURRENCY} ${cost}`);
+    this.showCashFloat(owner, -cost);
+    this.log(`🏦 <strong>${owner.name}</strong> unmortgaged ${space.name} for -${CURRENCY} ${cost}`);
 
     if (this.isMultiplayer && mpClient && this.isMyTurn) {
       mpClient.sendAction({ type: 'unmortgage', spaceId });
@@ -1378,9 +1593,13 @@ class Game {
   // ══════════════════════════════════════════
   // PORTFOLIO / DEED BROWSER
   // ══════════════════════════════════════════
-  openPortfolioMenu() {
+  openPortfolioMenu(selectedPlayerId = null) {
     sound.playClick();
-    const player = this.currentPlayer;
+    let targetId = selectedPlayerId;
+    if (targetId === null) {
+      targetId = this.isMultiplayer ? (this.myPlayerId ?? 0) : 0;
+    }
+    const player = this.players[targetId] || this.currentPlayer;
     const owned = [];
 
     Object.entries(this.properties).forEach(([id, prop]) => {
@@ -1389,36 +1608,48 @@ class Game {
       }
     });
 
-    if (owned.length === 0) {
-      showToast(`${player.name} does not own any properties yet!`, 'info');
-      return;
-    }
+    const playerTabsHtml = this.players.filter(p => !p.isBankrupt).map(p => `
+      <button class="btn btn-small ${p.id === player.id ? 'btn-primary' : 'btn-secondary'}"
+              style="padding:3px 8px; font-size:0.7rem;"
+              onclick="game.openPortfolioMenu(${p.id})">
+        ${p.emoji} ${p.name}
+      </button>
+    `).join(' ');
 
-    const itemsHtml = owned.map(o => {
-      const space = o.space;
-      const groupColor = space.group ? COLOR_GROUPS[space.group]?.color : '#1e40af';
-      const statusLabel = o.prop.mortgaged ? ' (Mortgaged)' : (o.prop.houses === 5 ? ' (Hotel 🏨)' : (o.prop.houses > 0 ? ` (${o.prop.houses} Houses 🏠)` : ''));
+    const itemsHtml = owned.length === 0
+      ? `<div style="padding:16px; text-align:center; color:#94a3b8; font-size:0.8rem;">No properties owned yet.</div>`
+      : owned.map(o => {
+        const space = o.space;
+        const groupColor = space.group ? COLOR_GROUPS[space.group]?.color : '#1e40af';
+        const statusLabel = o.prop.mortgaged ? ' (Mortgaged)' : (o.prop.houses === 5 ? ' (Hotel 🏨)' : (o.prop.houses > 0 ? ` (${o.prop.houses} Houses 🏠)` : ''));
 
-      return `
-        <div class="deed-rent-row" style="padding:8px 6px; cursor:pointer; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:6px;"
-             onclick="game.showSpaceInfo(${o.id})">
-          <span>
-            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${groupColor};margin-right:6px"></span>
-            <strong>${space.name}</strong>${statusLabel}
-          </span>
-          <span style="font-weight:800; color:#0284c7;">${CURRENCY} ${space.price}</span>
-        </div>
-      `;
-    }).join('');
+        return `
+          <div class="deed-rent-row" style="padding:8px 6px; cursor:pointer; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:6px;"
+               onclick="game.showSpaceInfo(${o.id})">
+            <span>
+              <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${groupColor};margin-right:6px"></span>
+              <strong>${space.name}</strong>${statusLabel}
+            </span>
+            <span style="font-weight:800; color:#0284c7;">${CURRENCY} ${space.price}</span>
+          </div>
+        `;
+      }).join('');
 
     showModal(`
-      <div class="title-deed-card" style="max-width:360px;">
+      <div class="title-deed-card" style="max-width:380px;">
         <div class="deed-header" style="--deed-color: #0284c7;">
           <div class="deed-header-sub">PROPERTY PORTFOLIO</div>
           <div class="deed-header-title">${player.name}'s Deeds (${owned.length})</div>
         </div>
         <div class="deed-body">
-          <div style="max-height:240px; overflow-y:auto; margin-bottom:12px;">
+          <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px; justify-content:center;">
+            ${playerTabsHtml}
+          </div>
+          <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; display:flex; justify-content:space-between;">
+            <span>Cash: <strong style="color:#16a34a">${CURRENCY} ${player.cash}</strong></span>
+            <span>Properties: <strong>${owned.length}</strong></span>
+          </div>
+          <div style="max-height:220px; overflow-y:auto; margin-bottom:12px;">
             ${itemsHtml}
           </div>
           <div class="deed-actions">
@@ -1574,14 +1805,42 @@ class Game {
     if (partner.isAI) {
       showToast(`Proposing trade to ${partner.name}...`, 'info');
       await delay(1000);
-      const accepted = this.ai.evaluateTradeOffer(partner, player, Array.from(this._tradeOffer.myProps), this._tradeOffer.myCash, Array.from(this._tradeOffer.partnerProps), this._tradeOffer.partnerCash, this);
+      // NOTE: player is proposer, partner is aiPlayer
+      const accepted = this.ai.evaluateTradeOffer(
+        player,
+        partner,
+        Array.from(this._tradeOffer.myProps),
+        this._tradeOffer.myCash,
+        Array.from(this._tradeOffer.partnerProps),
+        this._tradeOffer.partnerCash,
+        this
+      );
       if (accepted) {
-        this.executeTrade(player.id, partner.id, Array.from(this._tradeOffer.myProps), this._tradeOffer.myCash, Array.from(this._tradeOffer.partnerProps), this._tradeOffer.partnerCash);
+        this.executeTrade(
+          player.id,
+          partner.id,
+          Array.from(this._tradeOffer.myProps),
+          this._tradeOffer.myCash,
+          Array.from(this._tradeOffer.partnerProps),
+          this._tradeOffer.partnerCash
+        );
         showToast(`Trade Accepted by ${partner.name}! 🎉`, 'success');
       } else {
         showToast(`${partner.name} declined your trade proposal.`, 'warning');
         this.log(`❌ <strong>${partner.name}</strong> declined trade proposal from <strong>${player.name}</strong>.`);
       }
+    } else if (this.isMultiplayer && mpClient) {
+      mpClient.sendAction({
+        type: 'tradeOffer',
+        fromPlayerId: player.id,
+        toPlayerId: partner.id,
+        offeredProps: Array.from(this._tradeOffer.myProps),
+        offeredCash: this._tradeOffer.myCash,
+        requestedProps: Array.from(this._tradeOffer.partnerProps),
+        requestedCash: this._tradeOffer.partnerCash
+      });
+      showToast(`Trade proposal sent to ${partner.name}!`, 'info');
+      this.log(`🤝 <strong>${player.name}</strong> sent trade proposal to <strong>${partner.name}</strong>.`);
     }
   }
 
@@ -1696,11 +1955,18 @@ class Game {
   // ══════════════════════════════════════════
   // TURN MANAGEMENT
   // ══════════════════════════════════════════
-  endTurn(fromRemote = false) {
+  endTurn(fromRemote = false, remoteNextPlayerIndex = null) {
     if (this.gameOver) return;
+    const player = this.currentPlayer;
+    const isLocalAI = player.isAI && (!this.isMultiplayer || (mpClient && mpClient.isHost));
+    if (!fromRemote && !this.isMyTurn && !isLocalAI) return;
+
     this.doublesCount = 0;
 
-    let next = (this.currentPlayerIndex + 1) % this.players.length;
+    let next = (remoteNextPlayerIndex !== null && remoteNextPlayerIndex !== undefined)
+      ? remoteNextPlayerIndex
+      : (this.currentPlayerIndex + 1) % this.players.length;
+
     let tries = 0;
     while (this.players[next].isBankrupt && tries < this.players.length) {
       next = (next + 1) % this.players.length;
@@ -1723,17 +1989,66 @@ class Game {
     this.updateUI();
 
     if (this.currentPlayer.isAI) {
-      this.processAITurn();
-    } else if (this.isMultiplayer && this.isMyTurn) {
+      // In multiplayer, ONLY the room host simulates AI bot turns to prevent duplicate concurrent rolls!
+      if (!this.isMultiplayer || (mpClient && mpClient.isHost)) {
+        this.processAITurn();
+      }
+    } else if (this.isMyTurn) {
       sound.playPassGo();
-      showToast("It's your turn!", 'success');
+      showToast("It's your turn! Roll the dice 🎲", 'success');
+      this.updateCameraPosition('center');
+    } else if (this.isMultiplayer) {
+      showToast(`It's ${this.currentPlayer.name}'s turn 🎲`, 'info');
+      this.updateCameraPosition('center');
     }
   }
 
   // ══════════════════════════════════════════
   // BANKRUPTCY & VICTORY
   // ══════════════════════════════════════════
+  resolveDeficit(player) {
+    if (player.cash >= 0) return;
+
+    // First: Sell houses/hotels across owned properties
+    for (const [id, prop] of Object.entries(this.properties)) {
+      if (prop.owner === player.id && prop.houses > 0) {
+        const space = BOARD_SPACES[id];
+        const group = COLOR_GROUPS[space.group];
+        const refundPerHouse = Math.floor((group?.buildCost || 50) / 2);
+
+        while (prop.houses > 0 && player.cash < 0) {
+          prop.houses--;
+          player.cash += refundPerHouse;
+          this.showCashFloat(player, refundPerHouse);
+          this.log(`⚠️ <strong>${player.name}</strong> liquidated a building on ${space.name} to cover debt (+${CURRENCY} ${refundPerHouse})`);
+        }
+        if (player.cash >= 0) break;
+      }
+    }
+
+    // Second: Mortgage unmortgaged properties
+    if (player.cash < 0) {
+      for (const [id, prop] of Object.entries(this.properties)) {
+        if (prop.owner === player.id && !prop.mortgaged && prop.houses === 0) {
+          const space = BOARD_SPACES[id];
+          const mortgageVal = Math.floor(space.price / 2);
+
+          prop.mortgaged = true;
+          player.cash += mortgageVal;
+          this.showCashFloat(player, mortgageVal);
+          this.log(`🏦 <strong>${player.name}</strong> mortgaged ${space.name} to pay debts (+${CURRENCY} ${mortgageVal})`);
+
+          if (player.cash >= 0) break;
+        }
+      }
+    }
+  }
+
   checkBankruptcy(player) {
+    if (player.cash < 0) {
+      this.resolveDeficit(player);
+    }
+
     if (player.cash < 0) {
       player.isBankrupt = true;
       player.cash = 0;
@@ -1748,8 +2063,16 @@ class Game {
         }
       });
 
+      this.updateUI();
+
       if (this.activePlayers.length <= 1) {
         this.declareWinner();
+        return;
+      }
+
+      // If current player went bankrupt, transition turn cleanly after a short pause
+      if (this.currentPlayer.id === player.id && !this.gameOver) {
+        setTimeout(() => this.endTurn(), 1200);
       }
     }
   }
@@ -1786,7 +2109,7 @@ class Game {
   // ══════════════════════════════════════════
   // CARD REVEAL MODAL
   // ══════════════════════════════════════════
-  showCardModal(card, type) {
+  showCardModal(card, type, isAI = false) {
     sound.playCardDraw();
     return new Promise(resolve => {
       const isChance = type === 'chance';
@@ -1799,6 +2122,12 @@ class Game {
         </div>
       `);
       this._cardResolve = resolve;
+
+      if (isAI) {
+        setTimeout(() => {
+          this.closeCardModal();
+        }, 2200);
+      }
     });
   }
 
@@ -1944,5 +2273,207 @@ class Game {
     el.style.top = `${rect.top}px`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 2000);
+  }
+
+  // ══════════════════════════════════════════
+  // JAIL BAIL & MULTIPLAYER ACTIONS
+  // ══════════════════════════════════════════
+  payJailBail() {
+    const player = this.currentPlayer;
+    if (!player.inJail || player.cash < JAIL_BAIL || !this.isMyTurn || this.turnPhase !== 'roll') return;
+
+    player.cash -= JAIL_BAIL;
+    player.inJail = false;
+    player.jailTurns = 0;
+    sound.playCash();
+    this.showCashFloat(player, -JAIL_BAIL);
+    this.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${JAIL_BAIL} bail and walked out of Jail!`);
+    showToast(`Paid ${CURRENCY} ${JAIL_BAIL} bail! You can now roll freely.`, 'success');
+
+    if (this.isMultiplayer && mpClient && this.isMyTurn) {
+      mpClient.sendAction({ type: 'payBail', amount: JAIL_BAIL });
+    }
+
+    this.updateUI();
+  }
+
+  async animateRemoteRoll(player, d1, d2, isDoubles, total) {
+    this.turnPhase = 'rolling';
+    this.updateCameraPosition('center');
+
+    const die1 = document.getElementById('die-1');
+    const die2 = document.getElementById('die-2');
+    die1?.classList.add('rolling');
+    die2?.classList.add('rolling');
+    sound.playDiceRoll();
+
+    for (let f = 0; f < 8; f++) {
+      if (die1) die1.textContent = Math.ceil(Math.random() * 6);
+      if (die2) die2.textContent = Math.ceil(Math.random() * 6);
+      await delay(60);
+    }
+
+    this.lastDice = [d1, d2];
+    if (die1) { die1.textContent = d1; die1.classList.remove('rolling'); }
+    if (die2) { die2.textContent = d2; die2.classList.remove('rolling'); }
+
+    this.log(`🎲 <strong>${player.name}</strong> rolled <strong>${d1} + ${d2} = ${total}</strong>${isDoubles ? ' (Doubles! 🎉)' : ''}`);
+    await delay(350);
+
+    // If remote player is in jail
+    if (player.inJail) {
+      if (isDoubles) {
+        player.inJail = false;
+        player.jailTurns = 0;
+        sound.playPassGo();
+        this.log(`🔓 <strong>${player.name}</strong> rolled doubles and escaped Jail!`);
+        await this.stepMovePlayer(player, total, false);
+      } else {
+        player.jailTurns++;
+        if (player.jailTurns >= MAX_JAIL_TURNS) {
+          player.cash -= JAIL_BAIL;
+          player.inJail = false;
+          player.jailTurns = 0;
+          sound.playCash();
+          this.showCashFloat(player, -JAIL_BAIL);
+          this.log(`💸 <strong>${player.name}</strong> paid ${CURRENCY} ${JAIL_BAIL} bail after 3 turns in jail.`);
+          await this.stepMovePlayer(player, total, false);
+        } else {
+          this.log(`🔒 <strong>${player.name}</strong> remains in Jail. (Turn ${player.jailTurns}/${MAX_JAIL_TURNS})`);
+          this.turnPhase = 'done';
+          this.updateUI();
+          return;
+        }
+      }
+    } else {
+      // Step move remote player with camera following
+      await this.stepMovePlayer(player, total, false);
+    }
+
+    // If doubles, active player rolls again; otherwise done (unless active in action modal)
+    if (isDoubles && !player.inJail && !this.gameOver) {
+      this.turnPhase = 'roll';
+    } else if (this.turnPhase !== 'action' && !this.gameOver) {
+      this.turnPhase = 'done';
+    }
+    this.updateUI();
+  }
+
+  async handleRemoteCardDraw(deck, cardIndex, player) {
+    this._pendingRemoteCard = { deck, cardIndex };
+    const cardList = deck === 'chance' ? CHANCE_CARDS : COMMUNITY_CHEST_CARDS;
+    const card = cardList[cardIndex] || cardList[0];
+    await this.showCardModal(card, deck, true);
+    await this.executeCardAction(player, card, false);
+    if (this.turnPhase !== 'action' && !this.gameOver) {
+      this.turnPhase = 'done';
+      this.updateUI();
+    }
+  }
+
+  receiveChatMessage(data) {
+    if (!data) return;
+    const emoji = data.emoji || data.emote;
+    if (emoji) {
+      this.spawnFloatingEmote(emoji, data.playerId ?? data.senderId ?? 0);
+    }
+    if (data.text) {
+      const name = data.playerName || data.senderName || 'Player';
+      showToast(`${name}: ${data.text}`, 'info');
+      this.log(`💬 <strong>${name}</strong>: ${data.text}`);
+      sound.playClick();
+      this.updateUI();
+    }
+  }
+
+  showIncomingTradeModal(offer) {
+    const fromPlayer = this.players[offer.fromPlayerId];
+    if (!fromPlayer) return;
+
+    sound.playCardDraw();
+    const offeredList = (offer.offeredProps || []).map(id => {
+      const s = BOARD_SPACES[id];
+      const color = s.group ? COLOR_GROUPS[s.group]?.color || '#1e40af' : '#1e40af';
+      return `<div style="font-size:0.75rem; padding:3px 0;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:4px;"></span>${s.name}</div>`;
+    }).join('') || '<div style="font-size:0.75rem; color:#94a3b8;">No properties</div>';
+
+    const requestedList = (offer.requestedProps || []).map(id => {
+      const s = BOARD_SPACES[id];
+      const color = s.group ? COLOR_GROUPS[s.group]?.color || '#1e40af' : '#1e40af';
+      return `<div style="font-size:0.75rem; padding:3px 0;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:4px;"></span>${s.name}</div>`;
+    }).join('') || '<div style="font-size:0.75rem; color:#94a3b8;">No properties</div>';
+
+    this._pendingIncomingTrade = offer;
+
+    showModal(`
+      <div class="title-deed-card" style="max-width:380px;">
+        <div class="deed-header" style="--deed-color: #f59e0b;">
+          <div class="deed-header-sub">INCOMING TRADE PROPOSAL</div>
+          <div class="deed-header-title">${fromPlayer.name} wants to trade!</div>
+        </div>
+        <div class="deed-body">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:left; margin-bottom:12px;">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px;">
+              <div style="font-size:0.72rem; font-weight:800; color:#16a34a; border-bottom:1px solid #e2e8f0; margin-bottom:4px;">They Give You:</div>
+              <div style="font-size:0.75rem; font-weight:700; color:#16a34a; margin-bottom:4px;">${CURRENCY} ${offer.offeredCash || 0}</div>
+              <div style="max-height:100px; overflow-y:auto;">${offeredList}</div>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px;">
+              <div style="font-size:0.72rem; font-weight:800; color:#0284c7; border-bottom:1px solid #e2e8f0; margin-bottom:4px;">They Want:</div>
+              <div style="font-size:0.75rem; font-weight:700; color:#0284c7; margin-bottom:4px;">${CURRENCY} ${offer.requestedCash || 0}</div>
+              <div style="max-height:100px; overflow-y:auto;">${requestedList}</div>
+            </div>
+          </div>
+          <div class="deed-actions">
+            <button class="btn btn-primary btn-small" onclick="game.acceptIncomingTrade()">🤝 ACCEPT</button>
+            <button class="btn btn-secondary btn-small" onclick="game.declineIncomingTrade()">❌ DECLINE</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  acceptIncomingTrade() {
+    hideModal();
+    const offer = this._pendingIncomingTrade;
+    if (!offer) return;
+    this._pendingIncomingTrade = null;
+
+    if (this.isMultiplayer && mpClient) {
+      mpClient.sendAction({
+        type: 'tradeAccepted',
+        fromPlayerId: offer.fromPlayerId,
+        toPlayerId: offer.toPlayerId,
+        offeredPropIds: offer.offeredProps || [],
+        offeredCash: offer.offeredCash || 0,
+        requestedPropIds: offer.requestedProps || [],
+        requestedCash: offer.requestedCash || 0
+      });
+    }
+    this.executeTrade(
+      offer.fromPlayerId,
+      offer.toPlayerId,
+      offer.offeredProps || [],
+      offer.offeredCash || 0,
+      offer.requestedProps || [],
+      offer.requestedCash || 0
+    );
+    showToast('Trade completed!', 'success');
+  }
+
+  declineIncomingTrade() {
+    hideModal();
+    const offer = this._pendingIncomingTrade;
+    if (!offer) return;
+    this._pendingIncomingTrade = null;
+
+    if (this.isMultiplayer && mpClient) {
+      mpClient.sendAction({
+        type: 'tradeDeclined',
+        fromPlayerId: offer.fromPlayerId,
+        toPlayerId: offer.toPlayerId
+      });
+    }
+    showToast('You declined the trade offer.', 'info');
   }
 }

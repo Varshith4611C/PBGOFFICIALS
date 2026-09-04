@@ -10,7 +10,7 @@ class VoiceChatManager {
     this.isDeafened = false;
     this.isVirtual = false;
     this.isSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    this.peerConnections = new Map(); // playerId -> { pc, audioElement, analyser }
+    this.peerConnections = new Map(); // playerId -> { pc, socketId, pendingCandidates }
     this.remoteAudios = new Map(); // playerId -> HTMLAudioElement
     this.audioContext = null;
     this.localAnalyser = null;
@@ -20,20 +20,66 @@ class VoiceChatManager {
     this.rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
       ]
     };
+  }
+
+  // ══════════════════════════════════════════
+  // UI SYNCHRONIZATION (HUD & LOBBY BUTTONS)
+  // ══════════════════════════════════════════
+  updateUI() {
+    const isMicLive = !this.isMuted && (!!this.localStream || this.isVirtual);
+    const isSpeakerOn = !this.isDeafened;
+
+    // 1. In-game Top HUD Navigation Buttons
+    const topMicBtn = document.getElementById('btn-top-mic');
+    if (topMicBtn) {
+      topMicBtn.classList.toggle('active', isMicLive);
+      topMicBtn.classList.toggle('muted', !isMicLive);
+      topMicBtn.title = isMicLive ? 'Microphone: LIVE (Click to mute)' : 'Microphone: MUTED (Click to talk)';
+      topMicBtn.innerHTML = `<i class="fas fa-${isMicLive ? 'microphone' : 'microphone-slash'}" id="mic-icon"></i>`;
+    }
+
+    const topSpeakerBtn = document.getElementById('btn-top-speaker');
+    if (topSpeakerBtn) {
+      topSpeakerBtn.classList.toggle('active', isSpeakerOn);
+      topSpeakerBtn.classList.toggle('deafened', !isSpeakerOn);
+      topSpeakerBtn.title = isSpeakerOn ? 'Speaker: ON (Click to mute incoming voice)' : 'Speaker: MUTED (Click to hear players)';
+      topSpeakerBtn.innerHTML = `<i class="fas fa-volume-${isSpeakerOn ? 'high' : 'xmark'}" id="speaker-icon"></i>`;
+    }
+
+    // 2. Multiplayer Lobby Voice Bar Buttons
+    const lobbyMicBtn = document.getElementById('btn-lobby-mic');
+    if (lobbyMicBtn) {
+      lobbyMicBtn.classList.toggle('active', isMicLive);
+      lobbyMicBtn.innerHTML = `<i class="fas fa-${isMicLive ? 'microphone' : 'microphone-slash'}"></i> <span>Mic ${isMicLive ? 'LIVE' : 'Muted'}</span>`;
+    }
+
+    const lobbySpeakerBtn = document.getElementById('btn-lobby-speaker');
+    if (lobbySpeakerBtn) {
+      lobbySpeakerBtn.classList.toggle('active', isSpeakerOn);
+      lobbySpeakerBtn.innerHTML = `<i class="fas fa-volume-${isSpeakerOn ? 'high' : 'xmark'}"></i> <span>Speaker ${isSpeakerOn ? 'ON' : 'OFF'}</span>`;
+    }
+
+    // 3. Update my player card indicator
+    if (typeof game !== 'undefined' && game && game.myPlayerId !== undefined) {
+      this.updateSpeakingVisual(game.myPlayerId, this.isSpeaking);
+    }
   }
 
   // ══════════════════════════════════════════
   // MICROPHONE CONTROLS
   // ══════════════════════════════════════════
   async toggleMic() {
-    if (!this.isSupported) {
+    if (!this.isSupported && !this.isVirtual) {
       showToast('Voice chat is not supported on this browser/device.', 'warning');
+      this.handleMicrophoneError({ name: 'NotSupportedError' });
       return false;
     }
 
+    // Case 1: Stream not yet acquired and not in virtual mode
     if (!this.localStream && !this.isVirtual) {
       let stream = null;
       let lastError = null;
@@ -65,27 +111,33 @@ class VoiceChatManager {
         this.updateMicTrackState();
 
         // Connect audio tracks to all peers in multiplayer room
+        this.addStreamToExistingConnections();
         this.connectAllPeers();
 
-        showToast('🎙️ Microphone connected! You are now live in voice chat.', 'success');
+        this.updateUI();
+        showToast('🎙️ Microphone connected! You are live in voice chat.', 'success');
         return true;
       } else {
-        console.warn('Microphone error details:', lastError);
+        console.warn('Microphone access failed:', lastError);
         this.handleMicrophoneError(lastError);
         return false;
       }
     } else if (this.isVirtual) {
+      // Case 2: Virtual Mic Simulation mode
       this.isMuted = !this.isMuted;
       this.isSpeaking = !this.isMuted;
       this.updateSpeakingVisual(game?.myPlayerId, this.isSpeaking);
-      if (mpClient && mpClient.connected) {
+      if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
         mpClient.sendVoiceStatus(this.isSpeaking, this.isMuted);
       }
+      this.updateUI();
       showToast(this.isMuted ? '🔇 Virtual Mic muted.' : '🎙️ Virtual Mic active (Speaking).', 'info');
       return !this.isMuted;
     } else {
+      // Case 3: Toggle mute on existing local stream
       this.isMuted = !this.isMuted;
       this.updateMicTrackState();
+      this.updateUI();
       showToast(this.isMuted ? '🔇 Microphone muted.' : '🎙️ Microphone live.', 'info');
       return !this.isMuted;
     }
@@ -98,7 +150,7 @@ class VoiceChatManager {
       });
     }
 
-    if (mpClient && mpClient.connected) {
+    if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
       mpClient.sendVoiceStatus(this.isSpeaking && !this.isMuted, this.isMuted);
     }
 
@@ -111,27 +163,20 @@ class VoiceChatManager {
   toggleSpeaker() {
     this.isDeafened = !this.isDeafened;
 
-    // Mute/unmute all incoming peer audio elements
+    // Mute or un-mute all incoming remote audio elements
     this.remoteAudios.forEach((audio) => {
       if (audio) {
         audio.muted = this.isDeafened;
       }
     });
 
-    const speakerBtn = document.getElementById('btn-ingame-speaker');
-    if (speakerBtn) {
-      speakerBtn.classList.toggle('active', !this.isDeafened);
-      speakerBtn.innerHTML = `<i class="fas fa-volume-${this.isDeafened ? 'xmark' : 'high'}"></i> <span>Speaker ${this.isDeafened ? 'OFF' : 'ON'}</span>`;
-    }
+    this.updateUI();
 
     if (this.isDeafened) {
       showToast('🔇 Speaker muted (Deafened incoming voice).', 'info');
     } else {
       showToast('🔊 Speaker audio active (Hearing players).', 'success');
-      // In single player, play a small sample to confirm speakers work
-      if (!game || !game.isMultiplayer) {
-        this.playSpeakerTestSound();
-      }
+      this.playSpeakerTestSound();
     }
 
     return !this.isDeafened;
@@ -139,7 +184,9 @@ class VoiceChatManager {
 
   playSpeakerTestSound() {
     try {
-      sound.playPassGo();
+      if (typeof sound !== 'undefined' && sound && sound.playPassGo) {
+        sound.playPassGo();
+      }
     } catch (e) {}
   }
 
@@ -147,11 +194,45 @@ class VoiceChatManager {
   // WEBRTC P2P AUDIO STREAMING (PEER MESH)
   // ══════════════════════════════════════════
   connectAllPeers() {
-    if (!game || !game.isMultiplayer || !mpClient || !mpClient.connected) return;
+    if (!game || !game.isMultiplayer || typeof mpClient === 'undefined' || !mpClient || !mpClient.connected) return;
 
     game.players.forEach(p => {
       if (p.id !== game.myPlayerId && !p.isAI) {
-        this.initiateCallToPlayer(p.id, p.socketId);
+        // Asymmetric initiation: peer with lower ID initiates the offer to prevent glare collision
+        if (game.myPlayerId < p.id) {
+          this.initiateCallToPlayer(p.id, p.socketId);
+        } else {
+          // Higher ID pre-creates the RTCPeerConnection to be ready for incoming offer
+          this.getOrCreatePeerConnection(p.id, p.socketId);
+        }
+      }
+    });
+  }
+
+  addStreamToExistingConnections() {
+    if (!this.localStream) return;
+    this.peerConnections.forEach(async ({ pc, socketId }, playerId) => {
+      if (pc && pc.signalingState !== 'closed') {
+        const senders = pc.getSenders();
+        const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
+        if (!hasAudio) {
+          this.localStream.getAudioTracks().forEach(track => pc.addTrack(track, this.localStream));
+          // Renegotiate if we initiated
+          if (game && game.myPlayerId < playerId) {
+            try {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              mpClient.sendVoiceSignal({
+                type: 'offer',
+                targetPlayerId: playerId,
+                targetSocketId: socketId,
+                sdp: offer
+              });
+            } catch (err) {
+              console.warn('Renegotiation offer error:', err);
+            }
+          }
+        }
       }
     });
   }
@@ -162,6 +243,7 @@ class VoiceChatManager {
     }
 
     const pc = new RTCPeerConnection(this.rtcConfig);
+    const peerData = { pc, socketId, pendingCandidates: [] };
 
     // Add local microphone stream tracks if available
     if (this.localStream) {
@@ -172,7 +254,7 @@ class VoiceChatManager {
 
     // ICE Candidate handler
     pc.onicecandidate = (event) => {
-      if (event.candidate && mpClient && mpClient.connected) {
+      if (event.candidate && typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
         mpClient.sendVoiceSignal({
           type: 'candidate',
           targetPlayerId: playerId,
@@ -189,7 +271,9 @@ class VoiceChatManager {
       if (!audio) {
         audio = document.createElement('audio');
         audio.autoplay = true;
+        audio.playsInline = true;
         audio.id = `remote-audio-player-${playerId}`;
+        audio.style.display = 'none';
         document.body.appendChild(audio);
         this.remoteAudios.set(playerId, audio);
       }
@@ -202,7 +286,7 @@ class VoiceChatManager {
       this.setupRemoteAudioAnalysis(remoteStream, playerId);
     };
 
-    this.peerConnections.set(playerId, { pc, socketId });
+    this.peerConnections.set(playerId, peerData);
     return pc;
   }
 
@@ -214,12 +298,14 @@ class VoiceChatManager {
       });
       await pc.setLocalDescription(offer);
 
-      mpClient.sendVoiceSignal({
-        type: 'offer',
-        targetPlayerId: playerId,
-        targetSocketId: socketId,
-        sdp: offer
-      });
+      if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
+        mpClient.sendVoiceSignal({
+          type: 'offer',
+          targetPlayerId: playerId,
+          targetSocketId: socketId,
+          sdp: offer
+        });
+      }
     } catch (err) {
       console.warn(`Failed to initiate call to player ${playerId}:`, err);
     }
@@ -232,34 +318,68 @@ class VoiceChatManager {
     if (data.type === 'offer') {
       try {
         const pc = this.getOrCreatePeerConnection(fromId, fromSocketId);
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        const peerData = this.peerConnections.get(fromId);
+
+        if (pc.signalingState !== 'stable') {
+          await Promise.all([
+            pc.setLocalDescription({ type: 'rollback' }),
+            pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
+          ]);
+        } else {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        }
+
+        // Flush any queued candidates
+        if (peerData && peerData.pendingCandidates && peerData.pendingCandidates.length > 0) {
+          for (const cand of peerData.pendingCandidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
+          peerData.pendingCandidates = [];
+        }
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        mpClient.sendVoiceSignal({
-          type: 'answer',
-          targetPlayerId: fromId,
-          targetSocketId: fromSocketId,
-          sdp: answer
-        });
+        if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
+          mpClient.sendVoiceSignal({
+            type: 'answer',
+            targetPlayerId: fromId,
+            targetSocketId: fromSocketId,
+            sdp: answer
+          });
+        }
       } catch (err) {
         console.warn('Error handling voice offer:', err);
       }
     } else if (data.type === 'answer') {
       try {
-        const peer = this.peerConnections.get(fromId);
-        if (peer && peer.pc) {
-          await peer.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        const peerData = this.peerConnections.get(fromId);
+        if (peerData && peerData.pc) {
+          if (peerData.pc.signalingState === 'have-local-offer') {
+            await peerData.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+            // Flush any queued candidates
+            if (peerData.pendingCandidates && peerData.pendingCandidates.length > 0) {
+              for (const cand of peerData.pendingCandidates) {
+                await peerData.pc.addIceCandidate(new RTCIceCandidate(cand));
+              }
+              peerData.pendingCandidates = [];
+            }
+          }
         }
       } catch (err) {
         console.warn('Error handling voice answer:', err);
       }
     } else if (data.type === 'candidate' && data.candidate) {
       try {
-        const peer = this.peerConnections.get(fromId);
-        if (peer && peer.pc) {
-          await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        const peerData = this.peerConnections.get(fromId);
+        if (peerData && peerData.pc) {
+          if (peerData.pc.remoteDescription) {
+            await peerData.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          } else {
+            if (!peerData.pendingCandidates) peerData.pendingCandidates = [];
+            peerData.pendingCandidates.push(data.candidate);
+          }
         }
       } catch (err) {
         console.warn('Error adding ICE candidate:', err);
@@ -323,7 +443,7 @@ class VoiceChatManager {
         if (speakingNow !== this.isSpeaking) {
           this.isSpeaking = speakingNow;
           this.updateSpeakingVisual(game?.myPlayerId, this.isSpeaking);
-          if (mpClient && mpClient.connected) {
+          if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
             mpClient.sendVoiceStatus(this.isSpeaking, this.isMuted);
           }
         }
@@ -335,9 +455,29 @@ class VoiceChatManager {
 
   updateSpeakingVisual(playerId, isSpeaking) {
     if (playerId === undefined || playerId === null) return;
-    const card = document.getElementById(`player-status-${playerId}`);
+    const card = document.getElementById(`hud-player-card-${playerId}`);
+    const tag = document.getElementById(`voice-tag-${playerId}`);
+
+    const isMe = (typeof game !== 'undefined' && game && game.myPlayerId === playerId);
+    const isLive = isMe ? (!this.isMuted && (!!this.localStream || this.isVirtual)) : true;
+
     if (card) {
-      card.classList.toggle('speaking', isSpeaking);
+      card.classList.toggle('speaking', !!isSpeaking);
+    }
+
+    if (tag) {
+      tag.classList.toggle('speaking', !!isSpeaking);
+      tag.classList.toggle('live', isLive && !isSpeaking);
+      if (isSpeaking) {
+        tag.innerHTML = `<i class="fas fa-microphone"></i>`;
+        tag.title = 'Speaking now';
+      } else if (isLive) {
+        tag.innerHTML = `<i class="fas fa-microphone"></i>`;
+        tag.title = 'Microphone Live';
+      } else {
+        tag.innerHTML = `<i class="fas fa-microphone-slash"></i>`;
+        tag.title = 'Microphone Muted';
+      }
     }
   }
 
@@ -400,16 +540,11 @@ class VoiceChatManager {
     this.isSpeaking = true;
     this.updateSpeakingVisual(game?.myPlayerId, true);
 
-    const voiceBtn = document.getElementById('btn-ingame-voice');
-    if (voiceBtn) {
-      voiceBtn.classList.add('active');
-      voiceBtn.innerHTML = `<i class="fas fa-microphone"></i> <span>Voice ON</span>`;
-    }
-
-    if (mpClient && mpClient.connected) {
+    if (typeof mpClient !== 'undefined' && mpClient && mpClient.connected) {
       mpClient.sendVoiceStatus(true, false);
     }
 
+    this.updateUI();
     showToast('🎙️ Virtual Voice Mode activated! Your speaking indicator is live.', 'success');
   }
 
@@ -435,3 +570,8 @@ class VoiceChatManager {
 }
 
 const voiceManager = new VoiceChatManager();
+window.voiceManager = voiceManager;
+
+document.addEventListener('DOMContentLoaded', () => {
+  voiceManager.updateUI();
+});
