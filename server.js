@@ -65,15 +65,13 @@ app.use('/api/anime', animeApi);
 const DEFAULT_AI_MODEL = 'meta/llama-3.2-11b-vision-instruct';
 
 app.post('/api/ai/chat', async (req, res) => {
-  let { messages, model = DEFAULT_AI_MODEL, apiKey: clientKey } = req.body || {};
+  let { messages, model = DEFAULT_AI_MODEL } = req.body || {};
 
-  const apiKey = (clientKey && typeof clientKey === 'string' && clientKey.trim())
-    ? clientKey.trim()
-    : (process.env.NVIDIA_API_KEY || '').trim();
+  const apiKey = (process.env.NVIDIA_API_KEY || '').trim();
 
   if (!apiKey) {
-    return res.status(401).json({
-      error: 'NVIDIA API Key not found. Please click the Settings ⚙️ icon in PBG AI to add your NVIDIA API key.'
+    return res.status(500).json({
+      error: 'AI service is temporarily unavailable. Please try again later.'
     });
   }
 

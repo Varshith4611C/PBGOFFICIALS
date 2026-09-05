@@ -140,6 +140,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
+
+  // Direct bindings for End Turn action buttons
+  document.getElementById('btn-floating-end-turn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.game && window.game.isMyTurn) {
+      window.game.endTurn();
+    }
+  });
+
+  document.getElementById('dock-btn-end')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.game && window.game.isMyTurn) {
+      window.game.endTurn();
+    }
+  });
 });
 
 function startSinglePlayerGame(name, aiCount, difficulty) {
@@ -183,6 +200,8 @@ class Game {
     this.logEntries = [];
     this.turnNumber = 1;
     this.cameraMode = 'follow'; // 'follow' (3D Zoomed Follow-Pawn) or 'full' (Full Board Overview)
+    this.zoomLevels = [1.65, 1.95, 2.30];
+    this.currentZoomIndex = 1; // 1.95x default on mobile
     this._cardResolve = null;
     this._tradeOffer = null;
   }
@@ -253,6 +272,22 @@ class Game {
     showToast(nextMode === 'follow' ? '🎥 Camera: 3D Follow Pawn View' : '🔲 Camera: Full Board Overview', 'info');
   }
 
+  cycleZoomLevel() {
+    sound.playClick();
+    this.currentZoomIndex = (this.currentZoomIndex + 1) % this.zoomLevels.length;
+    const zoom = this.zoomLevels[this.currentZoomIndex];
+    document.documentElement.style.setProperty('--cam-zoom', zoom.toString());
+
+    const badge = document.getElementById('zoom-level-badge');
+    if (badge) badge.textContent = `${zoom.toFixed(1)}x`;
+
+    showToast(`🔍 Zoom Level: ${zoom.toFixed(1)}x`, 'info');
+
+    if (this.cameraMode === 'follow') {
+      this.updateCameraPosition(this.turnPhase === 'roll' ? 'center' : (this.currentPlayer?.position || 0));
+    }
+  }
+
   setCameraMode(mode) {
     this.cameraMode = mode;
     const rig = document.getElementById('board-camera-rig');
@@ -266,8 +301,11 @@ class Game {
 
     if (badge) badge.textContent = mode === 'follow' ? '3D' : 'FULL';
     if (icon) icon.className = mode === 'follow' ? 'fas fa-video' : 'fas fa-table-cells';
-
-    this.updateCameraPosition(this.currentPlayer?.position || 0);
+    if (this.turnPhase === 'roll') {
+      this.updateCameraPosition('center');
+    } else {
+      this.updateCameraPosition(this.currentPlayer?.position || 0);
+    }
   }
 
   updateCameraPosition(target) {
@@ -280,11 +318,13 @@ class Game {
       return;
     }
 
+    const boardEl = document.getElementById('board');
+    const size = boardEl && boardEl.offsetWidth > 0 ? boardEl.offsetWidth : 380;
+    const isMobile = window.innerWidth < 640;
+
     // Center view: focus directly on the dice and action button in the board center with clearance above dock
     if (target === 'center') {
-      const boardEl = document.getElementById('board');
-      const size = boardEl && boardEl.offsetWidth > 0 ? boardEl.offsetWidth : 380;
-      const centerPanY = -Math.round(size * 0.13); // Upward shift ~50px to center stage in visible window
+      const centerPanY = -Math.round(size * (isMobile ? 0.05 : 0.10));
       rig.style.setProperty('--cam-pan-x', '0px');
       rig.style.setProperty('--cam-pan-y', `${centerPanY}px`);
       return;
@@ -300,11 +340,11 @@ class Game {
     let normX = (xFr / 11.7 - 0.5) * 2;
     let normY = (yFr / 11.7 - 0.5) * 2;
 
-    const boardEl = document.getElementById('board');
-    const size = boardEl && boardEl.offsetWidth > 0 ? boardEl.offsetWidth : 380;
+    const panFactorX = isMobile ? 0.32 : 0.28;
+    const panFactorY = isMobile ? 0.28 : 0.26;
 
-    const panX = -normX * (size * 0.38);
-    const panY = -normY * (size * 0.38);
+    let panX = -normX * (size * panFactorX);
+    let panY = -normY * (size * panFactorY);
 
     rig.style.setProperty('--cam-pan-x', `${Math.round(panX)}px`);
     rig.style.setProperty('--cam-pan-y', `${Math.round(panY)}px`);
@@ -325,6 +365,21 @@ class Game {
         document.webkitExitFullscreen();
       }
     }
+  }
+
+  formatSpaceName(name) {
+    if (name === 'NEW DELHI STATION') return 'NEW DELHI<br>STATION';
+    if (name === 'HOWRAH STATION') return 'HOWRAH<br>STATION';
+    if (name === 'CHENNAI CENTRAL') return 'CHENNAI<br>CENTRAL';
+    if (name === 'MUMBAI STATION') return 'MUMBAI<br>STATION';
+    if (name === 'ELECTRIC COMPANY') return 'ELECTRIC<br>COMPANY';
+    if (name === 'WATER WORKS') return 'WATER<br>WORKS';
+    if (name === 'INCOME TAX') return 'INCOME<br>TAX';
+    if (name === 'SUPER TAX') return 'SUPER<br>TAX';
+    if (name === 'GO TO JAIL') return 'GO TO<br>JAIL';
+    if (name === 'BHUBANESWAR') return 'BHUBAN-<br>ESWAR';
+    if (name === 'CHANDIGARH') return 'CHANDI-<br>GARH';
+    return name;
   }
 
   // ══════════════════════════════════════════
@@ -377,10 +432,12 @@ class Game {
       else if (space.id === 20) iconDisplay = '🅿️';
       else if (space.id === 30) iconDisplay = '👨‍⚖️';
 
+      const formattedName = this.formatSpaceName(space.name);
+
       spaceEl.innerHTML += `
         <div class="space-content">
           <span class="space-icon">${iconDisplay}</span>
-          <span class="space-name">${space.name}</span>
+          <span class="space-name">${formattedName}</span>
           ${priceLabel}
         </div>
       `;
@@ -487,6 +544,10 @@ class Game {
           <span class="dollar-symbol">${CURRENCY}</span>
           <span id="cash-val-${p.id}">${p.cash}</span>
         </div>
+        <div class="hud-card-sub-info">
+          <span>Props: <strong id="props-val-${p.id}">${this.getPlayerPropertiesCount(p.id)}</strong></span>
+          <span>NW: <strong>${CURRENCY}</strong><strong id="nw-val-${p.id}">${this.getPlayerNetWorth(p.id)}</strong></span>
+        </div>
       `;
       bar.appendChild(card);
     });
@@ -503,6 +564,18 @@ class Game {
     const endBtn = document.getElementById('btn-end-3d');
     const bailBtn = document.getElementById('btn-bail-3d');
     const waitBadge = document.getElementById('turn-wait-badge');
+    const floatingEndBar = document.getElementById('turn-end-floating-bar');
+    const dockEndBtn = document.getElementById('dock-btn-end');
+
+    if (this.gameOver) {
+      if (rollBtn) rollBtn.style.display = 'none';
+      if (bailBtn) bailBtn.style.display = 'none';
+      if (endBtn) endBtn.style.display = 'none';
+      if (floatingEndBar) floatingEndBar.style.display = 'none';
+      if (dockEndBtn) dockEndBtn.style.display = 'none';
+      if (waitBadge) waitBadge.style.display = 'none';
+      return;
+    }
 
     if (this.isMyTurn) {
       // ── Active Player's Turn ──
@@ -525,12 +598,26 @@ class Game {
         bailBtn.style.display = canBail ? 'flex' : 'none';
       }
 
+      const isDone = this.turnPhase === 'done';
+
       if (endBtn) {
-        const isDone = this.turnPhase === 'done';
         endBtn.classList.toggle('visible', isDone);
         endBtn.style.display = isDone ? 'flex' : 'none';
         endBtn.disabled = !isDone;
         endBtn.textContent = 'END TURN ➡️';
+      }
+
+      if (floatingEndBar) {
+        floatingEndBar.style.display = isDone ? 'flex' : 'none';
+      }
+
+      if (dockEndBtn) {
+        dockEndBtn.style.display = isDone ? 'flex' : 'none';
+      }
+
+      // Smoothly pan camera back to center when turn is completed so the action buttons and center stage are front & center
+      if (isDone && this.cameraMode === 'follow') {
+        this.updateCameraPosition('center');
       }
     } else {
       // ── Observing Remote Player or AI Turn ──
@@ -547,6 +634,12 @@ class Game {
         endBtn.classList.remove('visible');
         endBtn.style.display = 'none';
         endBtn.disabled = true;
+      }
+      if (floatingEndBar) {
+        floatingEndBar.style.display = 'none';
+      }
+      if (dockEndBtn) {
+        dockEndBtn.style.display = 'none';
       }
 
       // Display non-interactive neutral status badge
@@ -588,6 +681,10 @@ class Game {
       }
       const cashEl = document.getElementById(`cash-val-${p.id}`);
       if (cashEl) cashEl.textContent = `${p.cash}`;
+      const propsEl = document.getElementById(`props-val-${p.id}`);
+      if (propsEl) propsEl.textContent = `${this.getPlayerPropertiesCount(p.id)}`;
+      const nwEl = document.getElementById(`nw-val-${p.id}`);
+      if (nwEl) nwEl.textContent = `${this.getPlayerNetWorth(p.id)}`;
     });
 
     // Update board space owners & buildings
@@ -672,10 +769,25 @@ class Game {
 
       playersAtPos.forEach(p => {
         const token = document.createElement('div');
-        token.className = `player-token ${p.id === this.currentPlayerIndex ? 'active-token' : ''} ${p.inJail ? 'token-in-jail' : ''}`;
-        token.style.color = p.color;
-        token.innerHTML = `<i class="fa-solid ${p.tokenIcon || 'fa-chess-pawn'}"></i>`;
+        const isActive = p.id === this.currentPlayerIndex;
+        token.className = `player-token ${isActive ? 'active-token' : ''} ${p.inJail ? 'token-in-jail' : ''}`;
+        token.style.setProperty('--pawn-color', p.color);
         token.title = `${p.name}${p.inJail ? ' (In Jail)' : ''}`;
+        token.innerHTML = `
+          <div class="pawn-3d-wrap">
+            <div class="pawn-3d-ring"></div>
+            <div class="pawn-3d-shadow"></div>
+            <div class="pawn-3d-mesh">
+              <div class="pawn-mesh-head">
+                <i class="fa-solid ${p.tokenIcon || 'fa-chess-pawn'}"></i>
+              </div>
+              <div class="pawn-mesh-collar"></div>
+              <div class="pawn-mesh-stem"></div>
+              <div class="pawn-mesh-base"></div>
+              ${p.inJail ? '<div class="pawn-jail-cage"><i class="fas fa-bars"></i></div>' : ''}
+            </div>
+          </div>
+        `;
         cont.appendChild(token);
       });
     });
@@ -1870,6 +1982,7 @@ class Game {
   // ══════════════════════════════════════════
   openMenuModal() {
     sound.playClick();
+    const canEndTurn = this.isMyTurn && this.turnPhase === 'done';
     showModal(`
       <div class="title-deed-card" style="max-width:320px;">
         <div class="deed-header" style="--deed-color: #0284c7;">
@@ -1877,14 +1990,66 @@ class Game {
         </div>
         <div class="deed-body">
           <div style="display:flex; flex-direction:column; gap:8px; margin: 12px 0;">
+            ${canEndTurn ? `
+              <button class="btn btn-primary" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:2px solid #34d399; font-weight:900; padding:10px;" onclick="hideModal(); game.endTurn();">
+                <i class="fas fa-forward-step"></i> END CURRENT TURN ➡️
+              </button>
+            ` : ''}
             <button class="btn btn-secondary" onclick="hideModal()"><i class="fas fa-play"></i> Resume Game</button>
             <button class="btn btn-secondary" onclick="game.toggleCameraView(); hideModal();"><i class="fas fa-video"></i> Toggle 3D Camera</button>
+            <button class="btn btn-secondary" onclick="game.cycleZoomLevel(); hideModal();"><i class="fas fa-magnifying-glass-plus"></i> Cycle Zoom Level</button>
             <button class="btn btn-secondary" onclick="game.toggleFullscreen(); hideModal();"><i class="fas fa-expand"></i> Fullscreen</button>
+            <button class="btn btn-secondary" style="color:#ef4444; border-color:#fca5a5;" onclick="game.confirmEndGame()"><i class="fas fa-flag"></i> Forfeit / End Game</button>
             <button class="btn btn-secondary" onclick="location.reload()"><i class="fas fa-home"></i> Quit to Main Menu</button>
           </div>
         </div>
       </div>
     `);
+  }
+
+  confirmEndGame() {
+    sound.playClick();
+    showModal(`
+      <div class="title-deed-card" style="max-width:320px;">
+        <div class="deed-header" style="--deed-color: #ef4444;">
+          <div class="deed-header-title">End / Forfeit Game?</div>
+        </div>
+        <div class="deed-body" style="padding:16px 12px; text-align:center;">
+          <p style="font-size:0.85rem; color:#334155; margin-bottom:16px;">
+            Are you sure you want to surrender and forfeit this game?
+          </p>
+          <div style="display:flex; gap:8px; justify-content:center;">
+            <button class="btn btn-secondary" onclick="game.openMenuModal()">Cancel</button>
+            <button class="btn btn-danger" style="background:#ef4444; color:white; border:none; padding:8px 18px; border-radius:8px; font-weight:800; cursor:pointer;" onclick="hideModal(); game.forfeitGame();">
+              Yes, Forfeit
+            </button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  forfeitGame() {
+    if (this.gameOver) return;
+    const human = this.players.find(p => (!this.isMultiplayer ? !p.isAI : p.id === this.localPlayerIndex) && !p.isBankrupt) || this.currentPlayer;
+    if (!human) return;
+    this.log(`🏳️ <strong>${human.name}</strong> surrendered and forfeited the game.`);
+    human.isBankrupt = true;
+    human.cash = 0;
+    sound.playBankrupt();
+    Object.entries(this.properties).forEach(([id, prop]) => {
+      if (prop.owner === human.id) {
+        prop.owner = null;
+        prop.houses = 0;
+        prop.mortgaged = false;
+      }
+    });
+    this.updateUI();
+    if (this.activePlayers.length <= 1) {
+      this.declareWinner();
+    } else if (this.currentPlayer.id === human.id && !this.gameOver) {
+      this.endTurn();
+    }
   }
 
   showGameRules() {
@@ -1960,6 +2125,20 @@ class Game {
     const player = this.currentPlayer;
     const isLocalAI = player.isAI && (!this.isMultiplayer || (mpClient && mpClient.isHost));
     if (!fromRemote && !this.isMyTurn && !isLocalAI) return;
+
+    sound.playClick();
+
+    // Immediately hide floating bar and dock end button for instant UI feedback
+    const floatingEndBar = document.getElementById('turn-end-floating-bar');
+    if (floatingEndBar) floatingEndBar.style.display = 'none';
+    const dockEndBtn = document.getElementById('dock-btn-end');
+    if (dockEndBtn) dockEndBtn.style.display = 'none';
+    const endBtn = document.getElementById('btn-end-3d');
+    if (endBtn) {
+      endBtn.classList.remove('visible');
+      endBtn.style.display = 'none';
+      endBtn.disabled = true;
+    }
 
     this.doublesCount = 0;
 
@@ -2143,6 +2322,9 @@ class Game {
   // SPACE INFO INSPECTION
   // ══════════════════════════════════════════
   showSpaceInfo(spaceId) {
+    if (this.cameraMode === 'follow') {
+      this.updateCameraPosition(spaceId);
+    }
     const space = BOARD_SPACES[spaceId];
     const prop = this.properties[spaceId];
 
@@ -2231,23 +2413,102 @@ class Game {
     setTimeout(() => el.remove(), 1200);
   }
 
-  log(msg) {
+  getPlayerPropertiesCount(playerId) {
+    let count = 0;
+    Object.values(this.properties || {}).forEach(p => {
+      if (p.owner === playerId) count++;
+    });
+    return count;
+  }
+
+  getPlayerNetWorth(playerId) {
+    const player = this.players[playerId];
+    if (!player) return 0;
+    let net = player.cash || 0;
+    Object.entries(this.properties || {}).forEach(([id, prop]) => {
+      if (prop.owner === playerId) {
+        const space = BOARD_SPACES.find(s => s.id === parseInt(id, 10));
+        if (space) {
+          net += space.price || 0;
+          const group = space.group ? COLOR_GROUPS[space.group] : null;
+          net += (prop.houses || 0) * (group?.buildCost || 0);
+        }
+      }
+    });
+    return net;
+  }
+
+  log(msg, type = 'info') {
     this.logEntries.unshift(msg);
     if (this.logEntries.length > 50) this.logEntries.pop();
+
+    const drawerFeed = document.getElementById('drawer-feed-list');
+    if (drawerFeed) {
+      const item = document.createElement('div');
+      item.className = `drawer-feed-item ${type}`;
+      item.innerHTML = msg;
+      drawerFeed.insertBefore(item, drawerFeed.firstChild);
+      if (drawerFeed.children.length > 60) {
+        drawerFeed.removeChild(drawerFeed.lastChild);
+      }
+    }
   }
 
   // ══════════════════════════════════════════
-  // QUICK CHAT & REACTIONS
+  // QUICK CHAT & REACTIONS (COMPACTABLE)
   // ══════════════════════════════════════════
-  sendChatMessage() {
-    const input = document.getElementById('chat-input');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return;
+  toggleQuickChat(forceState) {
+    const widget = document.getElementById('quick-chat-widget');
+    if (!widget) return;
+    const isCurrentlyCompact = widget.classList.contains('compact');
+    const newState = forceState !== undefined ? !forceState : isCurrentlyCompact;
+    widget.classList.toggle('compact', !newState);
+    const label = widget.querySelector('.pill-label');
+    if (label) {
+      label.textContent = newState ? 'Close' : 'Chat';
+    }
+    sound.playClick();
+  }
+
+  toggleDesktopLog(forceState) {
+    const drawer = document.getElementById('desktop-activity-drawer');
+    const btn = document.getElementById('btn-log-toggle');
+    if (!drawer) return;
+    const isCurrentlyOpen = drawer.classList.contains('open');
+    const nextOpen = forceState !== undefined ? forceState : !isCurrentlyOpen;
+    drawer.classList.toggle('open', nextOpen);
+    if (btn) {
+      btn.classList.toggle('active', nextOpen);
+    }
+    sound.playClick();
+  }
+
+  sendDesktopChatMessage() {
+    const input = document.getElementById('drawer-chat-input');
+    if (!input || !input.value.trim()) return;
+    const msg = input.value.trim();
     input.value = '';
+    this.sendChatMessage(msg);
+  }
+
+  sendChatMessage(customText = null) {
+    const input = document.getElementById('chat-input');
+    const text = (customText !== null ? customText : (input ? input.value : '')).trim();
+    if (!text) return;
+    if (input) input.value = '';
 
     sound.playClick();
     showToast(`You: ${text}`, 'info');
+
+    // Add to desktop chat drawer list
+    const drawerChat = document.getElementById('drawer-chat-list');
+    if (drawerChat) {
+      const item = document.createElement('div');
+      item.className = 'drawer-feed-item';
+      item.innerHTML = `<strong>You:</strong> ${text}`;
+      drawerChat.appendChild(item);
+      drawerChat.scrollTop = drawerChat.scrollHeight;
+    }
 
     if (this.isMultiplayer && mpClient) {
       mpClient.sendChat(text, null);
@@ -2381,6 +2642,16 @@ class Game {
       const name = data.playerName || data.senderName || 'Player';
       showToast(`${name}: ${data.text}`, 'info');
       this.log(`💬 <strong>${name}</strong>: ${data.text}`);
+
+      const drawerChat = document.getElementById('drawer-chat-list');
+      if (drawerChat) {
+        const item = document.createElement('div');
+        item.className = 'drawer-feed-item';
+        item.innerHTML = `<strong>${name}:</strong> ${data.text}`;
+        drawerChat.appendChild(item);
+        drawerChat.scrollTop = drawerChat.scrollHeight;
+      }
+
       sound.playClick();
       this.updateUI();
     }

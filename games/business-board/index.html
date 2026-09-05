@@ -145,7 +145,7 @@
         </button>
 
         <div class="top-title-badge">
-          <span>BUSINESS BOARD</span>
+          <span><i class="fas fa-gem top-title-gem"></i> <span class="top-title-full">BUSINESS BOARD</span><span class="top-title-compact">PBG BOARD</span></span>
         </div>
 
         <div class="top-right-controls">
@@ -159,8 +159,15 @@
             <i class="fas fa-video" id="camera-icon"></i>
             <span class="cam-badge" id="camera-mode-badge">3D</span>
           </button>
+          <button class="top-icon-btn btn-zoom" id="btn-zoom-toggle" onclick="game.cycleZoomLevel()" title="Zoom In / Out (1.6x, 2.0x, 2.3x)">
+            <i class="fas fa-magnifying-glass-plus" id="zoom-icon"></i>
+            <span class="cam-badge" id="zoom-level-badge">2.0x</span>
+          </button>
           <button class="top-icon-btn btn-fullscreen" id="btn-fullscreen-toggle" onclick="game.toggleFullscreen()" title="Toggle Fullscreen">
             <i class="fas fa-expand" id="fullscreen-icon"></i>
+          </button>
+          <button class="top-icon-btn btn-log-toggle" id="btn-log-toggle" onclick="game.toggleDesktopLog()" title="Toggle Game Log & Standings">
+            <i class="fas fa-scroll" id="log-toggle-icon"></i>
           </button>
           <button class="top-icon-btn btn-exit" id="btn-exit-game" onclick="game.openMenuModal()" title="Game Menu & Exit">
             <i class="fas fa-arrow-right-from-bracket"></i>
@@ -187,29 +194,90 @@
       </div>
     </main>
 
-    <!-- FLOATING QUICK CHAT BAR (Bottom Right, above dock) -->
-    <div class="quick-chat-float" id="quick-chat-float">
-      <div class="quick-emote-row" id="quick-emote-row">
-        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🎲')">🎲</button>
-        <button class="quick-emote-btn" onclick="game.sendQuickEmote('💰')">💰</button>
-        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🤝')">🤝</button>
-        <button class="quick-emote-btn" onclick="game.sendQuickEmote('🔥')">🔥</button>
-      </div>
-      <form class="quick-chat-form" id="quick-chat-form" onsubmit="event.preventDefault(); game.sendChatMessage();">
-        <input type="text" id="chat-input" placeholder="Chat..." maxlength="120" autocomplete="off" />
-        <button type="submit" class="btn-quick-send" title="Send">
-          <i class="fas fa-paper-plane"></i>
+    <!-- DESKTOP ACTIVITY & LIVE LOG DRAWER (Collapsible on Desktop / Tablet) -->
+    <aside class="desktop-activity-drawer open" id="desktop-activity-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <i class="fas fa-scroll"></i>
+          <span>Game Activity</span>
+        </div>
+        <button class="drawer-close-btn" onclick="game.toggleDesktopLog(false)" title="Compact Drawer">
+          <i class="fas fa-chevron-right"></i>
         </button>
-      </form>
+      </div>
+      <div class="drawer-content">
+        <!-- Live Turn Log Feed -->
+        <div class="drawer-section drawer-log-section">
+          <div class="drawer-section-title"><i class="fas fa-clock-rotate-left"></i> Live Feed</div>
+          <div class="drawer-feed-list" id="drawer-feed-list">
+            <div class="drawer-feed-item info">🎮 Game started! Good luck, Tycoons.</div>
+          </div>
+        </div>
+        <!-- Live Chat Messages Feed -->
+        <div class="drawer-section drawer-chat-section">
+          <div class="drawer-section-title"><i class="fas fa-comments"></i> Room Chat</div>
+          <div class="drawer-chat-list" id="drawer-chat-list"></div>
+          <div class="drawer-chat-emotes">
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('🎲')">🎲</button>
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('💰')">💰</button>
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('🤝')">🤝</button>
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('🔥')">🔥</button>
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('👏')">👏</button>
+            <button class="quick-emote-btn" onclick="game.sendQuickEmote('😎')">😎</button>
+          </div>
+          <form class="drawer-chat-form" onsubmit="event.preventDefault(); game.sendDesktopChatMessage();">
+            <input type="text" id="drawer-chat-input" placeholder="Type message..." maxlength="120" autocomplete="off" />
+            <button type="submit" class="btn-drawer-send" title="Send message"><i class="fas fa-paper-plane"></i></button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <!-- FLOATING QUICK CHAT WIDGET (Compactable / Collapsible on Mobile & Desktop) -->
+    <div class="quick-chat-widget compact" id="quick-chat-widget">
+      <button class="quick-chat-toggle-pill" id="quick-chat-toggle-pill" onclick="game.toggleQuickChat()" title="Toggle Quick Chat & Emotes">
+        <i class="fas fa-comment-dots"></i>
+        <span class="pill-label">Chat</span>
+      </button>
+
+      <div class="quick-chat-dropdown" id="quick-chat-dropdown">
+        <div class="quick-emote-row" id="quick-emote-row">
+          <button class="quick-emote-btn" onclick="game.sendQuickEmote('🎲')">🎲</button>
+          <button class="quick-emote-btn" onclick="game.sendQuickEmote('💰')">💰</button>
+          <button class="quick-emote-btn" onclick="game.sendQuickEmote('🤝')">🤝</button>
+          <button class="quick-emote-btn" onclick="game.sendQuickEmote('🔥')">🔥</button>
+          <button class="quick-emote-btn" onclick="game.sendQuickEmote('👏')">👏</button>
+        </div>
+        <form class="quick-chat-form" id="quick-chat-form" onsubmit="event.preventDefault(); game.sendChatMessage();">
+          <input type="text" id="chat-input" placeholder="Chat..." maxlength="120" autocomplete="off" />
+          <button type="submit" class="btn-quick-send" title="Send">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
     </div>
 
-    <!-- BOTTOM ACTION DOCK (Fixed firmly to bottom on all devices) -->
-    <!-- [TRADE, BUILD, SELL, MORTGAGE, PORTFOLIO, MENU] -->
+    <!-- FLOATING TURN ACTION BAR (Always visible and reachable when turn is done) -->
+    <div class="turn-end-floating-bar" id="turn-end-floating-bar" style="display: none;">
+      <button class="btn-floating-end-turn" id="btn-floating-end-turn" onclick="game.endTurn()" title="End Your Turn">
+        <i class="fas fa-forward-step"></i> <span>END TURN ➡️</span>
+      </button>
+    </div>
+
+    <!-- BOTTOM ACTION DOCK (Fixed firmly to bottom on all devices, fully responsive) -->
     <nav class="bottom-action-dock" id="bottom-action-dock">
+      <button class="dock-btn btn-dock-end" id="dock-btn-end" onclick="game.endTurn()" title="End Your Turn" style="display: none;">
+        <div class="dock-icon-box dock-end-icon">
+          <i class="fas fa-forward-step"></i>
+        </div>
+        <span class="dock-btn-label">End Turn</span>
+      </button>
+
       <button class="dock-btn btn-dock-trade" id="dock-btn-trade" onclick="game.openTradeMenu()" title="Trade Properties">
         <div class="dock-icon-box dock-trade-icon">
           <i class="fas fa-arrow-right-arrow-left"></i>
         </div>
+        <span class="dock-btn-label">Trade</span>
       </button>
 
       <button class="dock-btn btn-dock-build" id="dock-btn-build" onclick="game.openBuildMenu()" title="Build Houses & Hotels">
@@ -217,6 +285,7 @@
           <i class="fas fa-house"></i>
           <span class="dock-mini-badge badge-green"><i class="fas fa-plus"></i></span>
         </div>
+        <span class="dock-btn-label">Build</span>
       </button>
 
       <button class="dock-btn btn-dock-sell" id="dock-btn-sell" onclick="game.openSellMenu()" title="Sell Buildings">
@@ -224,24 +293,28 @@
           <i class="fas fa-house"></i>
           <span class="dock-mini-badge badge-gold"><i class="fas fa-dollar-sign"></i></span>
         </div>
+        <span class="dock-btn-label">Sell</span>
       </button>
 
       <button class="dock-btn btn-dock-mortgage" id="dock-btn-mortgage" onclick="game.openMortgageMenu()" title="Mortgage Properties">
         <div class="dock-icon-box dock-mortgage-icon">
           <i class="fas fa-file-invoice-dollar"></i>
         </div>
+        <span class="dock-btn-label">Mortgage</span>
       </button>
 
       <button class="dock-btn btn-dock-portfolio" id="dock-btn-portfolio" onclick="game.openPortfolioMenu()" title="My Deeds Portfolio">
         <div class="dock-icon-box dock-portfolio-icon">
           <i class="fas fa-receipt"></i>
         </div>
+        <span class="dock-btn-label">Portfolio</span>
       </button>
 
       <button class="dock-btn btn-dock-menu" id="dock-btn-menu" onclick="game.openMenuModal()" title="Game Menu">
         <div class="dock-icon-box dock-menu-icon">
           <i class="fas fa-bars"></i>
         </div>
+        <span class="dock-btn-label">Menu</span>
       </button>
     </nav>
 

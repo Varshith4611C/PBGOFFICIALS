@@ -319,8 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsBtn = document.getElementById('pbgAiSettingsBtn');
     const settingsPanel = document.getElementById('pbgAiSettingsPanel');
     const settingsClose = document.getElementById('pbgAiSettingsClose');
-    const keyInput = document.getElementById('pbgAiKeyInput');
-    const keyToggle = document.getElementById('pbgAiKeyToggle');
     const modelSelect = document.getElementById('pbgAiModelSelect');
     const saveSettingsBtn = document.getElementById('pbgAiSaveSettings');
     const modelLabel = document.getElementById('pbgAiModelLabel');
@@ -334,8 +332,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!trigger || !chatWindow) return;
 
+    // Clear legacy client-side API key if present
+    localStorage.removeItem('pbg_ai_nvidia_key');
+
     // Load Settings
-    let apiKey = localStorage.getItem('pbg_ai_nvidia_key') || '';
     let currentModel = localStorage.getItem('pbg_ai_model') || 'meta/llama-3.2-11b-vision-instruct';
 
     // Auto-migrate if user has deprecated 410 model saved in localStorage
@@ -346,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let conversation = [];
 
     // Initialize fields
-    if (keyInput) keyInput.value = apiKey;
     if (modelSelect) modelSelect.value = currentModel;
     const updateModelLabel = () => {
       if (modelLabel) {
@@ -378,18 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
       settingsPanel?.classList.remove('open');
     });
 
-    // Toggle Key Visibility
-    keyToggle?.addEventListener('click', () => {
-      const isPassword = keyInput.type === 'password';
-      keyInput.type = isPassword ? 'text' : 'password';
-      keyToggle.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
-    });
-
     // Save Settings
     saveSettingsBtn?.addEventListener('click', () => {
-      apiKey = (keyInput?.value || '').trim();
-      currentModel = modelSelect?.value || 'meta/llama-3.3-70b-instruct';
-      localStorage.setItem('pbg_ai_nvidia_key', apiKey);
+      currentModel = modelSelect?.value || 'meta/llama-3.2-11b-vision-instruct';
       localStorage.setItem('pbg_ai_model', currentModel);
       updateModelLabel();
       settingsPanel?.classList.remove('open');
@@ -514,7 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
           messages: conversation.slice(-10), // keep context window compact
           model: currentModel,
         };
-        if (apiKey) payload.apiKey = apiKey;
 
         const res = await fetch('/api/ai/chat', {
           method: 'POST',
@@ -530,10 +519,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) {
           const errMsg = data.error || 'Failed to get response from PBG AI.';
           appendMessage('ai', `⚠️ **Error:** ${errMsg}`);
-          if (res.status === 401) {
-            // Open settings panel automatically so user can enter key
-            settingsPanel?.classList.add('open');
-          }
           return;
         }
 
