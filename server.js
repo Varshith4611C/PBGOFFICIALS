@@ -303,28 +303,44 @@ app.get('/{*path}', (_req, res) => {
 
 // ── Start server ──
 const os = require('os');
-const { Bonjour } = require('bonjour-service');
+const mdns = require('multicast-dns')();
 
-httpServer.listen(PORT, () => {
-  // Broadcast server via mDNS as "pbg.local"
-  const bonjour = new Bonjour();
-  bonjour.publish({ name: 'pbg', type: 'http', port: PORT, host: 'pbg.local' });
-
-  // Get local network IP
+// Get local network IP
+function getNetworkIP() {
   const nets = os.networkInterfaces();
-  let networkIP = '0.0.0.0';
   for (const name of Object.keys(nets)) {
     for (const net of nets[name]) {
       if (net.family === 'IPv4' && !net.internal) {
-        networkIP = net.address;
-        break;
+        return net.address;
       }
     }
-    if (networkIP !== '0.0.0.0') break;
   }
+  return '0.0.0.0';
+}
 
+const networkIP = getNetworkIP();
+
+// Respond to mDNS queries for "pbg.local"
+mdns.on('query', (query) => {
+  const dominated = query.questions.filter(q =>
+    q.name === 'pbg.local' && q.type === 'A'
+  );
+  if (dominated.length > 0) {
+    mdns.respond({
+      answers: [{
+        name: 'pbg.local',
+        type: 'A',
+        ttl: 300,
+        data: networkIP
+      }]
+    });
+  }
+});
+
+httpServer.listen(PORT, () => {
   console.log(`\n  ⚡ PBG Officials server running at:\n`);
   console.log(`     Local:   http://localhost:${PORT}`);
   console.log(`     Network: http://${networkIP}:${PORT}`);
   console.log(`     mDNS:    http://pbg.local:${PORT}  ← use this!\n`);
 });
+
