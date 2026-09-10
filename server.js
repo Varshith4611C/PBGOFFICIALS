@@ -303,9 +303,28 @@ app.get('/{*path}', (_req, res) => {
 
 // ── Start server ──
 const os = require('os');
+const { Bonjour } = require('bonjour-service');
+
 httpServer.listen(PORT, () => {
-  const hostname = os.hostname();
+  // Broadcast server via mDNS as "pbg.local"
+  const bonjour = new Bonjour();
+  bonjour.publish({ name: 'pbg', type: 'http', port: PORT, host: 'pbg.local' });
+
+  // Get local network IP
+  const nets = os.networkInterfaces();
+  let networkIP = '0.0.0.0';
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        networkIP = net.address;
+        break;
+      }
+    }
+    if (networkIP !== '0.0.0.0') break;
+  }
+
   console.log(`\n  ⚡ PBG Officials server running at:\n`);
   console.log(`     Local:   http://localhost:${PORT}`);
-  console.log(`     Network: http://${hostname}.local:${PORT}\n`);
+  console.log(`     Network: http://${networkIP}:${PORT}`);
+  console.log(`     mDNS:    http://pbg.local:${PORT}  ← use this!\n`);
 });
