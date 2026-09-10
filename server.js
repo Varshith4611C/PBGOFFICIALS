@@ -4,7 +4,6 @@ const axios = require('axios');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
-const { initGameSocket } = require('./games/business-board/api');
 
 const app = express();
 const httpServer = createServer(app);
@@ -292,17 +291,10 @@ app.use('/chatbox', express.static(path.join(__dirname, 'chatbox'), {
   index: 'index.html',
 }));
 
-// ── Serve games frontend ──
-app.use('/games', express.static(path.join(__dirname, 'games'), {
-  extensions: ['html'],
-  index: 'index.html',
-}));
 
 // ── Initialize Socket.IO for ChatBox ──
 initChatSocket(io);
 
-// ── Initialize Socket.IO for Business Board Game ──
-initGameSocket(io);
 
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──
 app.get('/{*path}', (_req, res) => {
@@ -310,8 +302,10 @@ app.get('/{*path}', (_req, res) => {
 });
 
 // ── Start server ──
+const os = require('os');
 httpServer.listen(PORT, () => {
+  const hostname = os.hostname();
   console.log(`\n  ⚡ PBG Officials server running at:\n`);
   console.log(`     Local:   http://localhost:${PORT}`);
-  console.log(`     Network: http://0.0.0.0:${PORT}\n`);
+  console.log(`     Network: http://${hostname}.local:${PORT}\n`);
 });
