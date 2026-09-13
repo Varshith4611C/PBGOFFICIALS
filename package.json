@@ -1,7 +1,7 @@
 {
   "name": "pbgofficials",
   "version": "1.0.0",
-  "description": "",
+  "description": "PBG Officials — Multi-Platform Digital Hub | Anime, Manga, TV, Games, Chat",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,9 +12,16 @@
     "type": "git",
     "url": "git+https://github.com/Varshith4611C/PBGOFFICIALS.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "anime",
+    "manga",
+    "tv",
+    "games",
+    "chat",
+    "streaming"
+  ],
+  "author": "PBG Officials <pbgofficial143@gmail.com>",
+  "license": "GPL-3.0-only",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/Varshith4611C/PBGOFFICIALS/issues"
