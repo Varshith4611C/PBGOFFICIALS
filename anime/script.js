@@ -145,30 +145,7 @@ if (mobileSearchClose && mobileSearchDrawer) {
   });
 }
 
-// ============================================
-// POPUP & REDIRECT DEFENSE (BACKGROUND PROTECTION)
-// ============================================
-// Neutralize unauthorized window.open triggers
-window.open = function (...args) {
-  console.warn('[PBG Shield] Neutralized popup window:', args[0]);
-  return null;
-};
-
-// 4. Anti-Redirect & Anti-Frame-Busting Protection
-let userNavInitiated = false;
-document.addEventListener('click', (e) => {
-  const a = e.target.closest('a');
-  if (a && a.href) {
-    userNavInitiated = true;
-    setTimeout(() => { userNavInitiated = false; }, 2500);
-  }
-}, true);
-
-window.addEventListener('beforeunload', (e) => {
-  if (!userNavInitiated) {
-    console.warn('[PBG] Potential background redirect prevented');
-  }
-});
+// ── Popup & Redirect defense is handled by adguard.js ──
 
 // ============================================
 // HOMEPAGE LOGIC
