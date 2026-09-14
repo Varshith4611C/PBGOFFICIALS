@@ -134,20 +134,38 @@
 
   // Also detect full-screen click-hijack overlays (transparent divs covering the page)
   function detectClickHijack(el) {
-    if (el.nodeType !== 1) return false; // Not an element
-    if (el.id === 'playerIframe' || el.id === 'playerWrapper' || el.id === 'playerLoading') return false;
-    if (el.closest('.theatre-player-wrapper')) return false;
+    if (!el || el.nodeType !== 1) return false; // Not an element
+    // Whitelist all internal application UI elements
+    if (
+      el.id === 'playerIframe' ||
+      el.id === 'playerWrapper' ||
+      el.id === 'playerLoading' ||
+      el.id === 'heroSlidesContainer' ||
+      el.id === 'heroCarousel' ||
+      el.classList.contains('hero-slide') ||
+      el.classList.contains('hero-backdrop') ||
+      el.classList.contains('hero-overlay') ||
+      el.classList.contains('hero-content') ||
+      el.closest('.hero-carousel') ||
+      el.closest('#heroCarousel') ||
+      el.closest('.theatre-player-wrapper') ||
+      el.closest('.section-container') ||
+      el.closest('.navbar')
+    ) {
+      return false;
+    }
 
     const style = window.getComputedStyle(el);
     const isFixed = style.position === 'fixed' || style.position === 'absolute';
     const isFullCover = (
-      parseInt(style.width) >= window.innerWidth * 0.8 &&
-      parseInt(style.height) >= window.innerHeight * 0.8
+      parseInt(style.width) >= window.innerWidth * 0.9 &&
+      parseInt(style.height) >= window.innerHeight * 0.9
     );
-    const isTransparent = parseFloat(style.opacity) < 0.15 || style.backgroundColor === 'transparent';
-    const isHighZ = parseInt(style.zIndex) > 9000;
+    const isTransparent = parseFloat(style.opacity) < 0.05 || style.backgroundColor === 'transparent';
+    const isHighZ = parseInt(style.zIndex) >= 9000;
 
-    return isFixed && isFullCover && (isTransparent || isHighZ);
+    // Real click hijackers must be full-screen, transparent, AND have high z-index to intercept clicks
+    return isFixed && isFullCover && isTransparent && isHighZ;
   }
 
   // Run initial cleanup
