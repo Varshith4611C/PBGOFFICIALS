@@ -25,6 +25,18 @@
     </image:image>
   </url>
 
+  <!-- PBG Manga Platform -->
+  <url>
+    <loc>https://pbgofficials.dev/manga/</loc>
+    <lastmod>2026-09-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://pbgofficials.dev/assets/images/logo-circle.png</image:loc>
+      <image:title>PBG Manga - Discover, Read &amp; Collect Free Manga in HD</image:title>
+    </image:image>
+  </url>
+
   <!-- PBG ChatBox Platform -->
   <url>
     <loc>https://pbgofficials.dev/chatbox/</loc>

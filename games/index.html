@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PBG Games — Multi-Player Browser Games Portal | PBG Officials</title>
+  <meta name="description" content="Play free multiplayer browser games on PBG Games. Explore PBG Business Board, Chess Arena, Ludo Royale, Anime Trivia, and tactical card battles with zero downloads." />
+  <meta name="keywords" content="PBG Games, Business Board Game, Indian Monopoly, PBG Officials, browser games, multiplayer games, online board game, chess arena, ludo royale" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="canonical" href="https://pbgofficials.dev/games/" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/images/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="PBG Games — Browser Games Portal | PBG Officials" />
+  <meta property="og:description" content="Instant browser games, real-time multiplayer rooms, strategic Indian business board games, and leaderboards." />
+  <meta property="og:image" content="/assets/images/logo.jpg" />
+
+  <!-- FontAwesome & Google Fonts -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/games/style.css" />
+</head>
+<body>
+
+  <!-- ========== NAVBAR ========== -->
+  <header class="games-header">
+    <div class="container nav-container">
+      <a href="/" class="brand-wrap">
+        <img src="/assets/images/logo.jpg" alt="PBG Logo" class="brand-logo" />
+        <div class="brand-name">
+          PBG Games <span class="brand-badge">PORTAL</span>
+        </div>
+      </a>
+
+      <!-- Instant Search Bar -->
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="game-search-input" placeholder="Search games by name, category, or tag..." />
+      </div>
+
+      <!-- Nav Actions -->
+      <div class="nav-actions">
+        <a href="/" class="btn-nav-home" title="Back to PBG Officials Home">
+          <i class="fas fa-arrow-left"></i> <span>Main Hub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="container">
+
+    <!-- ── Hero Banner: Featured Game (PBG Business Board) ── -->
+    <section class="hero-section">
+      <div class="hero-banner">
+        
+        <!-- Left details -->
+        <div class="hero-content">
+          <div class="hero-tag">
+            <i class="fas fa-fire"></i> Featured Game of the Week
+          </div>
+          <h1 class="hero-title">
+            PBG <span>Business Board</span>
+          </h1>
+          <p class="hero-desc">
+            The classic 40-space Indian Business mobile board game experience! Trade iconic Indian cities like Mumbai, Delhi &amp; Kolkata, build houses and hotels, roll doubles, and bankrupt opponents online or with bots.
+          </p>
+
+          <div class="hero-badges">
+            <span class="hero-pill"><i class="fas fa-users"></i> 2–4 Players</span>
+            <span class="hero-pill"><i class="fas fa-dice"></i> 40 Indian Spaces</span>
+            <span class="hero-pill"><i class="fas fa-house-chimney"></i> Building System</span>
+            <span class="hero-pill"><i class="fas fa-wifi"></i> Online Multiplayer</span>
+            <span class="hero-pill"><i class="fas fa-music"></i> SFX &amp; Lo-Fi Music</span>
+          </div>
+
+          <div class="hero-actions">
+            <a href="/games/business-board/" class="btn-play-primary">
+              <i class="fas fa-play"></i> PLAY GAME NOW
+            </a>
+            <button class="btn-hero-secondary" onclick="openGameModal('business-board')">
+              <i class="fas fa-circle-info"></i> Rules &amp; Details
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Visual Mockup -->
+        <div class="hero-visual">
+          <div class="game-preview-card">
+            <div class="preview-board-mockup">
+              <div class="mockup-grid-lines"></div>
+              <div class="mockup-vs">VS</div>
+              <div class="mockup-handshake">🤝</div>
+              <div class="mockup-title">BUSINESS BOARD</div>
+              <div class="mockup-tokens">
+                <div class="mockup-token" style="background:#ef4444;" title="Red Pawn"><i class="fas fa-chess-pawn"></i></div>
+                <div class="mockup-token" style="background:#22c55e;" title="Green Knight"><i class="fas fa-chess-knight"></i></div>
+                <div class="mockup-token" style="background:#3b82f6;" title="Blue Car"><i class="fas fa-car-side"></i></div>
+                <div class="mockup-token" style="background:#eab308;" title="Yellow Crown"><i class="fas fa-crown"></i></div>
+              </div>
+            </div>
+            <div class="preview-card-info">
+              <span class="preview-status">ONLINE READY</span>
+              <span class="preview-rating"><i class="fas fa-star"></i> 4.9 (2.4k plays)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Category Filter Tabs ── -->
+    <section class="filter-section">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-category="all">
+          <i class="fas fa-gamepad"></i> All Games <span class="filter-count">5</span>
+        </button>
+        <button class="filter-btn" data-category="multiplayer">
+          <i class="fas fa-users"></i> Multiplayer <span class="filter-count">4</span>
+        </button>
+        <button class="filter-btn" data-category="board">
+          <i class="fas fa-dice"></i> Board Games <span class="filter-count">2</span>
+        </button>
+        <button class="filter-btn" data-category="strategy">
+          <i class="fas fa-chess"></i> Strategy <span class="filter-count">3</span>
+        </button>
+        <button class="filter-btn" data-category="card">
+          <i class="fas fa-clone"></i> Card Games <span class="filter-count">1</span>
+        </button>
+        <button class="filter-btn" data-category="arcade">
+          <i class="fas fa-trophy"></i> Quiz &amp; Arcade <span class="filter-count">1</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Games Grid ── -->
+    <section>
+      <div class="games-grid" id="games-grid">
+        <!-- Rendered dynamically by script.js -->
+      </div>
+    </section>
+
+    <!-- ── Platform Features Highlight ── -->
+    <section class="features-section">
+      <div class="section-header">
+        <div class="section-subtitle">Why Play on PBG Games</div>
+        <h2 class="section-title">Built for Instant High-Performance Gaming</h2>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-box">
+          <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+          <h3 class="feature-title">Zero Downloads</h3>
+          <p class="feature-desc">Play directly in any browser on phone, tablet, or PC without installing any heavy apps.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon"><i class="fas fa-network-wired"></i></div>
+          <h3 class="feature-title">Real-Time Multiplayer</h3>
+          <p class="feature-desc">Socket.IO powered private rooms. Create a game and share a simple 6-letter room code with friends.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon"><i class="fas fa-volume-high"></i></div>
+          <h3 class="feature-title">Web Audio Synthesizers</h3>
+          <p class="feature-desc">Custom sound effects and lo-fi background music generated natively in the browser with zero lag.</p>
+        </div>
+
+        <div class="feature-box">
+          <div class="feature-icon"><i class="fas fa-robot"></i></div>
+          <h3 class="feature-title">Intelligent AI Bots</h3>
+          <p class="feature-desc">Practice and play solo anytime against smart algorithmic AI opponents with strategic decision trees.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== MODAL BACKDROP ========== -->
+  <div class="game-modal-backdrop" id="game-modal-backdrop">
+    <div class="game-modal">
+      <button class="modal-close-btn" id="modal-close-btn"><i class="fas fa-times"></i></button>
+      <div id="modal-game-details">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="games-footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="/">PBG Officials Home</a>
+        <a href="https://pbganime.in" target="_blank" rel="noopener">PBG Anime</a>
+        <a href="https://pbgmanga.in" target="_blank" rel="noopener">PBG Manga</a>
+        <a href="https://pbgtv.in" target="_blank" rel="noopener">PBG TV</a>
+        <a href="/chatbox/">PBG ChatBox</a>
+      </div>
+      <p class="footer-copy">
+        &copy; 2026 PBG Officials. All rights reserved. Crafting immersive entertainment platforms.
+      </p>
+    </div>
+  </footer>
+
+  <script src="/games/script.js"></script>
+</body>
+</html>

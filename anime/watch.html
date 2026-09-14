@@ -2,124 +2,236 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Watch — PBG Anime</title>
-  <meta name="description" content="Watch anime episodes in HD with multiple servers on PBG Anime." />
-  <meta name="theme-color" content="#020617" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Watch Anime Online Free — PBG Anime</title>
+  <meta name="description" content="Stream anime episodes in HD quality with multi-server options on PBG Anime." />
+  <meta name="referrer" content="no-referrer-when-downgrade" />
+  <meta name="theme-color" content="#000000" />
   <link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48x48.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.2" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
-<body>
+<body class="watch-body">
 
-  <!-- Navigation -->
-  <nav class="navbar">
+  <!-- Top Navigation Bar -->
+  <nav class="navbar" id="navbar">
     <div class="container">
       <a href="/anime/" class="nav-brand">
         <img src="/assets/images/logo.jpg" alt="PBG Logo" />
         <span>PBG <span class="brand-anime">Anime</span></span>
       </a>
 
-      <div class="nav-search">
+      <div class="nav-search" id="navSearch">
         <i class="fas fa-search search-icon"></i>
-        <input type="text" id="searchInput" placeholder="Search anime..." autocomplete="off" />
+        <input type="text" id="searchInput" placeholder="Search anime... (e.g. Solo Leveling, One Piece)" autocomplete="off" />
         <div class="search-results" id="searchResults"></div>
       </div>
 
       <div class="nav-links">
-        <a href="/anime/" id="navHome"><i class="fas fa-fire"></i> Home</a>
-        <a href="/" class="nav-home"><i class="fas fa-globe"></i> PBG Hub</a>
+        <a href="/anime/" class="active"><i class="fas fa-play"></i> <span>Anime</span></a>
+        <a href="/manga/"><i class="fas fa-book-open"></i> <span>Manga</span></a>
+        <a href="/games/"><i class="fas fa-gamepad"></i> <span>Games</span></a>
+        <a href="/"><i class="fas fa-globe"></i> <span>PBG Hub</span></a>
       </div>
+
+      <!-- Mobile Search Button Toggle -->
+      <div class="nav-mobile-controls">
+        <button class="mobile-search-toggle" id="mobileSearchBtn" aria-label="Open Search">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Collapsible Search Drawer -->
+    <div class="mobile-search-drawer" id="mobileSearchDrawer">
+      <div class="mobile-search-inner">
+        <i class="fas fa-search mobile-drawer-icon"></i>
+        <input type="text" id="mobileSearchInput" placeholder="Search anime... (e.g. Solo Leveling, One Piece)" autocomplete="off" />
+        <button class="mobile-search-close" id="mobileSearchClose" aria-label="Close Search"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="search-results" id="mobileSearchResults"></div>
     </div>
   </nav>
 
-  <!-- Watch Page -->
-  <div class="watch-page">
+  <!-- Watch Container -->
+  <main class="watch-page-container">
 
-    <!-- Main Layout: Sidebar (Left) + Player Area (Right) -->
-    <div class="watch-layout">
-
-      <!-- LEFT SIDEBAR: Episodes (Desktop side, Mobile bottom) -->
-      <aside class="episodes-sidebar" id="episodesSection">
-        <div class="sidebar-header">
-          <div class="sidebar-title">
-            <i class="fas fa-list"></i>
-            <span>Episodes</span>
-            <span class="ep-count-badge" id="epTotalCount"></span>
-          </div>
-          <div class="sidebar-find">
-            <i class="fas fa-search"></i>
-            <input type="number" id="epFilterInput" placeholder="# Find Ep..." min="1" />
-          </div>
+    <!-- Top Action Bar (Back Circle + Title) -->
+    <div class="watch-top-bar">
+      <div class="watch-top-title-wrap">
+        <a href="/anime/" class="back-circle-btn" title="Back to Anime"><i class="fas fa-arrow-left"></i></a>
+        <div class="watch-header-text">
+          <h1 id="watchAnimeHeader" style="font-size: 1.2rem; font-weight: 700; color: #ffffff; margin-bottom: 2px;">Loading Anime...</h1>
+          <div id="watchEpisodeHeader" style="font-size: 0.82rem; color: var(--text-secondary);">Episode 1</div>
         </div>
-        <!-- Range navigation buttons injected dynamically -->
-        <div id="epRangeContainer"></div>
-        <!-- 5-column grid showing max ~30 episodes (6 rows) at a time, scrollable for the rest of the 100 -->
-        <div class="episodes-grid" id="episodesGrid">
-          <!-- Episode buttons generated dynamically -->
-        </div>
-      </aside>
+      </div>
+    </div>
 
-      <!-- RIGHT COLUMN: Player Area -->
-      <div class="player-area">
+    <!-- Main Theatre 2-Column Grid: Left Player + Right Sidebar -->
+    <div class="watch-layout-grid">
 
-        <!-- Top breadcrumb / Back to Anime -->
-        <div class="player-header-bar">
-          <a href="/anime/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Browse</a>
+      <!-- Left Column: Video Player + Now Playing Controls + Server Grid + Related -->
+      <div class="watch-player-column">
+
+        <!-- 16:9 Video Player -->
+        <div class="theatre-player-wrapper" id="playerWrapper">
+          <div class="player-loading-overlay" id="playerLoading">
+            <div style="width: 38px; height: 38px; border: 3px solid rgba(168,85,247,0.2); border-top-color: #a855f7; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <p id="playerLoadingText">Initializing high-speed stream...</p>
+            <div id="playerLoadingTrouble" style="display:none; margin-top: 10px; font-size: 0.78rem; color: #94a3b8; text-align: center;">
+              Taking longer than usual? <button id="quickSwitchServerBtn" type="button" style="background: rgba(168,85,247,0.25); border: 1px solid #a855f7; color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.75rem; margin-left: 6px; font-weight: 500;">Try Next Server</button>
+            </div>
+          </div>
+          <iframe id="playerIframe" referrerpolicy="origin" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" scrolling="no" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
         </div>
 
-        <!-- Video Player Frame -->
-        <div class="player-wrapper" id="playerWrapper">
-          <div class="player-loading" id="playerLoading">
-            <div class="spinner"></div>
-            <p>Loading player...</p>
+        <!-- Now Playing Control Bar (StreameX Style) -->
+        <div class="now-playing-bar">
+          <button id="prevEpBtn" class="np-nav-btn" disabled title="Previous Episode">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <div class="np-center-badge" id="nowPlayingBadge">
+            <i class="fas fa-circle-play" style="color: var(--accent-purple);"></i>
+            <span>Now Playing Episode 1</span>
           </div>
-          <!-- iframe gets injected here -->
+          <button id="nextEpBtn" class="np-nav-btn" disabled title="Next Episode">
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
 
-        <!-- Player Controls: Prev, Next, Server in 1 Single Row -->
-        <div class="player-controls">
-          <div class="player-nav-group">
-            <button id="prevEpBtn" class="ctrl-btn" disabled>
-              <i class="fas fa-chevron-left"></i> Prev
-            </button>
-            <button id="nextEpBtn" class="ctrl-btn" disabled>
-              Next <i class="fas fa-chevron-right"></i>
-            </button>
-          </div>
+        <!-- Tip Notice -->
+        <div class="stream-tip-notice">
+          <span>🚀 Please try different servers if one isn't working smoothly.</span>
+        </div>
 
-          <div class="server-select-group">
-            <label for="serverSelector"><i class="fas fa-server"></i> Server:</label>
-            <select id="serverSelector">
-              <option value="">Loading...</option>
-            </select>
+        <!-- Multi-Server Switcher Grid (StreameX 2x4 Layout) -->
+        <div class="streamex-server-grid" id="serversGridList">
+          <!-- Populated dynamically -->
+        </div>
+
+      </div>
+
+      <!-- Right Column: Episodes Navigator + Anime Info Card (StreameX Style) -->
+      <div class="watch-sidebar-column">
+
+        <!-- Top Controls Bar (Season + Ep input + View Toggle) -->
+        <div class="sidebar-top-bar">
+          <select class="season-select" id="seasonSelector">
+            <option value="1">Season 1</option>
+          </select>
+          <input type="number" class="ep-search-input" id="epFilterInput" placeholder="Ep #" min="1" />
+          <div class="view-mode-toggle-group">
+            <button class="view-toggle-btn" id="viewListBtn" title="List View"><i class="fas fa-bars"></i></button>
+            <button class="view-toggle-btn active" id="viewGridBtn" title="Grid View"><i class="fas fa-th"></i></button>
           </div>
         </div>
 
-        <!-- Episode Info -->
-        <div class="episode-info" id="episodeInfo">
-          <h1 id="episodeTitle">
-            <span class="ep-number">Loading...</span>
-          </h1>
-          <div class="episode-meta" id="episodeMeta">
-            <span><i class="fas fa-tv"></i> <span id="animeTitle">—</span></span>
-            <span><i class="fas fa-closed-captioning"></i> <span id="animeType">Sub</span></span>
+        <!-- Episodes Container (Grid / List) -->
+        <div class="episodes-panel-card">
+          <div class="episodes-panel-header">
+            <span class="episodes-panel-title">
+              <i class="fas fa-list-ol" style="color: var(--accent-purple);"></i>
+              Episodes
+            </span>
+            <span id="sidebarEpCount" class="today-tag" style="background: rgba(168, 85, 247, 0.15); color: #d8b4fe;"></span>
+          </div>
+
+          <div class="episodes-scroll-area">
+            <div class="episodes-grid-view" id="episodesGridContainer">
+              <!-- Populated dynamically with episode numbers -->
+            </div>
+            <div class="episodes-list-view" id="episodesListContainer" style="display: none;">
+              <!-- Populated dynamically with detailed episode rows -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Anime Info Card (StreameX Sidebar Info) -->
+        <div class="sidebar-anime-info-card">
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <div style="position: relative; flex-shrink: 0;">
+              <img src="" alt="Poster" class="sidebar-poster-img" id="metadataPoster" onerror="this.src='/assets/images/logo.jpg'" />
+              <span class="card-top-pill score" id="sidebarScoreBadge" style="top: 6px; left: 6px;">★ 8.7</span>
+            </div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <div class="sidebar-meta-row">
+                <span class="sidebar-meta-label">Status</span>
+                <span class="sidebar-meta-val" id="sidebarStatusVal">Ongoing</span>
+              </div>
+              <div class="sidebar-meta-row">
+                <span class="sidebar-meta-label">Production</span>
+                <span class="sidebar-meta-val" id="sidebarStudioVal">Toei Animation</span>
+              </div>
+              <div class="sidebar-meta-row">
+                <span class="sidebar-meta-label">Aired</span>
+                <span class="sidebar-meta-val" id="sidebarAiredVal">1999-10-20</span>
+              </div>
+            </div>
+          </div>
+
+          <h2 class="sidebar-anime-title" id="metadataTitle">Anime Title</h2>
+          <div class="sidebar-synopsis-box">
+            <p id="metadataDesc">Synopsis loading...</p>
+          </div>
+
+          <div class="metadata-genres" id="metadataGenres">
+            <!-- Genre pills -->
           </div>
         </div>
 
       </div>
+
     </div>
 
-  </div>
+    <!-- Related Anime Section (Full Width Below Theatre Grid) -->
+    <div class="related-anime-section">
+      <div class="section-header-row" style="margin-bottom: 12px;">
+        <div class="section-title-group">
+          <i class="fas fa-film" style="color: var(--accent-purple);"></i>
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">Related Anime</h3>
+        </div>
+        <div class="carousel-nav-group">
+          <button class="carousel-arrow-btn" id="relPrevBtn" aria-label="Scroll left"><i class="fas fa-chevron-left"></i></button>
+          <button class="carousel-arrow-btn" id="relNextBtn" aria-label="Scroll right"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="cards-carousel" id="recommendationsCarousel" style="padding-bottom: 6px;">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </main>
 
   <!-- Footer -->
   <footer class="footer">
-    <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans.</p>
+    <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans worldwide.</p>
   </footer>
 
-  <script src="script.js"></script>
+  <!-- Mobile Bottom Navigation Bar (Visible only on mobile screens <= 768px) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile Navigation">
+    <a href="/anime/" class="mobile-nav-item active">
+      <i class="fas fa-play"></i>
+      <span>Anime</span>
+    </a>
+    <a href="/manga/" class="mobile-nav-item">
+      <i class="fas fa-book-open"></i>
+      <span>Manga</span>
+    </a>
+    <a href="/games/" class="mobile-nav-item">
+      <i class="fas fa-gamepad"></i>
+      <span>Games</span>
+    </a>
+    <a href="/" class="mobile-nav-item">
+      <i class="fas fa-globe"></i>
+      <span>Hub</span>
+    </a>
+  </nav>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script src="script.js?v=2.2"></script>
 </body>
 </html>

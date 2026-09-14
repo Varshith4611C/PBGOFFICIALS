@@ -4,6 +4,7 @@ const axios = require('axios');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
+const { initGameSocket } = require('./games/business-board/api');
 
 const app = express();
 const httpServer = createServer(app);
@@ -59,6 +60,10 @@ app.use(express.urlencoded({ extended: true }));
 // ── Anime API routes ──
 const animeApi = require('./anime/api');
 app.use('/api/anime', animeApi);
+
+// ── Manga API routes ──
+const mangaApi = require('./manga/api');
+app.use('/api/manga', mangaApi);
 
 // ── PBG AI Endpoint (NVIDIA NIM Integration) ──
 const DEFAULT_AI_MODEL = 'meta/llama-3.2-11b-vision-instruct';
@@ -291,9 +296,34 @@ app.use('/chatbox', express.static(path.join(__dirname, 'chatbox'), {
   index: 'index.html',
 }));
 
+// ── Serve games frontend ──
+app.use('/games', express.static(path.join(__dirname, 'games'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
+
+// ── Serve manga route rewrites (StreameX-compatible paths) ──
+app.get('/manga/read/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'manga', 'read.html'));
+});
+
+app.get('/manga/:id', (req, res, next) => {
+  // If it's a file with an extension like .css, .js, .html, let static handler serve it
+  if (req.params.id.includes('.')) return next();
+  res.sendFile(path.join(__dirname, 'manga', 'detail.html'));
+});
+
+// ── Serve manga frontend ──
+app.use('/manga', express.static(path.join(__dirname, 'manga'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
 
 // ── Initialize Socket.IO for ChatBox ──
 initChatSocket(io);
+
+// ── Initialize Socket.IO for Business Board Game ──
+initGameSocket(io);
 
 
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Read Manga — PBG Manga Reader</title>
+  <meta name="description" content="Read manga chapters in high definition with continuous scrolling and distraction-free reader on PBG Manga." />
+  <meta name="theme-color" content="#030712" />
+  <link rel="icon" href="/favicon.ico" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css?v=2.2" />
+</head>
+<body class="reader-body">
+
+  <!-- Top Progress Bar -->
+  <div class="reader-progress-bar" id="readerProgressBar"></div>
+
+  <!-- Sticky Top Navigation Bar -->
+  <header class="reader-navbar" id="readerNavbar">
+    <div class="reader-left">
+      <a href="/manga/" class="reader-back-btn" id="readerBackLink" title="Back to Manga Catalog">
+        <i class="fas fa-arrow-left"></i> <span>Catalog</span>
+      </a>
+
+      <div class="reader-titles">
+        <span class="reader-manga-name" id="readerMangaName">Loading title...</span>
+        <span class="reader-chapter-title" id="readerChapterName">Chapter --</span>
+      </div>
+    </div>
+
+    <!-- Middle: Prev, Dropdown, Next -->
+    <div class="reader-chapter-nav">
+      <button class="reader-nav-btn" id="prevChapterBtn" disabled title="Previous Chapter">
+        <i class="fas fa-chevron-left"></i> <span class="hide-mobile">Prev</span>
+      </button>
+
+      <select class="reader-chapter-select" id="readerChapterSelect">
+        <option value="">Loading chapters...</option>
+      </select>
+
+      <button class="reader-nav-btn" id="nextChapterBtn" disabled title="Next Chapter">
+        <span class="hide-mobile">Next</span> <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+
+    <!-- Right: Mode, Width, Fullscreen -->
+    <div class="reader-tools">
+      <button class="reader-tool-btn active" id="toggleViewModeBtn" title="Toggle Long-Strip / Single Page mode">
+        <i class="fas fa-scroll"></i> <span class="hide-mobile">Webtoon</span>
+      </button>
+
+      <button class="reader-tool-btn" id="toggleWidthBtn" title="Toggle Reader Width">
+        <i class="fas fa-arrows-alt-h"></i> <span class="hide-mobile">Fit Width</span>
+      </button>
+
+      <button class="reader-tool-btn" id="toggleFullscreenBtn" title="Toggle Fullscreen">
+        <i class="fas fa-expand"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Reader Viewport Container -->
+  <main class="reader-viewport width-standard" id="readerViewport">
+    <div class="manga-page-loading" id="readerLoading">
+      <div class="spinner" style="width:40px;height:40px;border:3px solid rgba(16,185,129,0.2);border-top-color:var(--accent-emerald);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <p>Loading chapter pages...</p>
+    </div>
+
+    <!-- Pages container (populated dynamically) -->
+    <div id="pagesContainer" style="width: 100%;"></div>
+
+    <!-- End of Chapter Card -->
+    <div class="chapter-end-card" id="chapterEndCard" style="display: none;">
+      <h3 id="endCardTitle">End of Chapter</h3>
+      <p>You have reached the end of this chapter. Continue to the next chapter or choose another from the list.</p>
+      <div class="chapter-end-buttons">
+        <button class="reader-nav-btn" id="endPrevBtn"><i class="fas fa-chevron-left"></i> Previous</button>
+        <button class="btn-primary-read" id="endNextBtn">Next Chapter <i class="fas fa-arrow-right"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @media (max-width: 640px) {
+      .hide-mobile { display: none; }
+    }
+  </style>
+
+  <!-- Scripts -->
+  <script src="script.js?v=2.2"></script>
+</body>
+</html>

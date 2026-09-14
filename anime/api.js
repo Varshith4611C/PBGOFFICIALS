@@ -1,73 +1,58 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 const express = require('express');
 const router = express.Router();
 
-// ── GoGoAnime base URL (update if domain changes) ──
-const BASE_URL = 'https://gogoanime.or.at';
+const ANILIST_GRAPHQL = 'https://graphql.anilist.co';
 
-// ── HTTP client ──
-const client = axios.create({
-  timeout: 15000,
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5',
-  },
-});
+// ── In-memory TTL Cache (10 minutes for fast instant responses) ──
+const cache = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-// ── Helper: Clean URL path to get ID ──
-function cleanPath(href) {
-  let path;
-  try {
-    const url = new URL(href, BASE_URL);
-    path = url.pathname.replace(/^\/+|\/+$/g, '');
-  } catch {
-    path = href.replace(BASE_URL, '').replace(/^\/+|\/+$/g, '');
+function getCached(key) {
+  const item = cache.get(key);
+  if (!item) return null;
+  if (Date.now() - item.time > CACHE_TTL_MS) {
+    cache.delete(key);
+    return null;
   }
-  // Strip common prefixes (anime/, category/) so IDs are bare slugs
-  path = path.replace(/^(anime|category)\//, '');
-  return path;
+  return item.data;
 }
 
-// ── Helper: Parse homepage articles ──
-function parseArticles($) {
-  const results = [];
-  $('article').each((_, el) => {
-    const $el = $(el);
-    const link = $el.find('a').first();
-    const href = link.attr('href') || '';
-    const titleEl = $el.find('h2');
-    const title = titleEl.text().trim();
-    const image = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+function setCached(key, data) {
+  cache.set(key, { time: Date.now(), data });
+}
 
-    // Extract episode number and sub/dub
-    const epMatch = $el.text().match(/Ep\s+(\d+)/i);
-    const episodeNumber = epMatch ? parseInt(epMatch[1]) : null;
-    const isDub = $el.text().includes('Dub');
-    const subOrDub = isDub ? 'dub' : 'sub';
+// ── AniList GraphQL Client ──
+async function fetchAniList(query, variables = {}) {
+  const cacheKey = JSON.stringify({ query, variables });
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
 
-    // Clean path: removes domain, leading/trailing slashes
-    const urlPath = cleanPath(href);
-    const episodeId = urlPath;
-
-    // Extract anime ID by removing -episode-XXX
-    const animeId = urlPath.replace(/-episode-\d+.*$/, '');
-
-    if (urlPath && title) {
-      results.push({
-        id: animeId,
-        episodeId,
-        title: title.replace(/\s*Episode\s*\d+\s*$/i, '').trim(),
-        image,
-        episodeNumber,
-        subOrDub,
-        url: href,
-      });
-    }
+  const res = await fetch(ANILIST_GRAPHQL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+    body: JSON.stringify({ query, variables }),
   });
-  return results;
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`AniList GraphQL error ${res.status}: ${errText}`);
+  }
+
+  const json = await res.json();
+  if (json.errors && json.errors.length > 0) {
+    throw new Error(`AniList query error: ${json.errors[0].message}`);
+  }
+
+  setCached(cacheKey, json.data);
+  return json.data;
 }
+
+
 
 // ── Image proxy (bypass hotlink protection) ──
 router.get('/img', async (req, res) => {
@@ -93,409 +78,567 @@ router.get('/img', async (req, res) => {
   }
 });
 
-// ── Recent episodes (homepage) ──
-router.get('/recent', async (req, res) => {
-  try {
-    const { page = 1 } = req.query;
-    const url = page > 1 ? `${BASE_URL}/page/${page}/` : BASE_URL;
-    const { data } = await client.get(url);
-    const $ = cheerio.load(data);
-    const results = parseArticles($);
+// ============================================
+// STREAME-X ANILIST GRAPHQL ENDPOINTS
+// ============================================
 
-    // Proxy the images
-    results.forEach(r => {
-      if (r.image) r.image = `/api/anime/img?url=${encodeURIComponent(r.image)}`;
+// ── 1. Trending Anime (Featured Carousel & Trending Section) ──
+router.get('/trending', async (req, res) => {
+  try {
+    const { page = 1, perPage = 15 } = req.query;
+    const query = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(type: ANIME, sort: TRENDING_DESC) {
+            id
+            title { english romaji native }
+            bannerImage
+            coverImage { extraLarge large }
+            averageScore
+            format
+            startDate { year }
+            description
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode timeUntilAiring airingAt }
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query, {
+      page: parseInt(page) || 1,
+      perPage: parseInt(perPage) || 15,
     });
 
-    res.json({ currentPage: parseInt(page), results });
+    const results = (data.Page?.media || []).map(m => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.native,
+      englishTitle: m.title.english,
+      romajiTitle: m.title.romaji,
+      bannerImage: m.bannerImage,
+      coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+      averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      scorePercentage: m.averageScore,
+      format: m.format || 'TV',
+      year: m.startDate?.year || null,
+      description: m.description ? m.description.replace(/<[^>]*>/g, '') : '',
+      genres: m.genres || [],
+      status: m.status || 'FINISHED',
+      episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null),
+      nextAiringEpisode: m.nextAiringEpisode,
+    }));
+
+    res.json({ results });
   } catch (err) {
-    console.error('Recent error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch recent episodes' });
+    console.error('Trending fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch trending anime' });
   }
 });
 
-// ── Search anime ──
+// ── 2. Popular Anime (Most Popular Carousel) ──
+router.get('/popular', async (req, res) => {
+  try {
+    const { page = 1, perPage = 15 } = req.query;
+    const query = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(type: ANIME, sort: POPULARITY_DESC) {
+            id
+            title { english romaji native }
+            bannerImage
+            coverImage { extraLarge large }
+            averageScore
+            format
+            startDate { year }
+            description
+            genres
+            status
+            episodes
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query, {
+      page: parseInt(page) || 1,
+      perPage: parseInt(perPage) || 15,
+    });
+
+    const results = (data.Page?.media || []).map(m => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.native,
+      englishTitle: m.title.english,
+      romajiTitle: m.title.romaji,
+      bannerImage: m.bannerImage,
+      coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+      averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      format: m.format || 'TV',
+      year: m.startDate?.year || null,
+      description: m.description ? m.description.replace(/<[^>]*>/g, '') : '',
+      genres: m.genres || [],
+      status: m.status || 'FINISHED',
+      episodes: m.episodes || null,
+    }));
+
+    res.json({ results });
+  } catch (err) {
+    console.error('Popular fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch popular anime' });
+  }
+});
+
+// ── 3. Top Airing Anime ──
+router.get('/top-airing', async (req, res) => {
+  try {
+    const { page = 1, perPage = 15 } = req.query;
+    const query = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
+            id
+            title { english romaji native }
+            bannerImage
+            coverImage { extraLarge large }
+            averageScore
+            format
+            startDate { year }
+            description
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode timeUntilAiring airingAt }
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query, {
+      page: parseInt(page) || 1,
+      perPage: parseInt(perPage) || 15,
+    });
+
+    const results = (data.Page?.media || []).map(m => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.native,
+      englishTitle: m.title.english,
+      romajiTitle: m.title.romaji,
+      bannerImage: m.bannerImage,
+      coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+      averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      format: m.format || 'TV',
+      year: m.startDate?.year || null,
+      description: m.description ? m.description.replace(/<[^>]*>/g, '') : '',
+      genres: m.genres || [],
+      status: m.status || 'RELEASING',
+      episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null),
+      nextAiringEpisode: m.nextAiringEpisode,
+    }));
+
+    res.json({ results });
+  } catch (err) {
+    console.error('Top airing fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch top airing anime' });
+  }
+});
+
+// ── 4. Airing Schedule (StreameX 7-day schedule Mon-Sun) ──
+router.get('/schedule', async (req, res) => {
+  try {
+    let startTimestamp, endTimestamp;
+
+    if (req.query.start && req.query.end) {
+      startTimestamp = parseInt(req.query.start);
+      endTimestamp = parseInt(req.query.end);
+    } else {
+      // Default: If dayOffset provided (-3 to +3 from today)
+      const dayOffset = parseInt(req.query.dayOffset || '0');
+      const now = new Date();
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset);
+      targetDate.setHours(0, 0, 0, 0);
+      startTimestamp = Math.floor(targetDate.getTime() / 1000);
+      endTimestamp = startTimestamp + 86400;
+    }
+
+    const query = `
+      query ($start: Int, $end: Int) {
+        Page(page: 1, perPage: 50) {
+          airingSchedules(airingAt_greater: $start, airingAt_lesser: $end, sort: TIME) {
+            id
+            episode
+            airingAt
+            timeUntilAiring
+            media {
+              id
+              title { english romaji native }
+              coverImage { large }
+              bannerImage
+              averageScore
+              format
+              genres
+            }
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query, {
+      start: startTimestamp,
+      end: endTimestamp,
+    });
+
+    const schedules = (data.Page?.airingSchedules || []).map(s => ({
+      id: s.id,
+      episode: s.episode,
+      airingAt: s.airingAt,
+      timeUntilAiring: s.timeUntilAiring,
+      isAired: s.timeUntilAiring <= 0,
+      media: {
+        id: s.media.id,
+        title: s.media.title.english || s.media.title.romaji || s.media.title.native,
+        coverImage: s.media.coverImage?.large,
+        bannerImage: s.media.bannerImage,
+        averageScore: s.media.averageScore ? (s.media.averageScore / 10).toFixed(1) : null,
+        format: s.media.format || 'TV',
+        genres: s.media.genres || [],
+      },
+    }));
+
+    res.json({
+      startTimestamp,
+      endTimestamp,
+      schedules,
+    });
+  } catch (err) {
+    console.error('Schedule fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch airing schedule' });
+  }
+});
+
+// ── 5. Ranked Top 10 (Side-by-side: Top 10 Airing + Top 10 Most Popular) ──
+router.get('/top-10', async (req, res) => {
+  try {
+    const query = `
+      query {
+        topAiring: Page(page: 1, perPage: 10) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
+            id
+            title { english romaji native }
+            coverImage { large }
+            bannerImage
+            averageScore
+            format
+            genres
+            episodes
+            nextAiringEpisode { episode }
+          }
+        }
+        mostPopular: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: POPULARITY_DESC) {
+            id
+            title { english romaji native }
+            coverImage { large }
+            bannerImage
+            averageScore
+            format
+            genres
+            episodes
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query);
+
+    const mapItem = (m, rank) => ({
+      rank,
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.native,
+      coverImage: m.coverImage?.large,
+      bannerImage: m.bannerImage,
+      averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      format: m.format || 'TV',
+      genres: m.genres || [],
+      episodes: m.episodes || (m.nextAiringEpisode ? m.nextAiringEpisode.episode - 1 : null),
+    });
+
+    const topAiring = (data.topAiring?.media || []).map((m, idx) => mapItem(m, idx + 1));
+    const mostPopular = (data.mostPopular?.media || []).map((m, idx) => mapItem(m, idx + 1));
+
+    res.json({
+      topAiring,
+      mostPopular,
+    });
+  } catch (err) {
+    console.error('Top-10 fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch top 10 rankings' });
+  }
+});
+
+// ── 6. Anime Information by AniList ID (Metadata, relations, recommendations) ──
+router.get('/info/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isNum = /^\d+$/.test(id);
+
+    if (isNum) {
+      const anilistId = parseInt(id);
+      const query = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            id
+            title { english romaji native }
+            bannerImage
+            coverImage { extraLarge large }
+            averageScore
+            format
+            status
+            episodes
+            duration
+            season
+            seasonYear
+            startDate { year month day }
+            description
+            genres
+            studios(isMain: true) {
+              nodes { name }
+            }
+            nextAiringEpisode { episode timeUntilAiring airingAt }
+            relations {
+              edges {
+                relationType
+                node {
+                  id
+                  title { english romaji }
+                  format
+                  type
+                  coverImage { large }
+                }
+              }
+            }
+            recommendations(page: 1, perPage: 10) {
+              nodes {
+                mediaRecommendation {
+                  id
+                  title { english romaji }
+                  coverImage { large }
+                  averageScore
+                  format
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const data = await fetchAniList(query, { id: anilistId });
+      const m = data.Media;
+
+      if (!m) return res.status(404).json({ error: 'Anime not found' });
+
+      // Determine total episodes
+      let totalEpisodes = m.episodes || 1;
+      if (!m.episodes && m.nextAiringEpisode) {
+        totalEpisodes = Math.max(1, m.nextAiringEpisode.episode - 1);
+      } else if (!m.episodes) {
+        // Fallback for long-running shows if unspecified
+        totalEpisodes = 1100;
+      }
+
+      const studioName = m.studios?.nodes?.[0]?.name || 'Unknown';
+      const recommendations = (m.recommendations?.nodes || [])
+        .map(n => n.mediaRecommendation)
+        .filter(Boolean)
+        .map(rec => ({
+          id: rec.id,
+          title: rec.title.english || rec.title.romaji,
+          coverImage: rec.coverImage?.large,
+          averageScore: rec.averageScore ? (rec.averageScore / 10).toFixed(1) : null,
+          format: rec.format || 'TV',
+        }));
+
+      return res.json({
+        id: m.id,
+        anilistId: m.id,
+        title: m.title.english || m.title.romaji || m.title.native,
+        englishTitle: m.title.english,
+        romajiTitle: m.title.romaji,
+        nativeTitle: m.title.native,
+        bannerImage: m.bannerImage,
+        coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+        averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+        format: m.format || 'TV',
+        status: m.status || 'FINISHED',
+        episodes: m.episodes || totalEpisodes,
+        totalEpisodes,
+        duration: m.duration ? `${m.duration} min` : null,
+        season: m.season ? `${m.season} ${m.seasonYear || ''}`.trim() : (m.startDate?.year ? `${m.startDate.year}` : null),
+        releaseDate: m.startDate?.year ? `${m.startDate.year}-${String(m.startDate.month || 1).padStart(2, '0')}-${String(m.startDate.day || 1).padStart(2, '0')}` : null,
+        description: m.description ? m.description.replace(/<[^>]*>/g, '') : '',
+        genres: m.genres || [],
+        studio: studioName,
+        nextAiringEpisode: m.nextAiringEpisode,
+        relations: (m.relations?.edges || [])
+          .filter(e => e.node?.type === 'ANIME')
+          .map(e => ({
+            relationType: e.relationType,
+            id: e.node.id,
+            title: e.node.title.english || e.node.title.romaji,
+            format: e.node.format,
+            coverImage: e.node.coverImage?.large,
+          })),
+        recommendations,
+      });
+    }
+
+    // Non-numeric ID: return a simple not found response
+    return res.status(404).json({ error: 'Anime not found. Please use a valid AniList ID.' });
+  } catch (err) {
+    console.error('Info error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch anime info' });
+  }
+});
+
+// ── 7. Search Anime (Instant Search & Autocomplete) ──
 router.get('/search', async (req, res) => {
   try {
-    const { q, page = 1 } = req.query;
-    if (!q) return res.status(400).json({ error: 'Query parameter "q" is required' });
+    const { q, page = 1, perPage = 20 } = req.query;
+    if (!q || !q.trim()) return res.status(400).json({ error: 'Query parameter "q" is required' });
 
-    const { data } = await client.get(BASE_URL, {
-      params: { s: q, paged: page },
+    const query = `
+      query ($search: String, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(search: $search, type: ANIME, sort: SEARCH_MATCH) {
+            id
+            title { english romaji native }
+            coverImage { extraLarge large }
+            bannerImage
+            averageScore
+            format
+            status
+            episodes
+            startDate { year }
+            genres
+            description
+          }
+        }
+      }
+    `;
+
+    const data = await fetchAniList(query, {
+      search: q.trim(),
+      page: parseInt(page) || 1,
+      perPage: parseInt(perPage) || 20,
     });
 
-    const $ = cheerio.load(data);
-    const results = parseArticles($);
+    const results = (data.Page?.media || []).map(m => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.native,
+      englishTitle: m.title.english,
+      romajiTitle: m.title.romaji,
+      coverImage: m.coverImage?.extraLarge || m.coverImage?.large,
+      bannerImage: m.bannerImage,
+      averageScore: m.averageScore ? (m.averageScore / 10).toFixed(1) : null,
+      format: m.format || 'TV',
+      status: m.status || 'FINISHED',
+      year: m.startDate?.year || null,
+      episodes: m.episodes || null,
+      genres: m.genres || [],
+      description: m.description ? m.description.replace(/<[^>]*>/g, '').slice(0, 160) + '...' : '',
+    }));
 
-    // Proxy images
-    results.forEach(r => {
-      if (r.image) r.image = `/api/anime/img?url=${encodeURIComponent(r.image)}`;
-    });
-
-    // Deduplicate by anime ID
-    const seen = new Set();
-    const deduped = results.filter(item => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-
-    res.json({ currentPage: parseInt(page), results: deduped });
+    res.json({ results });
   } catch (err) {
     console.error('Search error:', err.message);
     res.status(500).json({ error: 'Failed to search anime' });
   }
 });
 
-// ── Helper: Extract direct HLS stream for synchronized watch party ──
-async function resolveDirectStream(embedUrl) {
+// ── 8. StreameX Video Servers Provider ──
+router.get('/watch-servers/:id/:episode', async (req, res) => {
   try {
-    const res = await client.get(embedUrl, {
-      headers: { 'Referer': BASE_URL, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      timeout: 6000,
-    });
-    
-    let streamId = null;
-    const mMatch = res.data.match(/megaplay\.buzz\/stream\/[^\/]+\/(\d+)/i);
-    if (mMatch) {
-      streamId = mMatch[1];
-    } else {
-      const epMatch = embedUrl.match(/ep=(\d+)/);
-      if (epMatch) streamId = epMatch[1];
-    }
+    const { id, episode = 1 } = req.params;
+    const season = req.query.season || 1;
+    const epNum = parseInt(episode) || 1;
 
-    if (streamId) {
-      const srcRes = await axios.get(`https://megaplay.buzz/stream/getSources?id=${streamId}`, {
-        headers: {
-          'Referer': `https://megaplay.buzz/stream/s-2/${streamId}/sub?autostart=true`,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        timeout: 6000,
-      });
-      if (srcRes.data && srcRes.data.sources && srcRes.data.sources.file) {
-        return {
-          directStream: srcRes.data.sources.file,
-          subtitles: srcRes.data.tracks || [],
-          intro: srcRes.data.intro || null,
-          outro: srcRes.data.outro || null,
-        };
-      }
-    }
-  } catch (err) {
-    // Non-fatal, fallback to embedUrl
-  }
-  return null;
-}
-
-// ── Stream Proxy (Proxies HLS master.m3u8, sub-playlists, and video segments) ──
-router.get('/stream-proxy', async (req, res) => {
-  try {
-    const targetUrl = req.query.url;
-    if (!targetUrl) return res.status(400).send('Missing url parameter');
-
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://megaplay.buzz/',
-      'Origin': 'https://megaplay.buzz',
-    };
-
-    const isM3U8 = targetUrl.includes('.m3u8') || req.headers.accept?.includes('application/vnd.apple.mpegurl');
-
-    if (isM3U8) {
-      const response = await axios.get(targetUrl, {
-        headers,
-        responseType: 'text',
-        timeout: 12000,
-      });
-
-      const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-      const content = response.data;
-
-      const lines = content.split(/\r?\n/);
-      const rewritten = lines.map(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return line;
-
-        if (line.includes('URI="')) {
-          return line.replace(/URI="([^"]+)"/g, (match, uri) => {
-            const resolved = uri.startsWith('http') ? uri : new URL(uri, baseUrl).href;
-            return `URI="/api/anime/stream-proxy?url=${encodeURIComponent(resolved)}"`;
-          });
-        }
-
-        if (!trimmed.startsWith('#')) {
-          const resolved = trimmed.startsWith('http') ? trimmed : new URL(trimmed, baseUrl).href;
-          return `/api/anime/stream-proxy?url=${encodeURIComponent(resolved)}`;
-        }
-
-        return line;
-      }).join('\n');
-
-      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'no-cache');
-      return res.send(rewritten);
-    } else {
-      // Binary stream segments (.ts, .jpg, etc)
-      const response = await axios.get(targetUrl, {
-        headers,
-        responseType: 'stream',
-        timeout: 15000,
-      });
-
-      res.setHeader('Content-Type', response.headers['content-type'] || 'video/MP2T');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      return response.data.pipe(res);
-    }
-  } catch (err) {
-    console.error('Stream proxy error:', err.message);
-    res.status(502).send('Proxy streaming failed');
-  }
-});
-
-// ── Watch episode (iframe + direct HLS stream + servers + prev/next) ──
-router.get('/watch/:episodeId', async (req, res) => {
-  try {
-    const { episodeId } = req.params;
-    const url = `${BASE_URL}/${episodeId}/`;
-
-    const { data } = await client.get(url);
-    const $ = cheerio.load(data);
-
-    // Extract iframe player URL
-    const iframeSrc = $('#pembed iframe').attr('src')
-      || $('#embed_holder iframe').attr('src')
-      || $('.megavid iframe').attr('src')
-      || $('iframe').first().attr('src')
-      || '';
-
-    // Extract servers from the mirror dropdown (base64 encoded)
-    const servers = [];
-    $('select.mirror option').each((_, el) => {
-      const val = $(el).attr('value') || '';
-      const name = $(el).text().trim();
-      if (val && name && name !== 'Select Video Server') {
-        try {
-          const decoded = Buffer.from(val, 'base64').toString('utf-8');
-          const $decoded = cheerio.load(decoded);
-          const serverUrl = $decoded('iframe').attr('src') || '';
-          if (serverUrl) {
-            servers.push({
-              name,
-              url: serverUrl.startsWith('//') ? 'https:' + serverUrl : serverUrl,
-            });
-          }
-        } catch (e) {
-          if (val.startsWith('http') || val.startsWith('//')) {
-            servers.push({
-              name,
-              url: val.startsWith('//') ? 'https:' + val : val,
-            });
-          }
-        }
-      }
-    });
-
-    // Get anime title
-    const animeTitle = $('h1.entry-title, h1').first().text().trim();
-
-    // Extract prev / next episode links
-    let prevEp = '';
-    let nextEp = '';
-
-    $('.pagenav a, .pagination a, .wp-pagenavi a, .ep-nav a').each((_, el) => {
-      const href = $(el).attr('href') || '';
-      const text = $(el).text().toLowerCase();
-      const rel = $(el).attr('rel') || '';
-
-      if (text.includes('prev') || rel.includes('prev')) {
-        prevEp = cleanPath(href);
-      }
-      if (text.includes('next') || rel.includes('next')) {
-        nextEp = cleanPath(href);
-      }
-    });
-
-    const navPrev = $('.nav-previous a, .post-navigation .nav-previous a').attr('href');
-    const navNext = $('.nav-next a, .post-navigation .nav-next a').attr('href');
-    if (navPrev && !prevEp) prevEp = cleanPath(navPrev);
-    if (navNext && !nextEp) nextEp = cleanPath(navNext);
-
-    const animeImage = $('meta[property="og:image"]').attr('content') || '';
-
-    // Clean iframe src
-    const cleanIframeSrc = iframeSrc.startsWith('//') ? 'https:' + iframeSrc : iframeSrc;
-    const embedUrl = servers.length > 0 ? servers[0].url : cleanIframeSrc;
-
-    // Extract direct HLS stream for true 100% sync
-    let directStreamUrl = null;
-    let subtitles = [];
-    try {
-      const epMatch = (servers[0]?.url || cleanIframeSrc).match(/ep=(\d+)/);
-      if (epMatch) {
-        const epNumId = epMatch[1];
-        const srcRes = await axios.get(`https://megaplay.buzz/stream/getSources?id=${epNumId}`, {
-          headers: {
-            'Referer': `https://megaplay.buzz/stream/s-2/${epNumId}/sub?autostart=true`,
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          timeout: 4000
-        });
-        if (srcRes.data && srcRes.data.sources) {
-          const rawFile = srcRes.data.sources.file || (Array.isArray(srcRes.data.sources) ? srcRes.data.sources[0]?.file : null);
-          if (rawFile) {
-            directStreamUrl = `/api/anime/stream-proxy?url=${encodeURIComponent(rawFile)}`;
-          }
-          if (srcRes.data.tracks) {
-            subtitles = srcRes.data.tracks;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Direct stream extract note:', e.message);
-    }
-
-    // Extract anime ID from episode ID
-    const animeId = episodeId.replace(/-episode-\d+.*$/, '');
-
-    res.json({
-      episodeId,
-      animeId,
-      title: animeTitle,
-      image: animeImage ? `/api/anime/img?url=${encodeURIComponent(animeImage)}` : '',
-      embedUrl,
-      directStreamUrl,
-      subtitles,
-      iframeSrc: cleanIframeSrc,
-      servers,
-      prevEpisode: prevEp,
-      nextEpisode: nextEp,
-    });
-  } catch (err) {
-    console.error('Watch error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch episode sources' });
-  }
-});
-
-// ── Helper: Check if an episode URL exists ──
-async function episodeExists(slug) {
-  try {
-    const { status } = await client.get(`${BASE_URL}/${slug}/`, { 
-      maxRedirects: 0,
-      validateStatus: s => s < 400,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ── Helper: Find max episode via binary search ──
-async function findMaxEpisode(animeId, knownMax) {
-  // Start from knownMax and verify it exists
-  let low = 1;
-  let high = knownMax;
-  
-  // First verify our known max actually exists
-  const knownExists = await episodeExists(`${animeId}-episode-${knownMax}`);
-  if (!knownExists) {
-    // Binary search downward to find actual max
-    high = knownMax;
-    low = 1;
-    while (low < high) {
-      const mid = Math.ceil((low + high) / 2);
-      const exists = await episodeExists(`${animeId}-episode-${mid}`);
-      if (exists) {
-        low = mid;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return low;
-  }
-  
-  return knownMax;
-}
-
-// ── Get anime info + exact episode list ──
-router.get('/info/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    let title = id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    let image = '';
-    let subOrDub = id.includes('-dub') ? 'dub' : 'sub';
-    const epMap = new Map();
-
-    // 1. Try to fetch the anime detail page (contains exact episode links)
-    const detailUrls = [`${BASE_URL}/anime/${id}/`, `${BASE_URL}/category/${id}/`];
-    let pageHtml = '';
-
-    for (const url of detailUrls) {
-      try {
-        const response = await client.get(url);
-        if (response.data) {
-          pageHtml = response.data;
-          break;
-        }
-      } catch {}
-    }
-
-    if (pageHtml) {
-      const $ = cheerio.load(pageHtml);
-      const pageTitle = $('h1.entry-title, h1').first().text().trim();
-      if (pageTitle) title = pageTitle;
-
-      const ogImage = $('meta[property="og:image"]').attr('content') || '';
-      if (ogImage) image = `/api/anime/img?url=${encodeURIComponent(ogImage)}`;
-
-      $('a').each((_, el) => {
-        const href = $(el).attr('href') || '';
-        const m = href.match(/([a-zA-Z0-9_-]+-episode-(\d+))\/?$/i);
-        if (m) {
-          const epId = m[1];
-          const epNum = parseInt(m[2]);
-          if (!epMap.has(epNum)) {
-            epMap.set(epNum, { id: epId, number: epNum });
-          }
-        }
-      });
-    }
-
-    // 2. Fallback if detail page didn't have episode links (probe episode 1)
-    if (epMap.size === 0) {
-      try {
-        const ep1Slug = `${id}-episode-1`;
-        const ep1Res = await client.get(`${BASE_URL}/${ep1Slug}/`);
-        const $1 = cheerio.load(ep1Res.data);
-        const ep1Title = $1('h1.entry-title, h1').first().text().trim();
-        if (ep1Title) title = ep1Title.replace(/\s*Episode\s*\d+\s*$/i, '').trim();
-        const ep1Img = $1('meta[property="og:image"]').attr('content') || '';
-        if (ep1Img) image = `/api/anime/img?url=${encodeURIComponent(ep1Img)}`;
-        epMap.set(1, { id: ep1Slug, number: 1 });
-      } catch {}
-    }
-
-    // Default at least 1 episode if still empty
-    if (epMap.size === 0) {
-      epMap.set(1, { id: `${id}-episode-1`, number: 1 });
-    }
-
-    const episodes = Array.from(epMap.values()).sort((a, b) => a.number - b.number);
+    // Build the high-speed streaming servers with verified mobile compatibility
+    const servers = [
+      {
+        id: 'main-sub',
+        name: 'HD-1 (Sub)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://vidnest.fun/anime/${id}/${epNum}/sub`,
+        recommended: true,
+        type: 'sub',
+      },
+      {
+        id: 'main-dub',
+        name: 'HD-1 (Dub)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://vidnest.fun/anime/${id}/${epNum}/dub`,
+        recommended: false,
+        type: 'dub',
+      },
+      {
+        id: 'core-sub',
+        name: 'Core (Sub)',
+        flag: 'https://flagcdn.com/w20/gb.png',
+        url: `https://tryembed.us.cc/embed/anime/${id}/${epNum}/sub?skin=transparent`,
+        recommended: false,
+        type: 'sub',
+      },
+      {
+        id: 'core-dub',
+        name: 'Core (Dub)',
+        flag: 'https://flagcdn.com/w20/gb.png',
+        url: `https://tryembed.us.cc/embed/anime/${id}/${epNum}/dub?skin=transparent`,
+        recommended: false,
+        type: 'dub',
+      },
+      {
+        id: 'pahe-sub',
+        name: 'AnimePahe (Sub)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://vidnest.fun/animepahe/${id}/${epNum}/sub`,
+        recommended: false,
+        type: 'sub',
+      },
+      {
+        id: 'pahe-dub',
+        name: 'AnimePahe (Dub)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://vidnest.fun/animepahe/${id}/${epNum}/dub`,
+        recommended: false,
+        type: 'dub',
+      },
+      {
+        id: 'megaplay-sub',
+        name: 'MegaPlay (Mirror)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://megaplay.buzz/stream/ani/${id}/${epNum}/sub`,
+        recommended: false,
+        type: 'mirror',
+      },
+      {
+        id: '2embed',
+        name: '2Embed (Mirror)',
+        flag: 'https://flagcdn.com/w20/us.png',
+        url: `https://www.2embed.cc/embed/${id}`,
+        recommended: false,
+        type: 'mirror',
+      },
+    ];
 
     res.json({
       id,
-      title,
-      image,
-      subOrDub,
-      episodes,
-      totalEpisodes: episodes.length,
+      episode: epNum,
+      season: parseInt(season),
+      servers,
     });
   } catch (err) {
-    console.error('Info error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch anime info' });
+    console.error('Watch servers error:', err.message);
+    res.status(500).json({ error: 'Failed to generate watch servers' });
   }
 });
 

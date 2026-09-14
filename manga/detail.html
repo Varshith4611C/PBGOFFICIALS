@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Manga Details — PBG Manga</title>
+  <meta name="description" content="Read full chapters, synopsis, character details, and similar series on PBG Manga." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="/favicon.ico" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/manga/style.css?v=2.2" />
+</head>
+<body class="detail-page-body">
+
+  <!-- ========== NAVBAR ========== -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <a href="/manga/" class="nav-brand" title="PBG Manga Home">
+        <i class="fas fa-book-open" style="color: var(--accent-emerald);"></i>
+        <span class="brand-badge">PBG</span> Manga
+        <span class="brand-tag">HD READER</span>
+      </a>
+
+      <div class="nav-search">
+        <input type="text" id="searchInput" placeholder="Search manga, manhwa, author..." autocomplete="off" />
+        <i class="fas fa-search"></i>
+        <div class="search-results-dropdown" id="searchResults"></div>
+      </div>
+
+      <div class="nav-links">
+        <a href="/anime/" class="nav-link-btn" title="PBG Anime">
+          <i class="fas fa-play"></i> <span>Anime</span>
+        </a>
+        <a href="/manga/" class="nav-link-btn active" title="PBG Manga">
+          <i class="fas fa-book-open"></i> <span>Manga</span>
+        </a>
+        <a href="/games/" class="nav-link-btn" title="PBG Games">
+          <i class="fas fa-gamepad"></i> <span>Games</span>
+        </a>
+        <a href="/" class="nav-link-btn btn-hub" title="PBG Officials Hub">
+          <i class="fas fa-globe"></i> <span>PBG Hub</span>
+        </a>
+      </div>
+
+      <!-- Mobile Search Toggle -->
+      <div class="nav-mobile-controls">
+        <button class="mobile-search-toggle" id="mobileSearchBtn" aria-label="Open Search">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Collapsible Search Drawer -->
+    <div class="mobile-search-drawer" id="mobileSearchDrawer">
+      <div class="mobile-search-inner">
+        <i class="fas fa-search mobile-drawer-icon"></i>
+        <input type="text" id="mobileSearchInput" placeholder="Search manga, manhwa, author..." autocomplete="off" />
+        <button class="mobile-search-close" id="mobileSearchClose" aria-label="Close Search"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="search-results-dropdown" id="mobileSearchResults"></div>
+    </div>
+  </nav>
+
+  <!-- ========== LOADING SPINNER ========== -->
+  <div class="detail-loading-screen" id="detailLoading">
+    <div class="spinner"></div>
+    <p>Loading manga details...</p>
+  </div>
+
+  <!-- ========== MAIN DETAIL CONTENT ========== -->
+  <main class="detail-main-wrapper" id="detailWrapper" style="display: none;">
+    
+    <!-- Hero Backdrop & Floating Back Button (StreameX Style) -->
+    <div class="detail-hero-backdrop-wrap">
+      <div class="detail-hero-backdrop-img" id="detailBackdropImg"></div>
+      <div class="detail-hero-gradient-overlay"></div>
+      
+      <div class="container detail-hero-nav-bar">
+        <a href="/manga/" class="detail-back-circle-btn" id="detailBackLink" title="Back to Manga Catalog">
+          <i class="fas fa-arrow-left"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Manga Header Section (Cover + Meta) -->
+    <section class="detail-header-section">
+      <div class="container">
+        <div class="detail-header-layout">
+          
+          <!-- Left: Cover Art -->
+          <div class="detail-cover-col">
+            <div class="detail-cover-card">
+              <img id="detailCoverImg" src="" alt="Cover Artwork" />
+            </div>
+          </div>
+
+          <!-- Right: Info, Badges, Genres, CTA Button, Synopsis (StreameX Layout) -->
+          <div class="detail-info-col">
+            <div class="detail-title-group">
+              <h1 id="detailTitle" class="detail-main-title">Loading Title...</h1>
+              <p id="detailAltTitle" class="detail-sub-title"></p>
+            </div>
+
+            <!-- Unified Dark Glass Badges Row -->
+            <div class="detail-badges-row">
+              <span class="detail-badge badge-score" id="detailScoreBadge">
+                <i class="fas fa-star"></i> <span id="detailScoreVal">--</span>
+              </span>
+              <span class="detail-badge badge-chapters" id="detailChaptersBadge">
+                <i class="fas fa-book"></i> <span id="detailChaptersVal">-- Chapters</span>
+              </span>
+              <span class="detail-badge badge-status" id="detailStatusBadge">
+                <i class="fas fa-clock"></i> <span id="detailStatusVal">--</span>
+              </span>
+              <span class="detail-badge badge-year" id="detailYearBadge">
+                <i class="fas fa-calendar-alt"></i> <span id="detailYearVal">--</span>
+              </span>
+            </div>
+
+            <!-- Genre Pills -->
+            <div class="detail-genres-wrap" id="detailGenresWrap"></div>
+
+            <!-- Prominent Primary Action Buttons (StreameX Pure White CTA) -->
+            <div class="detail-actions-row">
+              <a href="#" id="detailStartReadBtn" class="detail-btn-cta">
+                <svg class="play-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Start Reading</span>
+              </a>
+              <button id="detailBookmarkBtn" class="detail-btn-bookmark" title="Save to Bookmarks">
+                <i class="far fa-bookmark"></i> <span>Bookmark</span>
+              </button>
+            </div>
+
+            <!-- Clean Synopsis Text directly on dark background (No boxed card) -->
+            <div class="detail-synopsis-area">
+              <h2 class="synopsis-heading">Synopsis</h2>
+              <div class="synopsis-text" id="detailSynopsisText"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapters Section (StreameX Open Container) -->
+    <section class="detail-chapters-section" id="detailChaptersSection">
+      <div class="container">
+        <div class="chapters-section-title-wrap">
+          <h2 class="chapters-main-title">Chapters</h2>
+        </div>
+
+        <div class="chapters-box-card">
+          <div class="chapters-header-bar">
+            <div class="chapters-count-label">
+              <span id="detailTotalChaptersCount">0</span> Chapters Available
+            </div>
+
+            <div class="chapters-tools">
+              <div class="chapters-search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" id="detailChapterSearchInput" placeholder="Filter chapter #..." />
+              </div>
+
+              <button id="detailChapterSortBtn" class="chapter-sort-toggle-btn" title="Toggle Sort Order">
+                <i class="fas fa-sort-amount-down"></i> <span>Newest</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Jump Chapter Range Tabs -->
+          <div class="chapter-range-tabs" id="chapterRangeTabs" style="display: none;"></div>
+
+          <!-- Chapter Pills Grid -->
+          <div class="detail-chapters-grid" id="detailChaptersGrid">
+            <!-- Dynamic chapter buttons -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Characters Showcase Section -->
+    <section class="detail-section" id="detailCharactersSection" style="display: none;">
+      <div class="container">
+        <h2 class="section-block-title">Characters</h2>
+        <div class="characters-scroll-carousel" id="detailCharactersList"></div>
+      </div>
+    </section>
+
+    <!-- Similar Manga Recommendations Section -->
+    <section class="detail-section" id="detailSimilarSection" style="display: none;">
+      <div class="container">
+        <h2 class="section-block-title">Similar Manga</h2>
+        <div class="similar-manga-grid" id="detailSimilarGrid"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <p>© 2026 <a href="/">PBG Officials</a> — PBG Manga. Powered by StreameX &amp; AniList API.</p>
+        <div class="footer-links">
+          <a href="/manga/">Catalog</a>
+          <a href="/anime/">PBG Anime</a>
+          <a href="/chatbox/">ChatBox</a>
+          <a href="/games/">PBG Games</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobile Bottom Navigation Bar (StreameX Style) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <a href="/anime/" class="mobile-nav-item">
+      <i class="fas fa-play"></i>
+      <span>Anime</span>
+    </a>
+    <a href="/manga/" class="mobile-nav-item active">
+      <i class="fas fa-book-open"></i>
+      <span>Manga</span>
+    </a>
+    <a href="/games/" class="mobile-nav-item">
+      <i class="fas fa-gamepad"></i>
+      <span>Games</span>
+    </a>
+    <a href="/" class="mobile-nav-item">
+      <i class="fas fa-globe"></i>
+      <span>Hub</span>
+    </a>
+  </nav>
+
+  <!-- Detail Page Logic -->
+  <script src="/manga/script.js?v=2.2"></script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PBG Manga — Discover, Read &amp; Collect Free Manga</title>
+  <meta name="description" content="Discover and read thousands of trending manga, manhwa, and webtoons in high definition with lightning-fast loading on PBG Manga." />
+  <meta name="keywords" content="manga, read manga online, manhwa, webtoon, read one piece, free manga reader, pbg manga" />
+  <meta name="theme-color" content="#030712" />
+  <link rel="canonical" href="https://pbgofficials.dev/manga/" />
+  <link rel="icon" href="/favicon.ico" />
+
+  <!-- Open Graph / Social -->
+  <meta property="og:title" content="PBG Manga — Free HD Manga Reader" />
+  <meta property="og:description" content="Explore thousands of manga series, trending chapters, and high-res reader with zero interruptions." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pbgofficials.dev/manga/" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css?v=2.2" />
+</head>
+<body>
+
+  <!-- ========== NAVBAR ========== -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <a href="/manga/" class="nav-brand" title="PBG Manga Home">
+        <i class="fas fa-book-open" style="color: var(--accent-emerald);"></i>
+        <span class="brand-badge">PBG</span> Manga
+        <span class="brand-tag">HD READER</span>
+      </a>
+
+      <div class="nav-search">
+        <input type="text" id="searchInput" placeholder="Search manga, manhwa, author..." autocomplete="off" />
+        <i class="fas fa-search"></i>
+        <div class="search-results-dropdown" id="searchResults"></div>
+      </div>
+
+      <div class="nav-links">
+        <a href="/anime/" class="nav-link-btn" title="Watch Anime on PBG Anime">
+          <i class="fas fa-play"></i> <span>Anime</span>
+        </a>
+        <a href="/manga/" class="nav-link-btn active" title="PBG Manga">
+          <i class="fas fa-book-open"></i> <span>Manga</span>
+        </a>
+        <a href="/games/" class="nav-link-btn" title="PBG Games">
+          <i class="fas fa-gamepad"></i> <span>Games</span>
+        </a>
+        <a href="/" class="nav-link-btn btn-hub" title="PBG Officials Hub">
+          <i class="fas fa-globe"></i> <span>PBG Hub</span>
+        </a>
+      </div>
+
+      <!-- Mobile Search Toggle -->
+      <div class="nav-mobile-controls">
+        <button class="mobile-search-toggle" id="mobileSearchBtn" aria-label="Open Search">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Collapsible Search Drawer -->
+    <div class="mobile-search-drawer" id="mobileSearchDrawer">
+      <div class="mobile-search-inner">
+        <i class="fas fa-search mobile-drawer-icon"></i>
+        <input type="text" id="mobileSearchInput" placeholder="Search manga, manhwa, author..." autocomplete="off" />
+        <button class="mobile-search-close" id="mobileSearchClose" aria-label="Close Search"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="search-results-dropdown" id="mobileSearchResults"></div>
+    </div>
+  </nav>
+
+  <!-- ========== HERO SECTION ========== -->
+  <section class="hero" id="heroSection">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-pill">
+          <span class="pulse-dot"></span>
+          <span>100,000+ CHAPTERS ONLINE</span>
+        </div>
+        <h1>Discover. Read. <span>Collect.</span></h1>
+        <p>Explore thousands of manga, manhwa, and webtoon series in full high-definition clarity.</p>
+
+        <!-- Genre Quick Filter Chips -->
+        <div class="genre-bar" id="genreBar">
+          <button class="genre-chip active" data-genre="all"><i class="fas fa-fire"></i> All Genres</button>
+          <button class="genre-chip" data-genre="Action">Action</button>
+          <button class="genre-chip" data-genre="Adventure">Adventure</button>
+          <button class="genre-chip" data-genre="Comedy">Comedy</button>
+          <button class="genre-chip" data-genre="Drama">Drama</button>
+          <button class="genre-chip" data-genre="Fantasy">Fantasy</button>
+          <button class="genre-chip" data-genre="Horror">Horror</button>
+          <button class="genre-chip" data-genre="Mystery">Mystery</button>
+          <button class="genre-chip" data-genre="Romance">Romance</button>
+          <button class="genre-chip" data-genre="Sci-Fi">Sci-Fi</button>
+          <button class="genre-chip" data-genre="Slice of Life">Slice of Life</button>
+          <button class="genre-chip" data-genre="Supernatural">Supernatural</button>
+          <button class="genre-chip" data-genre="Shounen">Shounen</button>
+          <button class="genre-chip" data-genre="Seinen">Seinen</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== MAIN CONTENT SECTION ========== -->
+  <section class="content-section" id="contentSection">
+    <div class="container">
+
+      <!-- Navigation & Tabs Bar -->
+      <div class="section-nav-bar">
+        <div class="section-title" id="sectionTitle">
+          <h2><i class="fas fa-chart-line" style="color:var(--accent-emerald);"></i> <span>Trending Manga</span></h2>
+        </div>
+
+        <div class="section-tabs" id="sectionTabs">
+          <button class="tab-btn active" data-tab="trending"><i class="fas fa-fire"></i> Trending</button>
+          <button class="tab-btn" data-tab="popular"><i class="fas fa-heart"></i> Most Popular</button>
+          <button class="tab-btn" data-tab="top-rated"><i class="fas fa-star"></i> Top Rated</button>
+          <button class="tab-btn" data-tab="newest"><i class="fas fa-sparkles"></i> New Releases</button>
+        </div>
+      </div>
+
+      <!-- Manga Grid Container -->
+      <div class="manga-grid" id="mangaGrid">
+        <!-- Cards or skeletons injected via JS -->
+      </div>
+
+      <!-- Pagination -->
+      <div style="display:flex; justify-content:center; gap:12px; margin-top:40px;" id="paginationBar">
+        <button id="prevPageBtn" class="nav-link-btn" disabled><i class="fas fa-chevron-left"></i> Previous</button>
+        <span id="pageIndicator" style="display:flex; align-items:center; font-size:0.9rem; font-weight:600; color:var(--text-secondary);">Page 1</span>
+        <button id="nextPageBtn" class="nav-link-btn">Next <i class="fas fa-chevron-right"></i></button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========== FULL SEARCH RESULTS SECTION ========== -->
+  <section class="content-section" id="searchSection" style="display: none;">
+    <div class="container">
+      <div class="section-nav-bar">
+        <div class="section-title">
+          <h2><i class="fas fa-search" style="color:var(--accent-emerald);"></i> Search Results: "<span id="searchQueryText" style="color:var(--accent-emerald);"></span>"</h2>
+        </div>
+        <button class="nav-link-btn" id="clearSearchBtn"><i class="fas fa-arrow-left"></i> Back to Browse</button>
+      </div>
+      <div class="manga-grid" id="searchGrid"></div>
+    </div>
+  </section>
+
+  <!-- ========== MANGA DETAIL & CHAPTER DRAWER MODAL ========== -->
+  <div class="manga-modal-overlay" id="mangaModal">
+    <div class="manga-modal-card">
+      <button class="manga-modal-close-btn" id="modalCloseBtn" aria-label="Close modal">&times;</button>
+      
+      <!-- Top Banner -->
+      <div class="manga-modal-header-banner">
+        <img id="modalBannerImg" src="" alt="Banner" />
+        <div class="banner-gradient"></div>
+      </div>
+
+      <!-- Body -->
+      <div class="manga-modal-content-body">
+        <div class="manga-modal-top-row">
+          <div class="manga-modal-cover">
+            <img id="modalCoverImg" src="" alt="Cover" />
+          </div>
+          <div class="manga-modal-info">
+            <h2 id="modalTitle">Loading...</h2>
+            <div class="manga-modal-alt-title" id="modalAltTitle"></div>
+            
+            <div class="manga-modal-meta-tags">
+              <span class="meta-pill score-pill" id="modalScore"><i class="fas fa-star"></i> --</span>
+              <span class="meta-pill" id="modalStatus">RELEASING</span>
+              <span class="meta-pill" id="modalFormat">MANGA</span>
+              <span class="meta-pill" id="modalYear">2024</span>
+            </div>
+
+            <div class="manga-modal-actions">
+              <a href="#" id="modalReadFirstBtn" class="btn-primary-read">
+                <i class="fas fa-book-open"></i> Read Chapter 1
+              </a>
+              <button class="nav-link-btn" id="modalBookmarkBtn">
+                <i class="far fa-bookmark"></i> Bookmark
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Synopsis -->
+        <div class="manga-modal-synopsis" id="modalSynopsis">
+          Loading synopsis...
+        </div>
+
+        <!-- Chapters List Header -->
+        <div class="chapters-section-header">
+          <h3><i class="fas fa-list-ol" style="color:var(--accent-emerald);"></i> Chapters (<span id="modalChapterCount">0</span>)</h3>
+          
+          <div class="chapter-controls">
+            <input type="text" class="chapter-search-input" id="chapterFilterInput" placeholder="Filter chapter #..." />
+            <button class="chapter-sort-btn" id="chapterSortBtn" title="Toggle sorting"><i class="fas fa-sort-amount-down"></i> Sort</button>
+          </div>
+        </div>
+
+        <!-- Chapters Grid -->
+        <div class="chapters-grid" id="modalChaptersGrid">
+          <div style="grid-column: 1 / -1; text-align:center; padding: 20px; color:var(--text-muted);">
+            <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading chapters...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2026 <a href="/">PBG Officials</a> — PBG Manga. Built with &hearts; for manga &amp; manhwa enthusiasts.</p>
+    </div>
+  </footer>
+
+  <!-- Mobile Bottom Navigation Bar (StreameX Style) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <a href="/anime/" class="mobile-nav-item">
+      <i class="fas fa-play"></i>
+      <span>Anime</span>
+    </a>
+    <a href="/manga/" class="mobile-nav-item active">
+      <i class="fas fa-book-open"></i>
+      <span>Manga</span>
+    </a>
+    <a href="/games/" class="mobile-nav-item">
+      <i class="fas fa-gamepad"></i>
+      <span>Games</span>
+    </a>
+    <a href="/" class="mobile-nav-item">
+      <i class="fas fa-globe"></i>
+      <span>Hub</span>
+    </a>
+  </nav>
+
+  <!-- Scripts -->
+  <script src="script.js?v=2.2"></script>
+</body>
+</html>

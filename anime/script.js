@@ -1,10 +1,11 @@
 /* ============================================
-   PBG Anime — Frontend Logic
+   PBG Anime — StreameX Frontend Controller
+   Universal Logic for Home & Theatre Watch Page
    ============================================ */
 
 const API_BASE = '/api/anime';
 
-// ── Utility: Fetch with error handling ──
+// ── Utility: API Fetch with error handling ──
 async function apiFetch(endpoint) {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`);
@@ -25,623 +26,988 @@ function debounce(fn, delay) {
   };
 }
 
-// ── Utility: Create skeleton cards ──
-function createSkeletons(count = 12) {
-  return Array(count).fill('').map(() => `
-    <div class="anime-card">
-      <div class="skeleton skeleton-card"></div>
-      <div class="skeleton skeleton-text"></div>
-      <div class="skeleton skeleton-text-sm"></div>
-    </div>
-  `).join('');
+// ── Utility: Format timestamp to local 12-hour time (e.g. "08:30 PM") ──
+function formatAirTime(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ── Utility: Create anime card HTML ──
-function createAnimeCard(item) {
-  const title = item.title || item.id || 'Unknown';
-  const image = item.image || '';
-  const id = item.id || '';
-  const episodeNum = item.episodeNumber || item.episode || '';
-  const subOrDub = (item.subOrDub || '').toLowerCase();
-
-  // Always start from episode 1, pass maxEp so we know total episodes
-  const maxEp = episodeNum || '';
-  const href = `/anime/watch.html?id=${encodeURIComponent(id)}${maxEp ? '&maxEp=' + maxEp : ''}`;
-
-  return `
-    <a href="${href}" class="anime-card" title="${title}">
-      <div class="card-image">
-        <img src="${image}" alt="${title}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 300 400%22><rect fill=%22%231e293b%22 width=%22300%22 height=%22400%22/><text fill=%22%2364748b%22 x=%22150%22 y=%22200%22 text-anchor=%22middle%22 font-size=%2216%22>No Image</text></svg>'" />
-        ${subOrDub ? `<span class="card-badge ${subOrDub === 'dub' ? 'badge-dub' : 'badge-sub'}">${subOrDub}</span>` : ''}
-        ${episodeNum ? `<span class="badge-ep">EP ${episodeNum}</span>` : ''}
-        <div class="card-overlay">
-          <div class="play-btn"><i class="fas fa-play"></i></div>
-        </div>
-      </div>
-      <div class="card-info">
-        <div class="card-title">${title}</div>
-        ${episodeNum ? `<div class="card-meta">Episode ${episodeNum}</div>` : ''}
-      </div>
-    </a>
-  `;
+// ── Utility: Format countdown (e.g. "in 3h 24m") ──
+function formatCountdown(seconds) {
+  if (seconds <= 0) return 'Aired';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `in ${days}d ${hours % 24}h`;
+  }
+  if (hours > 0) return `in ${hours}h ${minutes}m`;
+  return `in ${minutes}m`;
 }
 
-// ── Detect which page we're on ──
+// ── Detect page mode ──
 const isWatchPage = window.location.pathname.includes('watch');
 
 // ============================================
-// HOME PAGE LOGIC
+// GLOBAL SEARCH & NAVBAR AUTOCOMPLETE (Desktop & Mobile)
 // ============================================
-if (!isWatchPage) {
-  const animeGrid = document.getElementById('animeGrid');
-  const searchInput = document.getElementById('searchInput');
-  const searchResults = document.getElementById('searchResults');
-  const sectionTabs = document.getElementById('sectionTabs');
-  const sectionHeader = document.getElementById('sectionHeader');
-  const contentSection = document.getElementById('contentSection');
-  const searchSection = document.getElementById('searchSection');
-  const searchGrid = document.getElementById('searchGrid');
-  const searchQuery = document.getElementById('searchQuery');
-  const heroSection = document.getElementById('heroSection');
+function setupSearchHandler(inputEl, resultsEl) {
+  if (!inputEl || !resultsEl) return;
 
-  let currentTab = 'recent';
-
-  // ── Load content based on tab ──
-  async function loadContent(tab) {
-    currentTab = tab;
-    animeGrid.innerHTML = createSkeletons(18);
-    contentSection.style.display = 'block';
-    searchSection.style.display = 'none';
-    heroSection.style.display = 'block';
-
-    // Update tab UI
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-
-    let data;
-    if (tab === 'recent') {
-      sectionHeader.innerHTML = '<h2><i class="fas fa-clock"></i> Recent Episodes</h2>';
-      data = await apiFetch('/recent');
-    } else if (tab === 'top-airing') {
-      sectionHeader.innerHTML = '<h2><i class="fas fa-fire"></i> Top Airing</h2>';
-      data = await apiFetch('/top-airing');
-    }
-
-    if (data && data.results && data.results.length > 0) {
-      animeGrid.innerHTML = data.results.map(createAnimeCard).join('');
-    } else {
-      animeGrid.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
-          <i class="fas fa-exclamation-triangle"></i>
-          <h3>Couldn't load content</h3>
-          <p>The server might be temporarily unavailable. Try refreshing the page.</p>
-        </div>
-      `;
-    }
-  }
-
-  // ── Tab switching ──
-  sectionTabs.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab-btn');
-    if (btn && btn.dataset.tab) {
-      loadContent(btn.dataset.tab);
-    }
-  });
-
-  // ── Search (dropdown) ──
-  const handleSearch = debounce(async (query) => {
-    if (query.length < 2) {
-      searchResults.classList.remove('active');
+  const handleLiveSearch = debounce(async (query) => {
+    const q = query.trim();
+    if (q.length < 2) {
+      resultsEl.classList.remove('active');
+      resultsEl.innerHTML = '';
       return;
     }
 
-    searchResults.innerHTML = '<div class="search-result-item"><p style="color:var(--text-muted);">Searching...</p></div>';
-    searchResults.classList.add('active');
-
-    const data = await apiFetch(`/search?q=${encodeURIComponent(query)}`);
-
-    if (data && data.results && data.results.length > 0) {
-      searchResults.innerHTML = data.results.slice(0, 8).map(item => `
-        <a href="/anime/watch.html?id=${encodeURIComponent(item.id)}" class="search-result-item">
-          <img src="${item.image || ''}" alt="${item.title}" onerror="this.style.display='none'" />
-          <div class="search-result-info">
-            <h4>${item.title}</h4>
-            <p>${item.releaseDate ? 'Released: ' + item.releaseDate : ''}</p>
-          </div>
-        </a>
-      `).join('');
-    } else {
-      searchResults.innerHTML = '<div class="search-result-item"><p style="color:var(--text-muted);">No results found</p></div>';
+    const data = await apiFetch(`/search?q=${encodeURIComponent(q)}&perPage=6`);
+    if (!data || !data.results || data.results.length === 0) {
+      resultsEl.innerHTML = `
+        <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+          No anime found for "${q}"
+        </div>
+      `;
+      resultsEl.classList.add('active');
+      return;
     }
-  }, 400);
 
-  searchInput.addEventListener('input', (e) => handleSearch(e.target.value.trim()));
-
-  // Full search on Enter
-  searchInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      const query = searchInput.value.trim();
-      if (!query) return;
-
-      searchResults.classList.remove('active');
-      heroSection.style.display = 'none';
-      contentSection.style.display = 'none';
-      searchSection.style.display = 'block';
-      searchQuery.textContent = query;
-      searchGrid.innerHTML = createSkeletons(12);
-
-      const data = await apiFetch(`/search?q=${encodeURIComponent(query)}`);
-      if (data && data.results && data.results.length > 0) {
-        searchGrid.innerHTML = data.results.map(createAnimeCard).join('');
-      } else {
-        searchGrid.innerHTML = `
-          <div class="empty-state" style="grid-column: 1 / -1;">
-            <i class="fas fa-search"></i>
-            <h3>No results for "${query}"</h3>
-            <p>Try a different search term.</p>
+    resultsEl.innerHTML = data.results.map(anime => `
+      <a href="/anime/watch.html?id=${anime.id}&ep=1" class="search-result-item">
+        <img src="${anime.coverImage || '/assets/images/logo.jpg'}" alt="${anime.title}" class="search-result-thumb" onerror="this.src='/assets/images/logo.jpg'" />
+        <div class="search-result-info">
+          <div class="search-result-title">${anime.title}</div>
+          <div class="search-result-meta">
+            <span>${anime.format || 'TV'}</span>
+            ${anime.year ? `<span>• ${anime.year}</span>` : ''}
+            ${anime.averageScore ? `<span style="color: #facc15;"><i class="fas fa-star" style="font-size: 0.7rem;"></i> ${anime.averageScore}</span>` : ''}
           </div>
-        `;
+        </div>
+      </a>
+    `).join('');
+
+    resultsEl.classList.add('active');
+  }, 250);
+
+  inputEl.addEventListener('input', (e) => handleLiveSearch(e.target.value));
+
+  // Search Enter key support for full results view
+  inputEl.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const q = inputEl.value.trim();
+      if (!q) return;
+      resultsEl.classList.remove('active');
+
+      if (!isWatchPage) {
+        showFullSearchResults(q);
+      } else {
+        window.location.href = `/anime/?q=${encodeURIComponent(q)}`;
       }
     }
   });
 
-  // Close search dropdown on click outside
+  // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.nav-search')) {
-      searchResults.classList.remove('active');
+    if (!inputEl.contains(e.target) && !resultsEl.contains(e.target)) {
+      resultsEl.classList.remove('active');
     }
   });
+}
 
-  // ── Initial load ──
-  loadContent('recent');
+const desktopSearchInput = document.getElementById('searchInput');
+const desktopSearchResults = document.getElementById('searchResults');
+setupSearchHandler(desktopSearchInput, desktopSearchResults);
+
+const mobileSearchInput = document.getElementById('mobileSearchInput');
+const mobileSearchResults = document.getElementById('mobileSearchResults');
+setupSearchHandler(mobileSearchInput, mobileSearchResults);
+
+// Mobile search drawer toggle
+const mobileSearchBtn = document.getElementById('mobileSearchBtn');
+const mobileSearchDrawer = document.getElementById('mobileSearchDrawer');
+const mobileSearchClose = document.getElementById('mobileSearchClose');
+
+if (mobileSearchBtn && mobileSearchDrawer) {
+  mobileSearchBtn.addEventListener('click', () => {
+    mobileSearchDrawer.classList.toggle('active');
+    if (mobileSearchDrawer.classList.contains('active') && mobileSearchInput) {
+      setTimeout(() => mobileSearchInput.focus(), 150);
+    }
+  });
+}
+
+if (mobileSearchClose && mobileSearchDrawer) {
+  mobileSearchClose.addEventListener('click', () => {
+    mobileSearchDrawer.classList.remove('active');
+    if (mobileSearchResults) mobileSearchResults.classList.remove('active');
+  });
 }
 
 // ============================================
-// WATCH PAGE LOGIC
+// POPUP & REDIRECT DEFENSE (BACKGROUND PROTECTION)
 // ============================================
-if (isWatchPage) {
-  const playerWrapper = document.getElementById('playerWrapper');
-  const playerLoading = document.getElementById('playerLoading');
-  const prevEpBtn = document.getElementById('prevEpBtn');
-  const nextEpBtn = document.getElementById('nextEpBtn');
-  const serverSelector = document.getElementById('serverSelector');
-  const episodeTitle = document.getElementById('episodeTitle');
-  const animeTitle = document.getElementById('animeTitle');
-  const animeType = document.getElementById('animeType');
-  const episodesGrid = document.getElementById('episodesGrid');
-  const searchInput = document.getElementById('searchInput');
-  const searchResults = document.getElementById('searchResults');
+// Neutralize unauthorized window.open triggers
+window.open = function (...args) {
+  console.warn('[PBG Shield] Neutralized popup window:', args[0]);
+  return null;
+};
 
-  const params = new URLSearchParams(window.location.search);
-  let animeId = params.get('id') || '';
-  let episodeId = params.get('episodeId') || '';
-  let episodes = [];
-  let currentEpIndex = -1;
-  let currentServers = [];
-  let prevEpisodeId = '';
-  let nextEpisodeId = '';
-
-  // ── Load anime info + episodes ──
-  async function loadAnimeInfo() {
-    if (!animeId) {
-      // Try to extract anime ID from episodeId
-      if (episodeId) {
-        animeId = episodeId.replace(/-episode-\d+.*$/, '');
-      } else {
-        return;
-      }
-    }
-
-    // Get maxEp from URL params (passed from card click)
-    const maxEp = params.get('maxEp') || '';
-    const infoUrl = `/info/${encodeURIComponent(animeId)}${maxEp ? '?maxEp=' + maxEp : ''}`;
-
-    const info = await apiFetch(infoUrl);
-    if (!info) {
-      // Even if info fails, try to play the episode directly
-      if (episodeId) loadPlayer(episodeId);
-      return;
-    }
-
-    document.title = `${info.title || animeId} — PBG Anime`;
-    animeTitle.textContent = info.title || animeId;
-    animeType.textContent = info.subOrDub || 'Sub';
-
-    episodes = info.episodes || [];
-
-    // Always start from episode 1 if no specific episodeId was requested
-    if (!episodeId && episodes.length > 0) {
-      episodeId = episodes[0].id;
-    }
-
-    // Render episode buttons
-    renderEpisodes();
-
-    // Load the player
-    if (episodeId) {
-      loadPlayer(episodeId);
-    }
+// 4. Anti-Redirect & Anti-Frame-Busting Protection
+let userNavInitiated = false;
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a');
+  if (a && a.href) {
+    userNavInitiated = true;
+    setTimeout(() => { userNavInitiated = false; }, 2500);
   }
+}, true);
 
-  // ── Render episode buttons with range pagination ──
-  const EP_PAGE_SIZE = 100;
-  let currentEpPage = 0;
+window.addEventListener('beforeunload', (e) => {
+  if (!userNavInitiated) {
+    console.warn('[PBG] Potential background redirect prevented');
+  }
+});
 
-  function renderEpisodes() {
-    const section = document.getElementById('episodesSection');
-    const totalCountEl = document.getElementById('epTotalCount');
-    const filterInput = document.getElementById('epFilterInput');
-    const rangeContainer = document.getElementById('epRangeContainer');
+// ============================================
+// HOMEPAGE LOGIC
+// ============================================
+if (!isWatchPage) {
+  const homeSections = document.getElementById('homeSections');
+  const searchSection = document.getElementById('searchSection');
+  const searchQueryText = document.getElementById('searchQueryText');
+  const searchGrid = document.getElementById('searchGrid');
+  const closeSearchBtn = document.getElementById('closeSearchBtn');
 
-    if (episodes.length === 0) {
-      episodesGrid.innerHTML = '<p style="color:var(--text-muted);padding:12px;">No episodes found.</p>';
-      if (totalCountEl) totalCountEl.textContent = '';
+  // Hero Carousel Elements
+  const heroSlidesContainer = document.getElementById('heroSlidesContainer');
+  const heroPrevBtn = document.getElementById('heroPrevBtn');
+  const heroNextBtn = document.getElementById('heroNextBtn');
+  const heroIndicators = document.getElementById('heroIndicators');
+  let heroSlides = [];
+  let currentHeroIndex = 0;
+  let heroTimer = null;
+
+  // Airing Schedule Elements
+  const scheduleTabs = document.getElementById('scheduleTabs');
+  const scheduleGrid = document.getElementById('scheduleGrid');
+
+  // Trending & Popular Carousels
+  const trendingCarousel = document.getElementById('trendingCarousel');
+  const trendingPrevBtn = document.getElementById('trendingPrevBtn');
+  const trendingNextBtn = document.getElementById('trendingNextBtn');
+
+  const popularCarousel = document.getElementById('popularCarousel');
+  const popularPrevBtn = document.getElementById('popularPrevBtn');
+  const popularNextBtn = document.getElementById('popularNextBtn');
+
+  // Top 10 Lists
+  const topAiringList = document.getElementById('topAiringList');
+  const mostPopularList = document.getElementById('mostPopularList');
+
+  // ── Full Search Results Function ──
+  async function showFullSearchResults(q) {
+    if (!searchSection || !homeSections) return;
+    homeSections.style.display = 'none';
+    searchSection.style.display = 'block';
+    searchQueryText.textContent = q;
+    searchGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-secondary);">
+        <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: var(--accent-purple); margin-bottom: 10px;"></i>
+        <p>Searching anime library...</p>
+      </div>
+    `;
+
+    const data = await apiFetch(`/search?q=${encodeURIComponent(q)}&perPage=24`);
+    if (!data || !data.results || data.results.length === 0) {
+      searchGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-muted);">
+          No results found for "${q}". Try another search term.
+        </div>
+      `;
       return;
     }
 
-    if (totalCountEl) {
-      totalCountEl.textContent = `${episodes.length} Eps`;
-    }
-
-    // Find which page the current episode is on
-    const activeIdx = episodes.findIndex(ep => ep.id === episodeId);
-    if (activeIdx !== -1) {
-      currentEpIndex = activeIdx;
-      currentEpPage = Math.floor(activeIdx / EP_PAGE_SIZE);
-    }
-
-    // Build range navigation if more than one page
-    const totalPages = Math.ceil(episodes.length / EP_PAGE_SIZE);
-
-    function updateRangeControls() {
-      const rangeSelect = document.getElementById('rangeSelect');
-      const rangePrevBtn = document.getElementById('rangePrevBtn');
-      const rangeNextBtn = document.getElementById('rangeNextBtn');
-      if (rangeSelect) rangeSelect.value = currentEpPage;
-      if (rangePrevBtn) rangePrevBtn.disabled = currentEpPage <= 0;
-      if (rangeNextBtn) rangeNextBtn.disabled = currentEpPage >= totalPages - 1;
-    }
-
-    if (rangeContainer) {
-      if (totalPages > 1) {
-        rangeContainer.innerHTML = `
-          <div class="ep-range-bar">
-            <button class="range-arrow-btn" id="rangePrevBtn" title="Previous 100 Episodes" ${currentEpPage === 0 ? 'disabled' : ''}>
-              <i class="fas fa-chevron-left"></i>
-            </button>
-            <div class="range-select-wrapper">
-              <select id="rangeSelect" class="range-select">
-                ${Array.from({ length: totalPages }, (_, i) => {
-                  const start = i * EP_PAGE_SIZE + 1;
-                  const end = Math.min((i + 1) * EP_PAGE_SIZE, episodes.length);
-                  const isSelected = i === currentEpPage ? 'selected' : '';
-                  const padStart = String(start).padStart(3, '0');
-                  const padEnd = String(end).padStart(3, '0');
-                  return `<option value="${i}" ${isSelected}>${padStart}-${padEnd}</option>`;
-                }).join('')}
-              </select>
-              <i class="fas fa-chevron-down range-select-icon"></i>
-            </div>
-            <button class="range-arrow-btn" id="rangeNextBtn" title="Next 100 Episodes" ${currentEpPage >= totalPages - 1 ? 'disabled' : ''}>
-              <i class="fas fa-chevron-right"></i>
-            </button>
+    searchGrid.innerHTML = data.results.map(anime => `
+      <a href="/anime/watch.html?id=${anime.id}&ep=1" class="schedule-card" title="${anime.title}">
+        <img src="${anime.coverImage || '/assets/images/logo.jpg'}" alt="${anime.title}" class="schedule-card-thumb" onerror="this.src='/assets/images/logo.jpg'" />
+        <div class="schedule-card-info">
+          <div class="schedule-card-header">
+            <span class="schedule-time">${anime.year || 'Anime'}</span>
+            ${anime.averageScore ? `<span class="schedule-status aired">★ ${anime.averageScore}</span>` : ''}
           </div>
-        `;
-
-        const rangeSelect = rangeContainer.querySelector('#rangeSelect');
-        const rangePrevBtn = rangeContainer.querySelector('#rangePrevBtn');
-        const rangeNextBtn = rangeContainer.querySelector('#rangeNextBtn');
-
-        if (rangeSelect) {
-          rangeSelect.onchange = (e) => {
-            currentEpPage = parseInt(e.target.value);
-            updateRangeControls();
-            renderEpisodePage();
-          };
-        }
-
-        if (rangePrevBtn) {
-          rangePrevBtn.onclick = () => {
-            if (currentEpPage > 0) {
-              currentEpPage--;
-              updateRangeControls();
-              renderEpisodePage();
-            }
-          };
-        }
-
-        if (rangeNextBtn) {
-          rangeNextBtn.onclick = () => {
-            if (currentEpPage < totalPages - 1) {
-              currentEpPage++;
-              updateRangeControls();
-              renderEpisodePage();
-            }
-          };
-        }
-      } else {
-        rangeContainer.innerHTML = '';
-      }
-    }
-
-    // Setup filter input (instant jump to episode)
-    if (filterInput) {
-      filterInput.oninput = (e) => {
-        const val = parseInt(e.target.value);
-        if (isNaN(val) || val < 1 || val > episodes.length) return;
-
-        const targetIdx = val - 1;
-        const targetPage = Math.floor(targetIdx / EP_PAGE_SIZE);
-
-        if (targetPage !== currentEpPage) {
-          currentEpPage = targetPage;
-          updateRangeControls();
-          renderEpisodePage();
-        }
-
-        const targetBtn = episodesGrid.querySelector(`.ep-btn[data-index="${targetIdx}"]`);
-        if (targetBtn) {
-          targetBtn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          targetBtn.style.animation = 'none';
-          targetBtn.offsetHeight; /* trigger reflow */
-          targetBtn.style.outline = '2px solid var(--accent-cyan)';
-          setTimeout(() => { if (targetBtn) targetBtn.style.outline = ''; }, 2000);
-        }
-      };
-    }
-
-    // Render current page
-    renderEpisodePage();
-
-    // Episode button clicks (event delegation)
-    episodesGrid.onclick = (e) => {
-      const btn = e.target.closest('.ep-btn');
-      if (!btn) return;
-
-      episodeId = btn.dataset.epId;
-      currentEpIndex = parseInt(btn.dataset.index);
-
-      document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const url = new URL(window.location);
-      url.searchParams.set('episodeId', episodeId);
-      window.history.pushState({}, '', url);
-
-      loadPlayer(episodeId);
-      updateNavButtons();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+          <div class="schedule-card-title">${anime.title}</div>
+          <div class="schedule-card-footer">
+            <span class="ep-badge">${anime.format || 'TV'}</span>
+            <span>${anime.genres ? anime.genres.slice(0, 2).join(', ') : ''}</span>
+          </div>
+        </div>
+      </a>
+    `).join('');
   }
 
-  // ── Render a single page of episodes ──
-  function renderEpisodePage() {
-    const start = currentEpPage * EP_PAGE_SIZE;
-    const end = Math.min(start + EP_PAGE_SIZE, episodes.length);
-    const pageEpisodes = episodes.slice(start, end);
+  if (closeSearchBtn) {
+    closeSearchBtn.addEventListener('click', () => {
+      searchSection.style.display = 'none';
+      homeSections.style.display = 'block';
+      if (searchInput) searchInput.value = '';
+    });
+  }
 
-    episodesGrid.innerHTML = pageEpisodes.map((ep, i) => {
-      const globalIdx = start + i;
-      const epNum = ep.number || globalIdx + 1;
-      const isActive = ep.id === episodeId;
-      if (isActive) currentEpIndex = globalIdx;
-      return `<button class="ep-btn ${isActive ? 'active' : ''}" data-ep-id="${ep.id}" data-index="${globalIdx}">${epNum}</button>`;
+  // ── 1. Init Featured Hero Carousel ──
+  async function initHeroCarousel() {
+    if (!heroSlidesContainer) return;
+    const data = await apiFetch('/trending?perPage=8');
+    if (!data || !data.results || data.results.length === 0) return;
+
+    // Filter anime with nice banner images or good cover
+    const items = data.results.filter(a => a.bannerImage || a.coverImage).slice(0, 6);
+    if (items.length === 0) return;
+
+    heroSlidesContainer.innerHTML = items.map((anime, idx) => {
+      const banner = anime.bannerImage || anime.coverImage;
+      const score = anime.averageScore || '8.0';
+      const year = anime.year || '2026';
+      const format = anime.format || 'TV';
+      const epCount = anime.episodes ? `${anime.episodes} Episodes` : 'Releasing';
+      const synopsis = anime.description || 'Watch now on PBG Anime in high definition with multi-server options.';
+
+      return `
+        <div class="hero-slide ${idx === 0 ? 'active' : ''}" data-index="${idx}">
+          <img src="${banner}" alt="${anime.title}" class="hero-backdrop" onerror="this.src='${anime.coverImage}'" />
+          <div class="hero-overlay"></div>
+          <div class="hero-content">
+            <div class="hero-badges-row">
+              <span class="badge-pill score-pill"><i class="fas fa-star"></i> ${score}</span>
+              <span class="badge-pill">${format}</span>
+              <span class="badge-pill">${year}</span>
+              <span class="badge-pill">${epCount}</span>
+              ${anime.status === 'RELEASING' ? '<span class="badge-pill releasing-pill">Airing Now</span>' : ''}
+            </div>
+            <h1 class="hero-title">${anime.title}</h1>
+            <p class="hero-synopsis">${synopsis}</p>
+            <div class="hero-actions">
+              <a href="/anime/watch.html?id=${anime.id}&ep=1" class="btn-watch-now">
+                <i class="fas fa-play"></i> Watch Now
+              </a>
+              <a href="/anime/watch.html?id=${anime.id}&ep=1" class="btn-secondary-pill">
+                <i class="fas fa-info-circle"></i> Details
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
     }).join('');
 
-    // Smooth scroll active episode into view
-    setTimeout(() => {
-      const activeBtn = episodesGrid.querySelector('.ep-btn.active');
-      if (activeBtn) {
-        activeBtn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-    }, 50);
+    // Indicators
+    if (heroIndicators) {
+      heroIndicators.innerHTML = items.map((_, idx) => `
+        <div class="indicator-dot ${idx === 0 ? 'active' : ''}" data-index="${idx}"></div>
+      `).join('');
 
-    updateNavButtons();
-  }
-
-  // ── Update prev/next buttons ──
-  function updateNavButtons() {
-    // Use API-provided prev/next first, then fall back to episode list
-    const hasPrev = prevEpisodeId || currentEpIndex > 0;
-    const hasNext = nextEpisodeId || currentEpIndex < episodes.length - 1;
-    prevEpBtn.disabled = !hasPrev;
-    nextEpBtn.disabled = !hasNext;
-  }
-
-  // ── Prev/Next navigation ──
-  prevEpBtn.addEventListener('click', () => {
-    if (prevEpisodeId) {
-      episodeId = prevEpisodeId;
-      navigateToEpisode();
-    } else if (currentEpIndex > 0) {
-      currentEpIndex--;
-      episodeId = episodes[currentEpIndex].id;
-      navigateToEpisode();
+      heroIndicators.querySelectorAll('.indicator-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+          goToHeroSlide(parseInt(dot.dataset.index));
+        });
+      });
     }
-  });
 
-  nextEpBtn.addEventListener('click', () => {
-    if (nextEpisodeId) {
-      episodeId = nextEpisodeId;
-      navigateToEpisode();
-    } else if (currentEpIndex < episodes.length - 1) {
-      currentEpIndex++;
-      episodeId = episodes[currentEpIndex].id;
-      navigateToEpisode();
+    heroSlides = heroSlidesContainer.querySelectorAll('.hero-slide');
+    startHeroTimer();
+
+    if (heroPrevBtn) {
+      heroPrevBtn.addEventListener('click', () => {
+        goToHeroSlide((currentHeroIndex - 1 + heroSlides.length) % heroSlides.length);
+      });
     }
-  });
 
-  function navigateToEpisode() {
-    // Check if new episode is on a different range page
-    if (episodes.length > 0) {
-      const totalPages = Math.ceil(episodes.length / EP_PAGE_SIZE);
-      const epIdx = episodes.findIndex(e => e.id === episodeId);
-      if (epIdx !== -1) {
-        currentEpIndex = epIdx;
-        const neededPage = Math.floor(epIdx / EP_PAGE_SIZE);
-        if (neededPage !== currentEpPage) {
-          currentEpPage = neededPage;
-          const rangeSelect = document.getElementById('rangeSelect');
-          const rangePrevBtn = document.getElementById('rangePrevBtn');
-          const rangeNextBtn = document.getElementById('rangeNextBtn');
-          if (rangeSelect) rangeSelect.value = currentEpPage;
-          if (rangePrevBtn) rangePrevBtn.disabled = currentEpPage <= 0;
-          if (rangeNextBtn) rangeNextBtn.disabled = currentEpPage >= totalPages - 1;
-          renderEpisodePage();
+    if (heroNextBtn) {
+      heroNextBtn.addEventListener('click', () => {
+        goToHeroSlide((currentHeroIndex + 1) % heroSlides.length);
+      });
+    }
+
+    // Touch swipe support for mobile
+    if (heroSlidesContainer) {
+      let touchStartX = 0;
+      let touchEndX = 0;
+      heroSlidesContainer.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+
+      heroSlidesContainer.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > 40) {
+          if (diff < 0) {
+            goToHeroSlide((currentHeroIndex + 1) % heroSlides.length);
+          } else {
+            goToHeroSlide((currentHeroIndex - 1 + heroSlides.length) % heroSlides.length);
+          }
         }
-      }
+      }, { passive: true });
     }
-
-    document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.querySelector(`.ep-btn[data-ep-id="${episodeId}"]`);
-    if (activeBtn) {
-      activeBtn.classList.add('active');
-      activeBtn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-
-    // Update anime ID from episode ID
-    animeId = episodeId.replace(/-episode-\d+.*$/, '');
-
-    const url = new URL(window.location);
-    url.searchParams.set('episodeId', episodeId);
-    url.searchParams.set('id', animeId);
-    window.history.pushState({}, '', url);
-
-    loadPlayer(episodeId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ── Load player with iframe ──
-  async function loadPlayer(epId) {
-    // Show loading, remove existing iframe
-    playerLoading.style.display = 'flex';
-    playerLoading.innerHTML = '<div class="spinner"></div><p>Loading player...</p>';
-    const existingIframe = playerWrapper.querySelector('iframe');
-    if (existingIframe) existingIframe.remove();
+  function goToHeroSlide(index) {
+    if (!heroSlides || heroSlides.length === 0) return;
+    heroSlides[currentHeroIndex].classList.remove('active');
+    const dots = heroIndicators ? heroIndicators.querySelectorAll('.indicator-dot') : [];
+    if (dots[currentHeroIndex]) dots[currentHeroIndex].classList.remove('active');
 
-    // Fetch watch data (contains iframe URL + servers + prev/next)
-    const watchData = await apiFetch(`/watch/${encodeURIComponent(epId)}`);
+    currentHeroIndex = index;
+    heroSlides[currentHeroIndex].classList.add('active');
+    if (dots[currentHeroIndex]) dots[currentHeroIndex].classList.add('active');
 
-    if (!watchData) {
-      playerLoading.innerHTML = `
-        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--accent-pink);"></i>
-        <p>Failed to load episode. Try refreshing.</p>
+    startHeroTimer();
+  }
+
+  function startHeroTimer() {
+    if (heroTimer) clearInterval(heroTimer);
+    heroTimer = setInterval(() => {
+      if (heroSlides.length > 0) {
+        goToHeroSlide((currentHeroIndex + 1) % heroSlides.length);
+      }
+    }, 6000);
+  }
+
+  // ── 2. Init StreameX 7-Day Airing Schedule ──
+  async function initAiringSchedule() {
+    if (!scheduleTabs || !scheduleGrid) return;
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const currentDayIdx = now.getDay();
+
+    // Create 7 days centered or from Mon to Sun
+    // Let's create from 3 days ago to 3 days ahead, or today at center
+    const dayPills = [];
+    for (let offset = -3; offset <= 3; offset++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      const dayName = days[d.getDay()];
+      const isToday = offset === 0;
+      dayPills.push({
+        offset,
+        dayName,
+        dateStr: `${d.getMonth() + 1}/${d.getDate()}`,
+        isToday,
+      });
+    }
+
+    scheduleTabs.innerHTML = dayPills.map(p => `
+      <button class="schedule-day-pill ${p.isToday ? 'active' : ''}" data-offset="${p.offset}">
+        <span>${p.dayName}</span>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">${p.dateStr}</span>
+        ${p.isToday ? '<span class="today-tag">Today</span>' : ''}
+      </button>
+    `).join('');
+
+    // Load initial schedule for Today (offset 0)
+    await loadScheduleForOffset(0);
+
+    // Tab click listeners
+    scheduleTabs.querySelectorAll('.schedule-day-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        scheduleTabs.querySelectorAll('.schedule-day-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadScheduleForOffset(parseInt(btn.dataset.offset));
+      });
+    });
+  }
+
+  async function loadScheduleForOffset(offset) {
+    scheduleGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 30px; text-align: center; color: var(--text-secondary);">
+        <i class="fas fa-spinner fa-spin" style="color: var(--accent-purple);"></i> Loading schedule...
+      </div>
+    `;
+
+    const data = await apiFetch(`/schedule?dayOffset=${offset}`);
+    if (!data || !data.schedules || data.schedules.length === 0) {
+      scheduleGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 30px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">
+          No anime scheduled for broadcast on this date.
+        </div>
       `;
       return;
     }
 
-    // Store prev/next episode IDs from the API
-    prevEpisodeId = watchData.prevEpisode || '';
-    nextEpisodeId = watchData.nextEpisode || '';
-    updateNavButtons();
+    const isMobile = window.innerWidth <= 768;
+    const initialLimit = isMobile ? 6 : data.schedules.length;
+    let isExpanded = false;
 
-    // Update title from API
-    const pageTitle = watchData.title || episodeId.replace(/-/g, ' ');
-    episodeTitle.innerHTML = `<span class="ep-number">${pageTitle}</span>`;
-    if (watchData.animeId) animeId = watchData.animeId;
-    if (watchData.title) animeTitle.textContent = watchData.title;
-    document.title = `${pageTitle} — PBG Anime`;
+    function renderScheduleItems(showAll) {
+      const itemsToRender = (showAll || !isMobile) ? data.schedules : data.schedules.slice(0, initialLimit);
+      const cardsHtml = itemsToRender.map(item => {
+        const timeStr = formatAirTime(item.airingAt);
+        const statusClass = item.isAired ? 'aired' : 'countdown';
+        const statusText = item.isAired ? 'Aired' : formatCountdown(item.timeUntilAiring);
 
-    // Update episode index in the episode list if available
-    const epIdx = episodes.findIndex(e => e.id === epId);
-    if (epIdx !== -1) currentEpIndex = epIdx;
+        return `
+          <a href="/anime/watch.html?id=${item.media.id}&ep=${item.episode}" class="schedule-card" title="${item.media.title}">
+            <img src="${item.media.coverImage || '/assets/images/logo.jpg'}" alt="${item.media.title}" class="schedule-card-thumb" onerror="this.src='/assets/images/logo.jpg'" />
+            <div class="schedule-card-info">
+              <div class="schedule-card-header">
+                <span class="schedule-time"><i class="far fa-clock" style="font-size: 0.72rem; margin-right: 4px;"></i>${timeStr}</span>
+                <span class="schedule-status ${statusClass}">${statusText}</span>
+              </div>
+              <div class="schedule-card-title">${item.media.title}</div>
+              <div class="schedule-card-footer">
+                <span class="ep-badge">EP ${item.episode}</span>
+                <span>${item.media.format || 'TV'}</span>
+                ${item.media.averageScore ? `<span style="color: #facc15; margin-left: auto;">★ ${item.media.averageScore}</span>` : ''}
+              </div>
+            </div>
+          </a>
+        `;
+      }).join('');
 
-    // Populate server selector
-    currentServers = watchData.servers || [];
-    if (currentServers.length > 0) {
-      serverSelector.innerHTML = currentServers.map((s, i) =>
-        `<option value="${s.url}" ${s.active ? 'selected' : ''}>${s.name}</option>`
-      ).join('');
-    } else {
-      serverSelector.innerHTML = '<option>Default</option>';
+      let toggleBtnHtml = '';
+      if (isMobile && data.schedules.length > initialLimit) {
+        toggleBtnHtml = `
+          <button class="schedule-toggle-btn" id="scheduleToggleBtn" type="button">
+            ${showAll
+            ? '<span>Show Less</span> <i class="fas fa-chevron-up"></i>'
+            : `<span>Show ${data.schedules.length - initialLimit} More Shows</span> <i class="fas fa-chevron-down"></i>`}
+          </button>
+        `;
+      }
+
+      scheduleGrid.innerHTML = cardsHtml + toggleBtnHtml;
+
+      const toggleBtn = document.getElementById('scheduleToggleBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          isExpanded = !isExpanded;
+          renderScheduleItems(isExpanded);
+        });
+      }
     }
 
-    // Get embed URL — prefer the active server, fallback to iframeSrc
-    const embedUrl = watchData.embedUrl || watchData.iframeSrc;
+    renderScheduleItems(false);
+  }
 
-    if (embedUrl) {
-      injectIframe(embedUrl);
-    } else {
-      playerLoading.innerHTML = `
-        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--accent-pink);"></i>
-        <p>No video source found. Try a different server.</p>
-      `;
+  // ── 3. Init Trending & Popular Carousels ──
+  function renderPosterCards(container, items) {
+    if (!container) return;
+    container.innerHTML = items.map(anime => `
+      <a href="/anime/watch.html?id=${anime.id}&ep=1" class="anime-poster-card" title="${anime.title}">
+        <div class="poster-media">
+          <img src="${anime.coverImage || '/assets/images/logo.jpg'}" alt="${anime.title}" loading="lazy" onerror="this.src='/assets/images/logo.jpg'" />
+          ${anime.averageScore ? `<span class="card-top-pill score"><i class="fas fa-star" style="font-size: 0.65rem;"></i> ${anime.averageScore}</span>` : ''}
+          <span class="card-top-pill format">${anime.format || 'TV'}</span>
+          <div class="poster-overlay">
+            <div class="play-circle"><i class="fas fa-play"></i></div>
+          </div>
+        </div>
+        <div class="poster-title">${anime.title}</div>
+        <div class="poster-sub">
+          <span>${anime.year || 'Anime'}</span>
+          ${anime.episodes ? `<span>${anime.episodes} eps</span>` : '<span>Airing</span>'}
+        </div>
+      </a>
+    `).join('');
+  }
+
+  async function initCarousels() {
+    // Trending
+    if (trendingCarousel) {
+      const data = await apiFetch('/trending?perPage=15');
+      if (data && data.results) {
+        renderPosterCards(trendingCarousel, data.results);
+      }
+    }
+
+    // Popular
+    if (popularCarousel) {
+      const data = await apiFetch('/popular?perPage=15');
+      if (data && data.results) {
+        renderPosterCards(popularCarousel, data.results);
+      }
+    }
+
+    // Arrow button horizontal scrolling
+    if (trendingPrevBtn && trendingCarousel) {
+      trendingPrevBtn.addEventListener('click', () => trendingCarousel.scrollBy({ left: -450, behavior: 'smooth' }));
+    }
+    if (trendingNextBtn && trendingCarousel) {
+      trendingNextBtn.addEventListener('click', () => trendingCarousel.scrollBy({ left: 450, behavior: 'smooth' }));
+    }
+
+    if (popularPrevBtn && popularCarousel) {
+      popularPrevBtn.addEventListener('click', () => popularCarousel.scrollBy({ left: -450, behavior: 'smooth' }));
+    }
+    if (popularNextBtn && popularCarousel) {
+      popularNextBtn.addEventListener('click', () => popularCarousel.scrollBy({ left: 450, behavior: 'smooth' }));
     }
   }
 
-  // ── Inject iframe into player ──
-  function injectIframe(src) {
-    const existingIframe = playerWrapper.querySelector('iframe');
-    if (existingIframe) existingIframe.remove();
+  // ── 4. Init Ranked Top 10 Lists ──
+  async function initTop10() {
+    if (!topAiringList || !mostPopularList) return;
+    const data = await apiFetch('/top-10');
+    if (!data) return;
 
-    const iframe = document.createElement('iframe');
-    iframe.src = src;
-    iframe.setAttribute('allowfullscreen', 'true');
-    iframe.setAttribute('frameborder', '0');
-    iframe.setAttribute('marginwidth', '0');
-    iframe.setAttribute('marginheight', '0');
-    iframe.setAttribute('scrolling', 'no');
-    iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-    iframe.style.cssText = 'width:100%;height:100%;border:none;';
+    const renderRankedList = (container, list) => {
+      container.innerHTML = list.map(item => {
+        const rankStr = String(item.rank).padStart(2, '0');
+        const topClass = item.rank <= 3 ? `top${item.rank}` : '';
+        const genres = item.genres ? item.genres.slice(0, 2).join(' • ') : '';
 
-    iframe.onload = () => {
-      playerLoading.style.display = 'none';
+        return `
+          <a href="/anime/watch.html?id=${item.id}&ep=1" class="ranked-item" title="${item.title}">
+            <div class="rank-number ${topClass}">${rankStr}</div>
+            <img src="${item.coverImage || '/assets/images/logo.jpg'}" alt="${item.title}" class="ranked-thumb" onerror="this.src='/assets/images/logo.jpg'" />
+            <div class="ranked-info">
+              <div class="ranked-title">${item.title}</div>
+              <div class="ranked-meta">
+                <span>${item.format || 'TV'}</span>
+                ${item.episodes ? `<span>• ${item.episodes} eps</span>` : ''}
+                ${item.averageScore ? `<span class="ranked-score">★ ${item.averageScore}</span>` : ''}
+              </div>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">${genres}</div>
+            </div>
+          </a>
+        `;
+      }).join('');
     };
 
-    playerWrapper.appendChild(iframe);
+    if (data.topAiring) renderRankedList(topAiringList, data.topAiring);
+    if (data.mostPopular) renderRankedList(mostPopularList, data.mostPopular);
 
-    // Fallback: hide loading after 5s (cross-origin onload may not fire)
-    setTimeout(() => {
-      playerLoading.style.display = 'none';
-    }, 5000);
+    // Mobile Switcher Tabs
+    const rankedTabsMobile = document.getElementById('rankedTabsMobile');
+    if (rankedTabsMobile) {
+      rankedTabsMobile.querySelectorAll('.ranked-tab-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          rankedTabsMobile.querySelectorAll('.ranked-tab-pill').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const targetColId = btn.dataset.col;
+          document.querySelectorAll('.ranked-column').forEach(col => col.classList.remove('active-col'));
+          const targetCol = document.getElementById(targetColId);
+          if (targetCol) targetCol.classList.add('active-col');
+        });
+      });
+    }
   }
 
-  // ── Server change ──
-  serverSelector.addEventListener('change', (e) => {
-    const selectedUrl = e.target.value;
-    if (selectedUrl && selectedUrl.startsWith('http')) {
-      playerLoading.style.display = 'flex';
-      playerLoading.innerHTML = '<div class="spinner"></div><p>Switching server...</p>';
-      injectIframe(selectedUrl);
-    }
-  });
+  // Run homepage loaders
+  initHeroCarousel();
+  initAiringSchedule();
+  initCarousels();
+  initTop10();
 
-  // ── Search on watch page ──
-  const handleSearch = debounce(async (query) => {
-    if (query.length < 2) {
-      searchResults.classList.remove('active');
+  // If URL has ?q= query from another page, trigger search automatically
+  const urlParams = new URLSearchParams(window.location.search);
+  const qParam = urlParams.get('q');
+  if (qParam) {
+    if (searchInput) searchInput.value = qParam;
+    showFullSearchResults(qParam);
+  }
+}
+
+// ============================================
+// WATCH PAGE LOGIC (StreameX Theatre Player)
+// ============================================
+if (isWatchPage) {
+  const urlParams = new URLSearchParams(window.location.search);
+  let currentAnimeId = urlParams.get('id') || '21'; // Default: One Piece (AniList ID 21)
+  let currentEpisode = parseInt(urlParams.get('ep') || urlParams.get('e') || '1');
+  let currentSeason = parseInt(urlParams.get('s') || '1');
+  let currentServer = urlParams.get('server') || 'main-sub';
+
+  // DOM Elements
+  const watchAnimeHeader = document.getElementById('watchAnimeHeader');
+  const watchEpisodeHeader = document.getElementById('watchEpisodeHeader');
+  const nowPlayingBadge = document.getElementById('nowPlayingBadge');
+  const playerIframe = document.getElementById('playerIframe');
+  const playerLoading = document.getElementById('playerLoading');
+  const serversGridList = document.getElementById('serversGridList');
+  const prevEpBtn = document.getElementById('prevEpBtn');
+  const nextEpBtn = document.getElementById('nextEpBtn');
+
+  // Sidebar Elements
+  const metadataPoster = document.getElementById('metadataPoster');
+  const metadataTitle = document.getElementById('metadataTitle');
+  const metadataDesc = document.getElementById('metadataDesc');
+  const metadataGenres = document.getElementById('metadataGenres');
+  const sidebarScoreBadge = document.getElementById('sidebarScoreBadge');
+  const sidebarStatusVal = document.getElementById('sidebarStatusVal');
+  const sidebarStudioVal = document.getElementById('sidebarStudioVal');
+  const sidebarAiredVal = document.getElementById('sidebarAiredVal');
+
+  const recommendationsCarousel = document.getElementById('recommendationsCarousel');
+  const relPrevBtn = document.getElementById('relPrevBtn');
+  const relNextBtn = document.getElementById('relNextBtn');
+
+  const sidebarEpCount = document.getElementById('sidebarEpCount');
+  const seasonSelector = document.getElementById('seasonSelector');
+  const epFilterInput = document.getElementById('epFilterInput');
+  const viewGridBtn = document.getElementById('viewGridBtn');
+  const viewListBtn = document.getElementById('viewListBtn');
+  const episodesGridContainer = document.getElementById('episodesGridContainer');
+  const episodesListContainer = document.getElementById('episodesListContainer');
+
+  let animeDetails = null;
+  let totalEpisodesCount = 1;
+  let serverList = [];
+
+  // ── Load Anime Info & Episode Count ──
+  async function loadAnimeInfo() {
+    const data = await apiFetch(`/info/${currentAnimeId}`);
+    if (!data) return;
+    animeDetails = data;
+
+    // Set page titles
+    document.title = `Watch ${data.title} Episode ${currentEpisode} — PBG Anime`;
+    if (watchAnimeHeader) watchAnimeHeader.textContent = data.title;
+    if (watchEpisodeHeader) watchEpisodeHeader.textContent = `Episode ${currentEpisode}`;
+    if (nowPlayingBadge) {
+      nowPlayingBadge.innerHTML = `<i class="fas fa-circle-play" style="color: var(--accent-purple);"></i> <span>Now Playing • Episode ${currentEpisode}</span>`;
+    }
+
+    // Set Sidebar Info
+    if (metadataTitle) metadataTitle.textContent = data.title;
+    if (metadataPoster) {
+      metadataPoster.src = data.coverImage || data.bannerImage || '/assets/images/logo.jpg';
+      metadataPoster.style.display = 'block';
+    }
+    if (sidebarScoreBadge) {
+      sidebarScoreBadge.textContent = data.averageScore ? `★ ${data.averageScore}` : '★ 8.0';
+    }
+    if (sidebarStatusVal) {
+      sidebarStatusVal.textContent = data.status || 'Ongoing';
+    }
+    if (sidebarStudioVal) {
+      sidebarStudioVal.textContent = data.studio || 'Unknown Studio';
+    }
+    if (sidebarAiredVal) {
+      sidebarAiredVal.textContent = data.releaseDate || data.season || '1999-10-20';
+    }
+    if (metadataDesc) {
+      metadataDesc.textContent = data.description || 'No synopsis available.';
+    }
+    if (metadataGenres && data.genres) {
+      metadataGenres.innerHTML = data.genres.map(g => `<span class="genre-tag">${g}</span>`).join('');
+    }
+
+    // Set Recommendations Carousel
+    if (recommendationsCarousel && data.recommendations && data.recommendations.length > 0) {
+      recommendationsCarousel.innerHTML = data.recommendations.map(r => `
+        <a href="/anime/watch.html?id=${r.id}&ep=1" class="anime-poster-card" style="flex: 0 0 140px;" title="${r.title}">
+          <div class="poster-media">
+            <img src="${r.coverImage || '/assets/images/logo.jpg'}" alt="${r.title}" loading="lazy" onerror="this.src='/assets/images/logo.jpg'" />
+            ${r.averageScore ? `<span class="card-top-pill score">★ ${r.averageScore}</span>` : ''}
+            <div class="poster-overlay"><div class="play-circle" style="width: 36px; height: 36px; font-size: 0.9rem;"><i class="fas fa-play"></i></div></div>
+          </div>
+          <div class="poster-title" style="font-size: 0.82rem;">${r.title}</div>
+        </a>
+      `).join('');
+    }
+
+    if (relPrevBtn && recommendationsCarousel) {
+      relPrevBtn.onclick = () => recommendationsCarousel.scrollBy({ left: -360, behavior: 'smooth' });
+    }
+    if (relNextBtn && recommendationsCarousel) {
+      relNextBtn.onclick = () => recommendationsCarousel.scrollBy({ left: 360, behavior: 'smooth' });
+    }
+
+    // Setup episodes & seasons
+    totalEpisodesCount = Math.max(1, data.totalEpisodes || data.episodes || 1);
+    if (sidebarEpCount) sidebarEpCount.textContent = `${totalEpisodesCount} Eps`;
+
+    setupSeasonsAndEpisodes();
+  }
+
+  // ── Setup Seasons & Episode Buttons ──
+  function setupSeasonsAndEpisodes() {
+    if (!seasonSelector) return;
+
+    // If series is long (e.g. > 100 episodes), break into batches of 100
+    if (totalEpisodesCount > 100) {
+      const batchCount = Math.ceil(totalEpisodesCount / 100);
+      seasonSelector.innerHTML = Array.from({ length: batchCount }, (_, idx) => {
+        const start = idx * 100 + 1;
+        const end = Math.min((idx + 1) * 100, totalEpisodesCount);
+        return `<option value="${idx + 1}">Episodes ${start} - ${end}</option>`;
+      }).join('');
+
+      // Auto-select the batch that contains currentEpisode
+      const activeBatch = Math.floor((currentEpisode - 1) / 100) + 1;
+      seasonSelector.value = String(activeBatch);
+
+      seasonSelector.onchange = () => {
+        const batch = parseInt(seasonSelector.value);
+        renderEpisodeButtons((batch - 1) * 100 + 1, Math.min(batch * 100, totalEpisodesCount));
+      };
+
+      const start = (activeBatch - 1) * 100 + 1;
+      const end = Math.min(activeBatch * 100, totalEpisodesCount);
+      renderEpisodeButtons(start, end);
+    } else {
+      seasonSelector.innerHTML = `<option value="1">Season 1 (${totalEpisodesCount} Eps)</option>`;
+      renderEpisodeButtons(1, totalEpisodesCount);
+    }
+  }
+
+  function renderEpisodeButtons(startEp, endEp, filterQuery = '') {
+    if (!episodesGridContainer || !episodesListContainer) return;
+
+    const eps = [];
+    for (let i = startEp; i <= endEp; i++) {
+      if (filterQuery) {
+        if (!String(i).includes(filterQuery)) continue;
+      }
+      eps.push(i);
+    }
+
+    // Render Grid View
+    episodesGridContainer.innerHTML = eps.map(num => `
+      <button class="ep-grid-btn ${num === currentEpisode ? 'active' : ''}" data-ep="${num}">
+        ${num}
+      </button>
+    `).join('');
+
+    // Render List View
+    episodesListContainer.innerHTML = eps.map(num => `
+      <button class="ep-list-btn ${num === currentEpisode ? 'active' : ''}" data-ep="${num}">
+        <span>Episode ${num}</span>
+        ${num === currentEpisode ? '<span class="today-tag" style="background: var(--accent-purple); color: #fff;">Playing</span>' : ''}
+      </button>
+    `).join('');
+
+    // Attach click listeners to episode buttons
+    const attachListeners = (container) => {
+      container.querySelectorAll('button[data-ep]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ep = parseInt(btn.dataset.ep);
+          switchEpisode(ep);
+        });
+      });
+    };
+
+    attachListeners(episodesGridContainer);
+    attachListeners(episodesListContainer);
+  }
+
+  // ── Episode Filter / Search ──
+  if (epFilterInput) {
+    epFilterInput.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      const batch = parseInt(seasonSelector?.value || '1');
+      const start = totalEpisodesCount > 100 ? (batch - 1) * 100 + 1 : 1;
+      const end = totalEpisodesCount > 100 ? Math.min(batch * 100, totalEpisodesCount) : totalEpisodesCount;
+      renderEpisodeButtons(start, end, q);
+    });
+
+    epFilterInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const ep = parseInt(epFilterInput.value.trim());
+        if (ep >= 1 && ep <= totalEpisodesCount) {
+          switchEpisode(ep);
+          epFilterInput.value = '';
+        }
+      }
+    });
+  }
+
+  // ── View Mode Toggle: Grid vs List ──
+  if (viewGridBtn && viewListBtn) {
+    viewGridBtn.addEventListener('click', () => {
+      viewGridBtn.classList.add('active');
+      viewListBtn.classList.remove('active');
+      episodesGridContainer.style.display = 'grid';
+      episodesListContainer.style.display = 'none';
+    });
+
+    viewListBtn.addEventListener('click', () => {
+      viewListBtn.classList.add('active');
+      viewGridBtn.classList.remove('active');
+      episodesGridContainer.style.display = 'none';
+      episodesListContainer.style.display = 'flex';
+    });
+  }
+
+  let loadSafetyTimer = null;
+  let troubleTimer = null;
+
+  // ── Load Streaming Servers & Play Stream ──
+  async function loadServersAndStream() {
+    if (playerLoading) {
+      playerLoading.style.display = 'flex';
+      playerLoading.style.opacity = '1';
+    }
+
+    const data = await apiFetch(`/watch-servers/${currentAnimeId}/${currentEpisode}?season=${currentSeason}`);
+    if (!data || !data.servers || !data.servers.length) {
+      if (playerLoading) {
+        playerLoading.innerHTML = `
+          <p style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load streaming servers.</p>
+          <button class="server-btn-pill" onclick="location.reload()" style="margin-top: 10px;">Retry</button>
+        `;
+      }
       return;
     }
 
-    searchResults.innerHTML = '<div class="search-result-item"><p style="color:var(--text-muted);">Searching...</p></div>';
-    searchResults.classList.add('active');
+    serverList = data.servers;
 
-    const data = await apiFetch(`/search?q=${encodeURIComponent(query)}`);
-
-    if (data && data.results && data.results.length > 0) {
-      searchResults.innerHTML = data.results.slice(0, 8).map(item => `
-        <a href="/anime/watch.html?id=${encodeURIComponent(item.id)}" class="search-result-item">
-          <img src="${item.image || ''}" alt="${item.title}" onerror="this.style.display='none'" />
-          <div class="search-result-info">
-            <h4>${item.title}</h4>
-            <p>${item.releaseDate ? 'Released: ' + item.releaseDate : ''}</p>
+    // Render StreameX 2x4 server cards
+    if (serversGridList) {
+      serversGridList.innerHTML = serverList.map(s => {
+        const isActive = s.id === currentServer;
+        return `
+          <div class="streamex-server-card ${isActive ? 'active' : ''}" data-server-id="${s.id}" data-url="${s.url}">
+            <div class="server-card-left">
+              <img src="${s.flag}" alt="${s.name}" class="server-flag-icon" />
+              <span>${s.name}</span>
+            </div>
+            <div class="server-status-dot"></div>
           </div>
-        </a>
-      `).join('');
-    } else {
-      searchResults.innerHTML = '<div class="search-result-item"><p style="color:var(--text-muted);">No results found</p></div>';
-    }
-  }, 400);
+        `;
+      }).join('');
 
-  searchInput.addEventListener('input', (e) => handleSearch(e.target.value.trim()));
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.nav-search')) {
-      searchResults.classList.remove('active');
+      serversGridList.querySelectorAll('.streamex-server-card').forEach(card => {
+        card.addEventListener('click', () => {
+          serversGridList.querySelectorAll('.streamex-server-card').forEach(c => c.classList.remove('active'));
+          card.classList.add('active');
+          currentServer = card.dataset.serverId;
+          playServerUrl(card.dataset.url);
+          updateUrlState();
+        });
+      });
     }
+
+    // Play default or selected server
+    let activeServerObj = serverList.find(s => s.id === currentServer);
+    if (!activeServerObj) {
+      activeServerObj = serverList[0];
+      currentServer = activeServerObj.id;
+    }
+
+    if (activeServerObj) {
+      if (serversGridList) {
+        serversGridList.querySelectorAll('.streamex-server-card').forEach(c => {
+          c.classList.toggle('active', c.dataset.serverId === currentServer);
+        });
+      }
+      playServerUrl(activeServerObj.url);
+    }
+
+    // Update Prev & Next Buttons
+    if (prevEpBtn) {
+      prevEpBtn.disabled = currentEpisode <= 1;
+      prevEpBtn.onclick = () => { if (currentEpisode > 1) switchEpisode(currentEpisode - 1); };
+    }
+    if (nextEpBtn) {
+      nextEpBtn.disabled = currentEpisode >= totalEpisodesCount;
+      nextEpBtn.onclick = () => { if (currentEpisode < totalEpisodesCount) switchEpisode(currentEpisode + 1); };
+    }
+
+    // Wire quick switch next server button
+    const quickSwitchBtn = document.getElementById('quickSwitchServerBtn');
+    if (quickSwitchBtn) {
+      quickSwitchBtn.onclick = (e) => {
+        e.stopPropagation();
+        switchToNextServer();
+      };
+    }
+  }
+
+  function switchToNextServer() {
+    if (!serverList || serverList.length <= 1) return;
+    const currIdx = serverList.findIndex(s => s.id === currentServer);
+    const nextIdx = (currIdx + 1) % serverList.length;
+    const nextServer = serverList[nextIdx];
+    if (!nextServer) return;
+
+    currentServer = nextServer.id;
+    if (serversGridList) {
+      serversGridList.querySelectorAll('.streamex-server-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.serverId === currentServer);
+      });
+    }
+    playServerUrl(nextServer.url);
+    updateUrlState();
+  }
+
+  function playServerUrl(url) {
+    if (!playerIframe) return;
+
+    if (loadSafetyTimer) clearTimeout(loadSafetyTimer);
+    if (troubleTimer) clearTimeout(troubleTimer);
+
+    const loadingTrouble = document.getElementById('playerLoadingTrouble');
+    if (loadingTrouble) loadingTrouble.style.display = 'none';
+
+    if (playerLoading) {
+      playerLoading.style.display = 'flex';
+      playerLoading.style.opacity = '1';
+    }
+
+    playerIframe.onload = () => {
+      // Smoothly hide loading overlay once iframe fires load
+      setTimeout(() => {
+        if (playerLoading) {
+          playerLoading.style.opacity = '0';
+          setTimeout(() => {
+            playerLoading.style.display = 'none';
+          }, 250);
+        }
+      }, 400);
+    };
+
+    // If server takes longer than 4.5s on mobile, offer quick 1-tap failover
+    troubleTimer = setTimeout(() => {
+      if (playerLoading && playerLoading.style.display !== 'none') {
+        const trouble = document.getElementById('playerLoadingTrouble');
+        if (trouble) trouble.style.display = 'block';
+      }
+    }, 4500);
+
+    // Timeout safety to guarantee loading overlay never hangs indefinitely
+    loadSafetyTimer = setTimeout(() => {
+      if (playerLoading) {
+        playerLoading.style.opacity = '0';
+        setTimeout(() => {
+          playerLoading.style.display = 'none';
+        }, 250);
+      }
+    }, 7000);
+
+    playerIframe.src = url;
+  }
+
+  function switchEpisode(ep) {
+    if (ep === currentEpisode) return;
+    currentEpisode = ep;
+
+    if (watchEpisodeHeader) watchEpisodeHeader.textContent = `Episode ${currentEpisode}`;
+    if (nowPlayingBadge) {
+      nowPlayingBadge.innerHTML = `<i class="fas fa-circle-play" style="color: var(--accent-purple);"></i> <span>Now Playing • Episode ${currentEpisode}</span>`;
+    }
+    document.title = `Watch ${animeDetails?.title || 'Anime'} Episode ${currentEpisode} — PBG Anime`;
+
+    // Highlight active episode in grid and list
+    document.querySelectorAll('.ep-grid-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.ep) === currentEpisode);
+    });
+    document.querySelectorAll('.ep-list-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.ep) === currentEpisode);
+    });
+
+    updateUrlState();
+    loadServersAndStream();
+  }
+
+  function updateUrlState() {
+    const newUrl = `/anime/watch.html?id=${currentAnimeId}&ep=${currentEpisode}&server=${currentServer}`;
+    window.history.replaceState({ path: newUrl }, '', newUrl);
+  }
+
+  // Run watch page loaders
+  loadAnimeInfo().then(() => {
+    loadServersAndStream();
   });
-
-  // ── Initialize ──
-  loadAnimeInfo();
 }

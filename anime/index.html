@@ -2,22 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PBG Anime — Watch Anime Online Free | HD Streaming</title>
-  <meta name="description" content="Watch anime online for free in HD quality. Stream popular anime series, latest episodes, and trending shows on PBG Anime." />
-  <meta name="keywords" content="PBG Anime, watch anime online, free anime streaming, anime HD, sub dub anime" />
-  <meta name="theme-color" content="#020617" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PBG Anime — Stream Popular & Trending Anime Free in HD</title>
+  <meta name="description" content="Watch trending anime series, weekly airing schedules, and popular shows free in HD on PBG Anime." />
+  <meta name="keywords" content="PBG Anime, anime stream, watch anime online, StreameX anime, airing schedule, free anime HD" />
+  <meta name="theme-color" content="#000000" />
   <link rel="canonical" href="https://pbgofficials.dev/anime/" />
   <link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48x48.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.2" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 <body>
 
-  <!-- Navigation -->
+  <!-- Top Navigation Bar -->
   <nav class="navbar" id="navbar">
     <div class="container">
       <a href="/anime/" class="nav-brand">
@@ -25,60 +25,190 @@
         <span>PBG <span class="brand-anime">Anime</span></span>
       </a>
 
-      <div class="nav-search">
+      <div class="nav-search" id="navSearch">
         <i class="fas fa-search search-icon"></i>
-        <input type="text" id="searchInput" placeholder="Search anime... (e.g., Naruto, One Piece, Dragon Ball)" autocomplete="off" />
+        <input type="text" id="searchInput" placeholder="Search anime... (e.g. Solo Leveling, One Piece)" autocomplete="off" />
         <div class="search-results" id="searchResults"></div>
       </div>
 
       <div class="nav-links">
-        <a href="/anime/" class="active" id="navHome"><i class="fas fa-fire"></i> Home</a>
-        <a href="/" class="nav-home"><i class="fas fa-globe"></i> PBG Hub</a>
+        <a href="/anime/" class="active"><i class="fas fa-play"></i> <span>Anime</span></a>
+        <a href="/manga/"><i class="fas fa-book-open"></i> <span>Manga</span></a>
+        <a href="/games/"><i class="fas fa-gamepad"></i> <span>Games</span></a>
+        <a href="/"><i class="fas fa-globe"></i> <span>PBG Hub</span></a>
       </div>
+
+      <!-- Mobile Search Button Toggle -->
+      <div class="nav-mobile-controls">
+        <button class="mobile-search-toggle" id="mobileSearchBtn" aria-label="Open Search">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Collapsible Search Drawer -->
+    <div class="mobile-search-drawer" id="mobileSearchDrawer">
+      <div class="mobile-search-inner">
+        <i class="fas fa-search mobile-drawer-icon"></i>
+        <input type="text" id="mobileSearchInput" placeholder="Search anime... (e.g. Solo Leveling, One Piece)" autocomplete="off" />
+        <button class="mobile-search-close" id="mobileSearchClose" aria-label="Close Search"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="search-results" id="mobileSearchResults"></div>
     </div>
   </nav>
 
-  <!-- Hero -->
-  <section class="hero" id="heroSection">
-    <h1>
-      Stream Anime on
-      <span class="gradient">PBG Anime</span>
-    </h1>
-    <p>Watch the latest anime episodes, trending series, and top-airing shows — all in HD, sub & dub.</p>
-  </section>
+  <!-- Main Content -->
+  <main class="main-content">
 
-  <!-- Tabs -->
-  <div class="section-tabs" id="sectionTabs">
-    <button class="tab-btn active" data-tab="recent"><i class="fas fa-clock"></i> Recent</button>
-    <button class="tab-btn" data-tab="top-airing"><i class="fas fa-fire"></i> Top Airing</button>
-  </div>
+    <!-- Search Overlay / Results Section (shown when searching) -->
+    <section class="section-container" id="searchSection" style="display: none;">
+      <div class="section-header-row">
+        <div class="section-title-group">
+          <i class="fas fa-search"></i>
+          <h2>Search Results for "<span id="searchQueryText"></span>"</h2>
+        </div>
+        <button class="carousel-arrow-btn" id="closeSearchBtn" title="Close search results"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="schedule-cards-grid" id="searchGrid"></div>
+    </section>
 
-  <!-- Anime Content -->
-  <section class="content-section" id="contentSection">
-    <div class="section-header" id="sectionHeader">
-      <h2><i class="fas fa-clock"></i> Recent Episodes</h2>
-    </div>
-    <div class="anime-grid" id="animeGrid">
-      <!-- Skeleton loading cards -->
-    </div>
-    <div class="loader" id="loadingSpinner" style="display:none;">
-      <div class="spinner"></div>
-    </div>
-  </section>
+    <!-- Normal Home Sections (hidden when full search active) -->
+    <div id="homeSections">
 
-  <!-- Search Results Section (hidden by default) -->
-  <section class="content-section" id="searchSection" style="display:none;">
-    <div class="section-header">
-      <h2><i class="fas fa-search"></i> Search Results for "<span id="searchQuery"></span>"</h2>
+      <!-- Featured Hero Carousel -->
+      <section class="hero-carousel" id="heroCarousel">
+        <div id="heroSlidesContainer">
+          <!-- Populated by script.js -->
+        </div>
+
+        <!-- Hero Bottom-Right Controls Bar (Unobstructed View) -->
+        <div class="hero-controls-bar">
+          <button class="hero-ctrl-arrow" id="heroPrevBtn" aria-label="Previous Slide"><i class="fas fa-chevron-left"></i></button>
+          <div class="hero-indicators" id="heroIndicators"></div>
+          <button class="hero-ctrl-arrow" id="heroNextBtn" aria-label="Next Slide"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </section>
+
+      <!-- Trending Now Carousel -->
+      <section class="section-container" id="trendingSection">
+        <div class="section-header-row">
+          <div class="section-title-group">
+            <i class="fas fa-fire"></i>
+            <h2>Trending Now</h2>
+          </div>
+          <div class="carousel-nav-group">
+            <button class="carousel-arrow-btn" id="trendingPrevBtn" aria-label="Scroll left"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-arrow-btn" id="trendingNextBtn" aria-label="Scroll right"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="cards-carousel" id="trendingCarousel">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Airing Schedule Section (StreameX 7-Day Tabs) -->
+      <section class="schedule-section" id="scheduleSection">
+        <div class="section-container" style="padding-top: 0; padding-bottom: 0;">
+          <div class="section-header-row">
+            <div class="section-title-group">
+              <i class="fas fa-calendar-alt"></i>
+              <h2>Airing Schedule</h2>
+            </div>
+          </div>
+
+          <!-- 7-Day Tab Selector -->
+          <div class="schedule-tabs-container" id="scheduleTabs">
+            <!-- Populated dynamically with Mon-Sun + Today badge -->
+          </div>
+
+          <!-- Airing Schedule Cards Grid -->
+          <div class="schedule-cards-grid" id="scheduleGrid">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Ranked Top 10 Side-by-Side (Top 10 Airing + Top 10 Popular) -->
+      <section class="section-container ranked-section" id="rankedSection">
+        <!-- Mobile Switcher Tabs (StreameX Style) -->
+        <div class="ranked-tabs-mobile" id="rankedTabsMobile">
+          <button class="ranked-tab-pill active" data-col="topAiringCol"><i class="fas fa-bolt"></i> Top Airing</button>
+          <button class="ranked-tab-pill" data-col="mostPopularCol"><i class="fas fa-star"></i> Most Popular</button>
+        </div>
+
+        <div class="ranked-grid-container">
+          <!-- Column 1: Top Airing -->
+          <div class="ranked-column active-col" id="topAiringCol">
+            <div class="ranked-col-header">
+              <i class="fas fa-bolt" style="color: #10b981;"></i>
+              <h3>Top 10 Airing Anime</h3>
+            </div>
+            <div class="ranked-list" id="topAiringList">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Column 2: Most Popular -->
+          <div class="ranked-column" id="mostPopularCol">
+            <div class="ranked-col-header">
+              <i class="fas fa-star" style="color: #facc15;"></i>
+              <h3>Top 10 Most Popular</h3>
+            </div>
+            <div class="ranked-list" id="mostPopularList">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Most Popular Carousel -->
+      <section class="section-container" id="popularSection">
+        <div class="section-header-row">
+          <div class="section-title-group">
+            <i class="fas fa-trophy"></i>
+            <h2>Most Popular Anime</h2>
+          </div>
+          <div class="carousel-nav-group">
+            <button class="carousel-arrow-btn" id="popularPrevBtn" aria-label="Scroll left"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-arrow-btn" id="popularNextBtn" aria-label="Scroll right"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="cards-carousel" id="popularCarousel">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
     </div>
-    <div class="anime-grid" id="searchGrid"></div>
-  </section>
+  </main>
 
   <!-- Footer -->
   <footer class="footer">
-    <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans.</p>
+    <div class="container">
+      <p>© 2026 <a href="/">PBG Officials</a> — PBG Anime. Built with ♥ for anime fans worldwide.</p>
+      <p style="margin-top: 6px; font-size: 0.78rem;">Powered by AniList metadata with multi-server streaming.</p>
+    </div>
   </footer>
 
-  <script src="script.js"></script>
+  <!-- Mobile Bottom Navigation Bar (Visible only on mobile screens <= 768px) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile Navigation">
+    <a href="/anime/" class="mobile-nav-item active">
+      <i class="fas fa-play"></i>
+      <span>Anime</span>
+    </a>
+    <a href="/manga/" class="mobile-nav-item">
+      <i class="fas fa-book-open"></i>
+      <span>Manga</span>
+    </a>
+    <a href="/games/" class="mobile-nav-item">
+      <i class="fas fa-gamepad"></i>
+      <span>Games</span>
+    </a>
+    <a href="/" class="mobile-nav-item">
+      <i class="fas fa-globe"></i>
+      <span>Hub</span>
+    </a>
+  </nav>
+
+  <script src="script.js?v=2.2"></script>
 </body>
 </html>
