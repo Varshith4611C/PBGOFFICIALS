@@ -8,7 +8,7 @@
 
   // ── Auth guard ────────────────────────────────────────────
   if (!mailAPI.token || !mailAPI.account) {
-    window.location.href = '/index.html';
+    window.location.href = '/';
     return;
   }
 
@@ -150,7 +150,7 @@
     $('#logoutBtn').addEventListener('click', async () => {
       await mailAPI.logoutRequest();
       mailAPI.logout();
-      window.location.href = '/index.html';
+      window.location.href = '/';
     });
 
     // Keyboard shortcuts

@@ -95,7 +95,7 @@
     // Check if already logged in
     const token = localStorage.getItem('pbg_mail_token');
     if (token) {
-      window.location.href = '/app.html';
+      window.location.href = '/app';
     }
 
     // Password toggle
@@ -139,7 +139,7 @@
         // Smooth transition
         document.getElementById('loginCard').classList.add('login-success');
         setTimeout(() => {
-          window.location.href = '/app.html';
+          window.location.href = '/app';
         }, 400);
 
       } catch (err) {

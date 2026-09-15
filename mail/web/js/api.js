@@ -25,7 +25,7 @@ class MailAPI {
 
     if (res.status === 401) {
       this.logout();
-      window.location.href = '/index.html';
+      window.location.href = '/';
       throw new Error('Session expired');
     }
 
