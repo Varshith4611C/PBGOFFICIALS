@@ -53,6 +53,21 @@ function formatTitle(titleObj) {
   return titleObj.english || titleObj.romaji || titleObj.native || 'Untitled Manga';
 }
 
+// ── Parse Chapter Number Helper ──
+function parseChapterNumber(c) {
+  if (!c) return 0;
+  if (c.chapter !== undefined && c.chapter !== null && c.chapter !== '') {
+    const val = parseFloat(c.chapter);
+    if (!isNaN(val)) return val;
+  }
+  const match = (c.title || '').match(/chapter\s+([\d.]+)/i) || (c.id || '').match(/chapter-([\d.]+)/i);
+  if (match) {
+    const val = parseFloat(match[1]);
+    if (!isNaN(val)) return val;
+  }
+  return 0;
+}
+
 // ── Create Manga Card HTML (Links to Dedicated Detail Page) ──
 function createMangaCard(item) {
   const id = item.id;
@@ -220,8 +235,8 @@ if (isDetailPage) {
   }
 
   let allChapters = [];
-  let sortDescending = true;
-  let activeRangeIndex = 0; // 0 = all, or range chunk index
+  let sortDescending = false; // Default: Oldest first (Ch 1 -> Ch Max)
+  let activeRangeIndex = 0; // 0 = first range, -1 = all
   let rangeChunks = [];
 
   async function initDetailPage() {
@@ -283,13 +298,13 @@ if (isDetailPage) {
 
     // Chapters Handling
     if (chaptersData && chaptersData.chapters && chaptersData.chapters.length > 0) {
-      allChapters = chaptersData.chapters;
+      allChapters = chaptersData.chapters.slice().sort((a, b) => parseChapterNumber(a) - parseChapterNumber(b));
       const count = allChapters.length;
       if (detailChaptersVal) detailChaptersVal.textContent = `${count} Chapters`;
       if (detailTotalChaptersCount) detailTotalChaptersCount.textContent = count;
 
       // Start Reading CTA button (First chapter)
-      const firstChapter = allChapters[allChapters.length - 1] || allChapters[0];
+      const firstChapter = allChapters[0];
       if (detailStartReadBtn && firstChapter) {
         detailStartReadBtn.href = `/manga/read.html?id=${mangaId}&chapterId=${encodeURIComponent(firstChapter.id)}`;
         detailStartReadBtn.innerHTML = `
@@ -349,20 +364,57 @@ if (isDetailPage) {
 
   // Setup chapter range pagination tabs (for long-running series like One Piece)
   function setupChapterRanges(chapters) {
-    if (!chapterRangeTabs || chapters.length <= 60) return;
+    if (!chapterRangeTabs || chapters.length <= 60) {
+      if (chapterRangeTabs) chapterRangeTabs.style.display = 'none';
+      rangeChunks = [];
+      return;
+    }
 
     chapterRangeTabs.style.display = 'flex';
     const total = chapters.length;
     const chunkSize = 100;
-    const numChunks = Math.ceil(total / chunkSize);
+
+    const nums = chapters.map(parseChapterNumber).filter(n => n > 0);
+    const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+
+    rangeChunks = [];
+
+    if (maxNum > 60) {
+      const numBuckets = Math.ceil(maxNum / chunkSize);
+      for (let b = 0; b < numBuckets; b++) {
+        const startNum = b * chunkSize + 1;
+        const endNum = (b + 1) * chunkSize;
+        const bucketChapters = chapters.filter(c => {
+          const n = parseChapterNumber(c);
+          return n >= startNum && n <= endNum;
+        });
+        if (bucketChapters.length > 0) {
+          const displayEnd = (b === numBuckets - 1 && maxNum < endNum) ? maxNum : endNum;
+          rangeChunks.push({
+            index: rangeChunks.length,
+            label: `Ch. ${startNum}-${displayEnd}`,
+            chapters: bucketChapters
+          });
+        }
+      }
+    } else {
+      const numChunks = Math.ceil(total / chunkSize);
+      for (let i = 0; i < numChunks; i++) {
+        const slice = chapters.slice(i * chunkSize, (i + 1) * chunkSize);
+        const start = i * chunkSize + 1;
+        const end = Math.min((i + 1) * chunkSize, total);
+        rangeChunks.push({
+          index: i,
+          label: `Ch. ${start}-${end}`,
+          chapters: slice
+        });
+      }
+    }
 
     let html = `<button class="range-tab-btn ${activeRangeIndex === -1 ? 'active' : ''}" data-range="-1">All (${total})</button>`;
-
-    for (let i = 0; i < numChunks; i++) {
-      const start = i * chunkSize + 1;
-      const end = Math.min((i + 1) * chunkSize, total);
-      html += `<button class="range-tab-btn ${activeRangeIndex === i ? 'active' : ''}" data-range="${i}">Ch. ${start}-${end}</button>`;
-    }
+    rangeChunks.forEach(chunk => {
+      html += `<button class="range-tab-btn ${activeRangeIndex === chunk.index ? 'active' : ''}" data-range="${chunk.index}">${chunk.label}</button>`;
+    });
 
     chapterRangeTabs.innerHTML = html;
 
@@ -379,26 +431,23 @@ if (isDetailPage) {
   function renderDetailChapters(filterText = '') {
     if (!detailChaptersGrid) return;
 
-    let chaps = [...allChapters];
+    let chaps = [];
 
     // Filter by search query
     if (filterText) {
-      chaps = chaps.filter(c => 
+      chaps = allChapters.filter(c => 
         (c.title || '').toLowerCase().includes(filterText.toLowerCase()) || 
         (c.chapter || '').toString().includes(filterText)
       );
-    } else if (activeRangeIndex !== -1 && allChapters.length > 60) {
-      // Apply chapter range chunk
-      const chunkSize = 100;
-      // Note: chapters are in natural order (newest or oldest)
-      // Usually chapters in API are descending (Ch 1100 to Ch 1)
-      const startIdx = activeRangeIndex * chunkSize;
-      const endIdx = startIdx + chunkSize;
-      chaps = chaps.slice(startIdx, endIdx);
+    } else if (activeRangeIndex !== -1 && rangeChunks.length > 0) {
+      const activeChunk = rangeChunks.find(c => c.index === activeRangeIndex) || rangeChunks[0];
+      chaps = activeChunk ? [...activeChunk.chapters] : [...allChapters];
+    } else {
+      chaps = [...allChapters];
     }
 
-    // Apply sorting
-    if (!sortDescending) {
+    // Apply sorting: allChapters is ascending by default
+    if (sortDescending) {
       chaps.reverse();
     }
 
@@ -726,11 +775,11 @@ if (isReaderPage) {
     }
 
     if (chaptersData && chaptersData.chapters && chaptersData.chapters.length > 0) {
-      chaptersList = chaptersData.chapters;
+      chaptersList = chaptersData.chapters.slice().sort((a, b) => parseChapterNumber(a) - parseChapterNumber(b));
 
-      // If no chapterId was specified in URL, pick first or last read
+      // If no chapterId was specified in URL, pick first chapter (Ch 1)
       if (!currentChapterId) {
-        currentChapterId = chaptersList[chaptersList.length - 1]?.id || chaptersList[0]?.id;
+        currentChapterId = chaptersList[0]?.id;
       }
 
       populateChapterSelect();
@@ -756,8 +805,8 @@ if (isReaderPage) {
   function updateChapterNavButtons() {
     currentChapterIndex = chaptersList.findIndex(c => c.id === currentChapterId);
     if (currentChapterIndex !== -1) {
-      const hasNext = currentChapterIndex > 0;
-      const hasPrev = currentChapterIndex < chaptersList.length - 1;
+      const hasPrev = currentChapterIndex > 0;
+      const hasNext = currentChapterIndex < chaptersList.length - 1;
 
       if (nextChapterBtn) nextChapterBtn.disabled = !hasNext;
       if (prevChapterBtn) prevChapterBtn.disabled = !hasPrev;
@@ -920,14 +969,14 @@ if (isReaderPage) {
 
   // ── Navigation between chapters ──
   function goToNextChapter() {
-    if (currentChapterIndex > 0) {
-      loadChapter(chaptersList[currentChapterIndex - 1].id);
+    if (currentChapterIndex < chaptersList.length - 1) {
+      loadChapter(chaptersList[currentChapterIndex + 1].id);
     }
   }
 
   function goToPrevChapter() {
-    if (currentChapterIndex < chaptersList.length - 1) {
-      loadChapter(chaptersList[currentChapterIndex + 1].id);
+    if (currentChapterIndex > 0) {
+      loadChapter(chaptersList[currentChapterIndex - 1].id);
     }
   }
 
