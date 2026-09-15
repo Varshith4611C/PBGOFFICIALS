@@ -1,0 +1,43 @@
+name = "pbg-mail"
+main = "src/index.js"
+compatibility_date = "2026-09-15"
+compatibility_flags = ["nodejs_compat"]
+
+# ── D1 Database ──────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "pbg-mail-db"
+database_id = ""  # Set after `wrangler d1 create pbg-mail-db`
+
+# ── R2 Object Storage ───────────────────────────────────────
+[[r2_buckets]]
+binding = "MAIL_STORE"
+bucket_name = "pbg-mail-store"
+
+# ── Cloudflare Queue (async MIME processing) ────────────────
+[[queues.producers]]
+binding = "MAIL_QUEUE"
+queue = "pbg-mail-inbound"
+
+[[queues.consumers]]
+queue = "pbg-mail-inbound"
+max_batch_size = 5
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "pbg-mail-dlq"
+
+# ── Email send binding (for Cloudflare-native sending) ──────
+# Uncomment if using CF Email Sending instead of Resend
+# [[send_email]]
+# name = "EMAIL"
+
+# ── Environment variables ───────────────────────────────────
+[vars]
+DOMAIN = "pbgofficials.dev"
+MAIL_FROM_DEFAULT = "support@pbgofficials.dev"
+WEBMAIL_ORIGIN = "https://mail.pbgofficials.dev"
+
+# ── Secrets (set via `wrangler secret put`) ─────────────────
+# RESEND_API_KEY      — Resend API key for outbound email
+# JWT_SECRET          — 64-char hex secret for session tokens
+# ADMIN_SETUP_KEY     — one-time key for initial admin account creation
