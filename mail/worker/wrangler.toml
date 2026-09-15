@@ -7,7 +7,12 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pbg-mail-db"
-database_id = ""  # Set after `wrangler d1 create pbg-mail-db`
+database_id = "0c573548-6f37-4ef6-ac56-510da7e9e771"
+
+# ── Static Assets (Webmail Frontend) ────────────────────────
+[assets]
+directory = "../web"
+binding = "ASSETS"
 
 # ── R2 Object Storage ───────────────────────────────────────
 [[r2_buckets]]

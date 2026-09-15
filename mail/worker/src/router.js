@@ -29,6 +29,14 @@ export async function handleRequest(request, env, ctx) {
       response = await handleAuth(request, env, 'setup');
     }
 
+    // ── Static assets fallback ─────────────────────────────
+    else if (!path.startsWith('/api/')) {
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
+      response = new Response('Not Found', { status: 404 });
+    }
+
     // ── Protected routes ────────────────────────────────────
     else {
       const session = await authenticate(request, env);

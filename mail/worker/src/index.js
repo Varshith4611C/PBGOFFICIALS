@@ -21,6 +21,12 @@ export default {
    * HTTP fetch handler — serves the REST API for the webmail frontend.
    */
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
+    }
     return handleRequest(request, env, ctx);
   },
 
