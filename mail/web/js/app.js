@@ -339,7 +339,9 @@
 
     try {
       els.readingEmpty.hidden = true;
+      els.readingEmpty.style.display = 'none';
       els.emailView.hidden = false;
+      els.emailView.style.display = 'flex';
       els.emailView.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100%">
           <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cyan-400)" stroke-width="2">
@@ -488,7 +490,9 @@
 
   function showReadingEmpty() {
     els.readingEmpty.hidden = false;
+    els.readingEmpty.style.display = 'flex';
     els.emailView.hidden = true;
+    els.emailView.style.display = 'none';
     els.appLayout.classList.remove('view-reading');
   }
 

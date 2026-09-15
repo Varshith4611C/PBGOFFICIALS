@@ -195,13 +195,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Button loading state
       const originalText = submitBtn.innerHTML;
-      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending to Gmail...';
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending message...';
       submitBtn.disabled = true;
       submitBtn.style.opacity = '0.7';
       if (formStatus) formStatus.style.display = 'none';
 
       try {
-        const response = await fetch('https://formsubmit.co/ajax/pbgofficial143@gmail.com', {
+        const response = await fetch('https://formsubmit.co/ajax/support@pbgofficials.dev', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
             _replyto: email,
             _subject: subject ? `[PBG Officials] ${subject}` : `New Message from ${name} (PBG Officials)`,
             message: message,
+            _cc: 'pbgofficial143@gmail.com',
             _template: 'table',
             _captcha: 'false'
           })
@@ -227,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (formStatus) {
             formStatus.className = 'form-status success';
             formStatus.style.display = 'flex';
-            formStatus.innerHTML = '<i class="fas fa-check-circle"></i> <div><strong>Success!</strong> Your message was sent to <strong>pbgofficial143@gmail.com</strong>. We will get back to you shortly!</div>';
+            formStatus.innerHTML = '<i class="fas fa-check-circle"></i> <div><strong>Success!</strong> Your message was sent to <strong>support@pbgofficials.dev</strong>. We will get back to you shortly!</div>';
           }
 
           contactForm.reset();
@@ -246,12 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.innerHTML = '<i class="fas fa-exclamation-circle"></i> Failed to Send';
         submitBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
 
-        const mailtoUrl = `mailto:pbgofficial143@gmail.com?subject=${encodeURIComponent(subject || 'Inquiry from PBG Officials Website')}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`;
+        const mailtoUrl = `mailto:support@pbgofficials.dev?subject=${encodeURIComponent(subject || 'Inquiry from PBG Officials Website')}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`;
 
         if (formStatus) {
           formStatus.className = 'form-status error';
           formStatus.style.display = 'flex';
-          formStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> <div>Automatic send error. <a href="${mailtoUrl}">Click here to open Gmail and send directly</a>.</div>`;
+          formStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> <div>Automatic send error. <a href="${mailtoUrl}">Click here to email support@pbgofficials.dev directly</a>.</div>`;
         }
 
         setTimeout(() => {

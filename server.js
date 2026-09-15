@@ -95,7 +95,7 @@ PBG Officials is a multi-platform digital entertainment hub featuring:
 - PBG Games & Tech: High-speed gaming experiences and digital creations.
 
 Contact & Support:
-- Official Email: pbgofficial143@gmail.com
+- Official Email: support@pbgofficials.dev
 
 Guidelines:
 - Answer questions about PBG Officials platforms, features, and site navigation.

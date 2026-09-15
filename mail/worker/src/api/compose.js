@@ -56,7 +56,8 @@ async function sendEmail(request, env, ctx) {
   });
 
   if (!result.ok) {
-    return jsonResponse({ error: 'Failed to send email', details: result.error }, 500);
+    const errorMsg = result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+    return jsonResponse({ error: errorMsg || 'Failed to send email', details: result.error }, 500);
   }
 
   // Store in "sent" folder
@@ -158,7 +159,8 @@ async function replyEmail(request, env, ctx) {
   });
 
   if (!result.ok) {
-    return jsonResponse({ error: 'Failed to send reply', details: result.error }, 500);
+    const errorMsg = result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+    return jsonResponse({ error: errorMsg || 'Failed to send reply', details: result.error }, 500);
   }
 
   // Store in sent folder with threading
@@ -266,7 +268,8 @@ async function forwardEmail(request, env, ctx) {
   });
 
   if (!result.ok) {
-    return jsonResponse({ error: 'Failed to forward', details: result.error }, 500);
+    const errorMsg = result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+    return jsonResponse({ error: errorMsg || 'Failed to forward', details: result.error }, 500);
   }
 
   // Store forwarded email in sent
@@ -373,14 +376,20 @@ async function deleteDraft(request, env, ctx) {
 
 async function sendViaResend(env, email) {
   try {
+    const normTo = normalizeRecipients(email.to);
+    const toSet = new Set(normTo);
+    const normCc = normalizeRecipients(email.cc).filter(addr => !toSet.has(addr));
+    const ccSet = new Set([...toSet, ...normCc]);
+    const normBcc = normalizeRecipients(email.bcc).filter(addr => !ccSet.has(addr));
+
     const payload = {
       from: email.from,
-      to: email.to,
+      to: normTo,
       subject: email.subject,
     };
 
-    if (email.cc?.length > 0) payload.cc = email.cc;
-    if (email.bcc?.length > 0) payload.bcc = email.bcc;
+    if (normCc.length > 0) payload.cc = normCc;
+    if (normBcc.length > 0) payload.bcc = normBcc;
     if (email.html) payload.html = email.html;
     if (email.text) payload.text = email.text;
     if (email.replyTo) payload.reply_to = email.replyTo;

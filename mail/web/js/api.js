@@ -30,7 +30,10 @@ class MailAPI {
     }
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    if (!res.ok) {
+      const errMsg = data.error || data.details?.message || (typeof data.details === 'string' ? data.details : null) || `Request failed (${res.status})`;
+      throw new Error(errMsg);
+    }
     return data;
   }
 

@@ -80,6 +80,10 @@
   margin: 0; padding: 0; box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-size: 16px;
   scroll-behavior: smooth;
@@ -757,6 +761,9 @@ input, textarea, select {
   margin-bottom: 8px;
 }
 .reading-empty p { color: var(--text-dim); font-size: 0.875rem; }
+.reading-empty[hidden] {
+  display: none !important;
+}
 
 /* Email view */
 .email-view {
@@ -764,6 +771,9 @@ input, textarea, select {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+}
+.email-view[hidden] {
+  display: none !important;
 }
 
 .email-view-header {

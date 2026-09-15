@@ -41,6 +41,7 @@ dead_letter_queue = "pbg-mail-dlq"
 DOMAIN = "pbgofficials.dev"
 MAIL_FROM_DEFAULT = "support@pbgofficials.dev"
 WEBMAIL_ORIGIN = "https://mail.pbgofficials.dev"
+FORWARD_TO_GMAIL = "pbgofficial143@gmail.com"
 
 # ── Secrets (set via `wrangler secret put`) ─────────────────
 # RESEND_API_KEY      — Resend API key for outbound email

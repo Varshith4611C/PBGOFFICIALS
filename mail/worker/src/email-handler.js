@@ -30,6 +30,16 @@ export async function handleEmail(message, env, ctx) {
     return;
   }
 
+  // ── 2b. Dual-delivery: forward raw copy to personal Gmail ──
+  const forwardTarget = env.FORWARD_TO_GMAIL || 'pbgofficial143@gmail.com';
+  if (forwardTarget) {
+    try {
+      await message.forward(forwardTarget);
+    } catch (fwdErr) {
+      console.warn('Forward to destination address failed (may need verification):', fwdErr.message);
+    }
+  }
+
   // ── 3. Store raw .eml in R2 ───────────────────────────────
   const r2Key = `raw/${account.id}/${id}.eml`;
   await env.MAIL_STORE.put(r2Key, rawBytes, {

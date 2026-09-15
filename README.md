@@ -74,7 +74,7 @@
 
 All anime streams, manga scans, live TV streams, and media indexed or displayed across PBG platforms are scraped, embedded, or aggregated from publicly accessible third-party APIs and servers. All trademarks, logos, character names, and copyrighted works belong strictly to their respective owners, production studios, and publishers (e.g., Toei Animation, Shueisha, MAPPA, etc.).
 
-For copyright infringement notices or content takedown requests, please consult our [DMCA Policy](https://pbgofficials.dev/dmca.html) or contact our designated agent directly at [pbgofficial143@gmail.com](mailto:pbgofficial143@gmail.com).
+For copyright infringement notices or content takedown requests, please consult our [DMCA Policy](https://pbgofficials.dev/dmca.html) or contact our designated agent directly at [support@pbgofficials.dev](mailto:support@pbgofficials.dev).
 
 ---
 
@@ -92,4 +92,4 @@ This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**
 - **GitHub**: [Varshith4611C/PBGOFFICIALS](https://github.com/Varshith4611C/PBGOFFICIALS)
 - **YouTube**: [@PBGOfficial999](https://www.youtube.com/@PBGOfficial999)
 - **Instagram**: [@pbg_officials](https://www.instagram.com/pbg_officials/)
-- **Contact / Support**: [pbgofficial143@gmail.com](mailto:pbgofficial143@gmail.com)
+- **Contact / Support**: [support@pbgofficials.dev](mailto:support@pbgofficials.dev)
