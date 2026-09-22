@@ -611,6 +611,98 @@ input { font-family: inherit; }
   box-shadow: 0 8px 25px rgba(236, 72, 153, 0.45);
 }
 
+/* Cinema Server Switcher Dropdown */
+.cinema-server-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(244, 114, 182, 0.25);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cinema-server-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: var(--transition-fast);
+}
+
+.cinema-server-item:hover {
+  background: rgba(244, 114, 182, 0.15);
+  color: var(--pink-400);
+}
+
+.cinema-server-item.active {
+  background: rgba(244, 114, 182, 0.22);
+  color: var(--pink-400);
+  border: 1px solid rgba(244, 114, 182, 0.35);
+}
+
+/* Trending Header in Search Drawer */
+.cinema-drawer-trending-header {
+  padding: 8px 4px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Quick Pick Pills in Empty State */
+.cinema-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 14px auto 18px;
+  max-width: 380px;
+}
+
+.cinema-pill-btn {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(244, 114, 182, 0.08);
+  border: 1px solid rgba(244, 114, 182, 0.2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: var(--transition-fast);
+}
+
+.cinema-pill-btn:hover {
+  background: rgba(244, 114, 182, 0.22);
+  border-color: rgba(244, 114, 182, 0.4);
+  color: var(--pink-400);
+  transform: translateY(-1px);
+}
+
 /* ================================================================
    MAIN CHAT AREA (Full height & responsive stream)
    ================================================================ */

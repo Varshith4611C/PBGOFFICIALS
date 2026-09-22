@@ -166,15 +166,23 @@ const musicState = {
   pausedAt: 0,
 };
 
-// ── Anime Room State ──
+// ── Anime Room State (Default 24/7 Featured Anime Ready for Instant Watch) ──
 const animeState = {
-  currentAnime: null,   // { animeId, title, image, episodeId, episodeNumber, embedUrl }
-  isActive: false,
+  currentAnime: {
+    animeId: '151807',
+    title: 'Solo Leveling',
+    image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-3CDvjB6e1a4Y.png',
+    episodeId: '151807-episode-1',
+    episodeNumber: 1,
+    embedUrl: 'https://vidnest.fun/anime/151807/1/sub',
+    server: 'main-sub',
+  },
+  isActive: true,
   isPlaying: true,      // synchronized watch party play/pause state
-  startedBy: null,      // username who started the session
-  startedAt: 0,
+  startedBy: 'PBG Cinema',
+  startedAt: Date.now(),
   pausedAt: 0,
-  updatedAt: 0,
+  updatedAt: Date.now(),
 };
 
 // Avatar color palette
@@ -769,6 +777,27 @@ function initChatSocket(io) {
         timestamp: Date.now(),
         room: 'anime-manga',
       });
+    });
+
+    // Switch video server mirror
+    socket.on('anime-switch-server', ({ serverId, embedUrl, serverName }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'anime-manga' || !animeState.isActive || !animeState.currentAnime) return;
+
+      if (embedUrl) {
+        animeState.currentAnime.embedUrl = embedUrl;
+        animeState.currentAnime.server = serverId;
+        animeState.updatedAt = Date.now();
+
+        io.to('anime-manga').emit('anime-state', animeState);
+        io.to('anime-manga').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `⚡ ${user.username} switched video server to ${serverName || serverId}`,
+          timestamp: Date.now(),
+          room: 'anime-manga',
+        });
+      }
     });
 
     // Stop watch party

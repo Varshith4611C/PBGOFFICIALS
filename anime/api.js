@@ -22,34 +22,65 @@ function setCached(key, data) {
   cache.set(key, { time: Date.now(), data });
 }
 
-// ── AniList GraphQL Client ──
+// ── AniList GraphQL Client with Timeout & Axios Fallback ──
 async function fetchAniList(query, variables = {}) {
   const cacheKey = JSON.stringify({ query, variables });
   const cached = getCached(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(ANILIST_GRAPHQL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`AniList GraphQL error ${res.status}: ${errText}`);
+  try {
+    const res = await fetch(ANILIST_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`AniList GraphQL error ${res.status}: ${errText}`);
+    }
+
+    const json = await res.json();
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(`AniList query error: ${json.errors[0].message}`);
+    }
+
+    setCached(cacheKey, json.data);
+    return json.data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    // Fallback to axios if fetch fails
+    try {
+      const aRes = await axios.post(
+        ANILIST_GRAPHQL,
+        { query, variables },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          },
+          timeout: 9000,
+        }
+      );
+      if (aRes.data?.data) {
+        setCached(cacheKey, aRes.data.data);
+        return aRes.data.data;
+      }
+    } catch (axiosErr) {
+      console.warn('Axios fallback also failed:', axiosErr.message);
+    }
+    throw err;
   }
-
-  const json = await res.json();
-  if (json.errors && json.errors.length > 0) {
-    throw new Error(`AniList query error: ${json.errors[0].message}`);
-  }
-
-  setCached(cacheKey, json.data);
-  return json.data;
 }
 
 
@@ -491,7 +522,21 @@ router.get('/info/:id', async (req, res) => {
       });
     }
 
-    // Non-numeric ID: return a simple not found response
+    // Non-numeric ID: Search AniList by title/slug as fallback
+    try {
+      const searchQuery = `
+        query ($search: String) {
+          Media(search: $search, type: ANIME) {
+            id
+          }
+        }
+      `;
+      const searchData = await fetchAniList(searchQuery, { search: id.replace(/-/g, ' ') });
+      if (searchData?.Media?.id) {
+        return res.redirect(307, `/api/anime/info/${searchData.Media.id}`);
+      }
+    } catch (_) {}
+
     return res.status(404).json({ error: 'Anime not found. Please use a valid AniList ID.' });
   } catch (err) {
     console.error('Info error:', err.message);
@@ -638,6 +683,95 @@ router.get('/watch-servers/:id/:episode', async (req, res) => {
   } catch (err) {
     console.error('Watch servers error:', err.message);
     res.status(500).json({ error: 'Failed to generate watch servers' });
+  }
+});
+
+// ── 9. Watch by Episode ID (ChatBox Cinema Compatibility) ──
+// The chatbox calls /api/anime/watch/:episodeId where episodeId is like "anime-id-episode-3"
+// Returns embedUrl + directStreamUrl for the cinema player
+router.get('/watch/:episodeId', async (req, res) => {
+  try {
+    const { episodeId } = req.params;
+
+    // Parse episodeId: could be "12345" (AniList numeric ID) or "some-anime-episode-3"
+    let animeId, epNum;
+
+    const epMatch = episodeId.match(/^(.+?)-episode-(\d+)$/);
+    if (epMatch) {
+      animeId = epMatch[1];
+      epNum = parseInt(epMatch[2]) || 1;
+    } else if (/^\d+$/.test(episodeId)) {
+      // Numeric ID — treat as animeId episode 1
+      animeId = episodeId;
+      epNum = 1;
+    } else {
+      animeId = episodeId;
+      epNum = 1;
+    }
+
+    // Build embed URLs using verified providers with multi-server failover
+    const servers = [
+      {
+        id: 'main-sub',
+        name: 'HD-1 (Sub)',
+        url: `https://vidnest.fun/anime/${animeId}/${epNum}/sub`,
+        recommended: true,
+        type: 'sub',
+      },
+      {
+        id: 'main-dub',
+        name: 'HD-1 (Dub)',
+        url: `https://vidnest.fun/anime/${animeId}/${epNum}/dub`,
+        recommended: false,
+        type: 'dub',
+      },
+      {
+        id: 'core-sub',
+        name: 'Core (Sub)',
+        url: `https://tryembed.us.cc/embed/anime/${animeId}/${epNum}/sub?skin=transparent`,
+        recommended: false,
+        type: 'sub',
+      },
+      {
+        id: 'core-dub',
+        name: 'Core (Dub)',
+        url: `https://tryembed.us.cc/embed/anime/${animeId}/${epNum}/dub?skin=transparent`,
+        recommended: false,
+        type: 'dub',
+      },
+      {
+        id: 'pahe-sub',
+        name: 'AnimePahe (Sub)',
+        url: `https://vidnest.fun/animepahe/${animeId}/${epNum}/sub`,
+        recommended: false,
+        type: 'sub',
+      },
+      {
+        id: '2embed',
+        name: '2Embed (Mirror)',
+        url: `https://www.2embed.cc/embed/${animeId}`,
+        recommended: false,
+        type: 'mirror',
+      },
+    ];
+
+    const activeServer = servers.find(s => s.id === req.query.server) || servers[0];
+    const embedUrl = activeServer.url;
+
+    res.json({
+      animeId,
+      episodeId,
+      episodeNumber: epNum,
+      embedUrl,
+      iframeSrc: embedUrl,
+      directStreamUrl: null, // HTML embed requires iframe, not native <video> HLS
+      servers,
+      currentServer: activeServer.id,
+      title: animeId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    });
+  } catch (err) {
+    console.error('Watch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch watch data' });
   }
 });
 

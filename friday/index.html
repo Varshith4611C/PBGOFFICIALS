@@ -1,0 +1,573 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PBG Friday — AI-Native Coding Workspace | PBG Officials</title>
+  <meta name="description" content="PBG Friday is an AI-native coding workspace powered by frAIday. Build apps autonomously with AI planning, real tool execution, live preview, and interactive outcomes." />
+  <meta name="keywords" content="PBG Friday, AI coding, frAIday, AI workspace, code generation, PBG Officials" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="canonical" href="https://pbgofficials.dev/friday/" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48x48.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+  <!-- Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/ide-editor.css" />
+  <link rel="stylesheet" href="css/artifact-canvas.css" />
+</head>
+<body>
+
+<div id="app-container">
+
+  <!-- ==========================================================================
+       TOP HUD BAR — PBG Friday Branded, Clean & Minimal
+       ========================================================================== -->
+  <header id="top-hud">
+    <!-- Brand & Logo -->
+    <div class="hud-brand" style="display:flex;align-items:center;gap:10px;">
+      <a href="/" style="display:flex;align-items:center;text-decoration:none;" title="Back to PBG Hub">
+        <img src="/assets/images/logo.jpg" alt="PBG" style="width:26px;height:26px;border-radius:50%;border:1px solid rgba(34,211,238,0.15);" />
+      </a>
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <span>PBG <span style="color:#22d3ee;">Friday</span></span>
+        <span class="brand-tag">AI WORKSPACE</span>
+      </div>
+    </div>
+
+    <!-- Workspace Path -->
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.5);border:1px solid rgba(34,211,238,0.1);border-radius:var(--radius-sm);padding:3px 10px;">
+      <i class="fas fa-folder" style="color:var(--accent-cyan);font-size:10px;"></i>
+      <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);">./workspace/</span>
+    </div>
+
+    <!-- Live Execution Status -->
+    <div id="status-pill" class="execution-status-pill status-idle">
+      <span class="status-dot"></span>
+      <span class="status-label">System Idle</span>
+    </div>
+
+    <!-- Controls & Actions -->
+    <div class="hud-actions">
+      <!-- Model Pill -->
+      <div class="stat-pill" id="hud-model-pill" style="cursor:pointer;" title="AI Model Settings" onclick="window.openSettingsModalFallback()">
+        <span style="color:var(--accent-emerald);">●</span>
+        <span id="hud-model-name" style="font-weight:600;color:var(--text-primary);font-size:10px;">Groq (GPT OSS 120B)</span>
+      </div>
+
+      <button id="btn-open-settings" class="btn btn-secondary btn-sm btn-icon" title="Settings" onclick="window.openSettingsModalFallback()">
+        <i class="fas fa-cog" style="font-size:12px;"></i>
+      </button>
+
+      <button id="btn-clear-workspace" class="btn btn-danger-outline btn-sm btn-icon" title="Clear Workspace">
+        <i class="fas fa-trash-alt" style="font-size:11px;"></i>
+      </button>
+
+      <button id="btn-toggle-terminal-hud" class="btn btn-secondary btn-sm btn-icon" title="Terminal">
+        <i class="fas fa-terminal" style="font-size:11px;"></i>
+      </button>
+
+      <button id="btn-export-zip" class="btn btn-secondary btn-sm btn-icon" title="Export ZIP">
+        <i class="fas fa-file-archive" style="font-size:11px;"></i>
+      </button>
+
+      <button id="btn-checkpoints" class="btn btn-secondary btn-sm btn-icon" title="Checkpoints">
+        <i class="fas fa-history" style="font-size:11px;"></i>
+      </button>
+
+      <button id="btn-run-deps" class="btn btn-secondary btn-sm btn-icon" title="Install Dependencies">
+        <i class="fas fa-download" style="font-size:11px;"></i>
+      </button>
+
+      <!-- Stop (hidden by default) -->
+      <button id="btn-stop-execution" class="btn btn-danger btn-sm" style="display:none;align-items:center;gap:4px;" title="Stop Execution">
+        <i class="fas fa-stop"></i> <span>Stop</span>
+      </button>
+
+      <!-- Run Button -->
+      <button id="btn-run-mission" class="btn btn-primary btn-sm" style="display:flex;align-items:center;gap:5px;">
+        <i class="fas fa-play" style="font-size:10px;"></i> <span>Run Intent</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       MAIN WORKSPACE: Activity Bar, Secondary Sidebar, Center Canvas, Cockpit
+       ========================================================================== -->
+  <div id="workspace-shell">
+
+    <!-- 1. Left Activity Bar (Antigravity Vertical Navigation) -->
+    <nav id="activity-bar">
+      <div class="activity-group">
+        <button class="activity-btn active" data-panel="files" title="Workspace File Explorer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+        </button>
+
+        <button class="activity-btn" data-panel="knowledge" title="Discovered Web Docs & RFCs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </button>
+
+        <button class="activity-btn" data-panel="skills" title="Loaded MCP Skills & Tooling">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        </button>
+
+        <button class="activity-btn" data-panel="safety" title="Security & Sandboxing Policies">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </button>
+
+        <button class="activity-btn" id="activity-btn-terminal" title="Toggle Workspace Terminal" style="color:#22d3ee;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        </button>
+      </div>
+
+      <div class="activity-group">
+        <div style="font-size:10px;font-family:var(--font-mono);color:#475569;text-align:center;">v2.5</div>
+      </div>
+    </nav>
+
+    <!-- 2. Left Secondary Sidebar -->
+    <aside id="secondary-sidebar">
+      <div class="sidebar-header">
+        <span id="sidebar-panel-title">Workspace Explorer</span>
+        <span class="brand-tag">real-fs</span>
+      </div>
+      <div class="sidebar-content">
+        <!-- Panel 1: File Tree -->
+        <div class="sidebar-panel-content" data-panel="files">
+          <div id="sidebar-file-tree"></div>
+        </div>
+
+        <!-- Panel 2: Knowledge Base -->
+        <div class="sidebar-panel-content" data-panel="knowledge" style="display:none;">
+          <div id="knowledge-vault-container"></div>
+        </div>
+
+        <!-- Panel 3: Skills & MCP -->
+        <div class="sidebar-panel-content" data-panel="skills" style="display:none;padding:12px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;">Production MCP Tools</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="tool-card"><span style="font-weight:700;color:#22d3ee;">🌐 live_web_search</span><span style="font-size:11px;color:#94a3b8;">Real DuckDuckGo & Wikipedia live search</span></div>
+            <div class="tool-card"><span style="font-weight:700;color:#34d399;">💻 shell_exec</span><span style="font-size:11px;color:#94a3b8;">Real subprocess command execution in ./workspace/</span></div>
+            <div class="tool-card"><span style="font-weight:700;color:#a78bfa;">📝 fs_writer</span><span style="font-size:11px;color:#94a3b8;">Real disk file read/write operations</span></div>
+            <div class="tool-card"><span style="font-weight:700;color:#f59e0b;">⚡ nvidia_nim</span><span style="font-size:11px;color:#94a3b8;">Llama 3.2 11B Vision Instruct via NVIDIA</span></div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Security Rules -->
+        <div class="sidebar-panel-content" data-panel="safety" style="display:none;padding:12px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;">Execution Policies</div>
+          <div style="font-size:11.5px;line-height:1.6;color:#cbd5e1;">
+            <p><strong>Sandboxing:</strong> Confined strictly to <code>./workspace/</code> directory root.</p>
+            <br/>
+            <p><strong>Dangerous Shell Commands:</strong> Flagged for human authorization before execution.</p>
+            <br/>
+            <p><strong>Network Boundaries:</strong> Live web search routed via server-side proxy.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 3. Center Adaptive Canvas -->
+    <main id="center-canvas">
+      <!-- Tabs Bar -->
+      <div class="canvas-tabs-bar">
+        <div class="canvas-tabs-group">
+          <button class="canvas-tab active" data-tab="preview" id="canvas-tab-preview" title="Live Preview">
+            <span>🖥️</span>
+            <span>Live Preview</span>
+            <span class="canvas-tab-pill">iframe</span>
+          </button>
+          <button class="canvas-tab" data-tab="code" id="canvas-tab-code" title="Code Editor & Diff">
+            <span>📝</span>
+            <span>Code & Diff</span>
+          </button>
+          <button class="canvas-tab" data-tab="artifacts" id="canvas-tab-artifacts" title="Implementation Plan & Artifacts">
+            <span>📋</span>
+            <span>Plan & Artifacts</span>
+            <span class="canvas-tab-pill" id="artifacts-badge" style="display:none;background:#22d3ee;color:#0f172a;font-weight:700;">Review</span>
+          </button>
+          <button class="canvas-tab" data-tab="dag" id="canvas-tab-dag" title="Execution DAG">
+            <span>🕸️</span>
+            <span>Task DAG</span>
+          </button>
+          <button class="canvas-tab" data-tab="terminal" id="canvas-tab-terminal" title="Workspace Terminal">
+            <span>💻</span>
+            <span>Terminal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab View Containers -->
+      <div class="canvas-view-container">
+        <!-- View 1: Real Live Preview Iframe -->
+        <div class="canvas-view active" data-view="preview">
+          <div class="preview-wrapper">
+            <!-- Toolbar -->
+            <div class="preview-toolbar">
+              <div class="preview-address-bar">
+                <span>🌐</span>
+                <span class="preview-address-text" id="preview-address-display">http://localhost:3000/workspace/index.html</span>
+              </div>
+              <div class="preview-viewport-controls">
+                <button class="viewport-btn active" data-vp="desktop" title="Desktop Viewport">Desktop</button>
+                <button class="viewport-btn" data-vp="tablet" title="Tablet Viewport (768px)">Tablet</button>
+                <button class="viewport-btn" data-vp="mobile" title="Mobile Viewport (375px)">Mobile</button>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button id="btn-view-screenshot" class="btn btn-secondary btn-sm" title="View Headless Chrome Visual Audit Snapshot" style="border-color:rgba(56,189,248,0.4);color:#22d3ee;">📸 Audit Snapshot</button>
+                <button id="btn-reload-preview" class="btn btn-secondary btn-sm" title="Reload Live Preview">↻ Reload</button>
+                <button id="btn-popout-preview" class="btn btn-secondary btn-sm" title="Open Preview in New Tab">↗ Pop Out</button>
+              </div>
+            </div>
+
+            <!-- Frame Container -->
+            <div class="preview-frame-container">
+              <div class="preview-empty-state" id="preview-empty-state">
+                <span style="font-size:36px;">🌐</span>
+                <div style="font-size:14px;font-weight:700;color:#f8fafc;">No Live App in Workspace Yet</div>
+                <div style="font-size:12px;line-height:1.6;">
+                  Enter a technical objective in the prompt bar below (e.g. <em>"Build an interactive Pomodoro timer with task stats"</em>) or click <strong>▶ Run Intent</strong> to generate real code.
+                </div>
+              </div>
+              <iframe id="live-preview-frame" class="live-iframe viewport-desktop" style="display:none;" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+            </div>
+
+            <!-- Live Preview DevTools Console Drawer -->
+            <div id="preview-console-drawer" class="preview-console-drawer collapsed">
+              <div class="console-drawer-header" id="console-drawer-header">
+                <div class="console-header-left">
+                  <span class="console-title">Console DevTools</span>
+                  <span class="console-badge-count" id="console-log-count">0 logs</span>
+                  <span class="console-badge-warn" id="console-warn-count" style="display:none;">0 warnings</span>
+                  <span class="console-badge-error" id="console-error-count" style="display:none;">0 errors</span>
+                </div>
+                <div class="console-header-right">
+                  <button id="btn-clear-console" class="btn-console-tool" title="Clear Console">🚫 Clear</button>
+                  <button id="btn-refresh-console" class="btn-console-tool" title="Refresh Preview & Console">↻ Refresh</button>
+                  <button id="btn-toggle-console-drawer" class="btn-console-tool" title="Toggle Console Drawer">▲ Console</button>
+                </div>
+              </div>
+              <div class="console-drawer-body" id="preview-console-body">
+                <div class="console-empty" id="console-empty-msg">No console logs emitted yet. Output and events will appear in real time.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Real Code Editor -->
+        <div class="canvas-view" data-view="code">
+          <div id="editor-container" style="height:100%;"></div>
+        </div>
+
+        <!-- View 3: Dynamic Task DAG Visualizer -->
+        <div class="canvas-view" data-view="dag">
+          <div id="dag-container" style="height:100%;"></div>
+        </div>
+
+        <!-- View 4: Real Terminal -->
+        <div class="canvas-view" data-view="terminal">
+          <div id="terminal-container" style="height:100%;"></div>
+        </div>
+
+        <!-- View 5: Antigravity Implementation Plan & Artifact Canvas -->
+        <div class="canvas-view" data-view="artifacts">
+          <div class="artifact-canvas-wrapper" style="height:100%;display:flex;flex-direction:column;overflow:hidden;">
+            <!-- Plan Approval Banner (Shown when Plan Review Gate is active) -->
+            <div id="plan-approval-banner" class="plan-approval-banner" style="display:none;background:rgba(15,23,42,0.95);border-bottom:1px solid #334155;padding:12px 20px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:22px;">📋</span>
+                  <div>
+                    <div style="font-weight:700;color:#f8fafc;font-size:13.5px;">Antigravity Planning Gate: Human Approval Required</div>
+                    <div style="font-size:12px;color:#94a3b8;">Review the autonomous research brief and proposed architecture below before code synthesis starts.</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <button id="btn-approve-plan" class="btn btn-primary" style="background:#34d399;border-color:#34d399;font-weight:700;padding:8px 18px;display:flex;align-items:center;gap:6px;">
+                    <span>✓</span><span>Approve & Proceed</span>
+                  </button>
+                  <button id="btn-reject-plan" class="btn btn-secondary" style="padding:8px 14px;">
+                    <span>✕</span><span>Revise Goal</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Artifact Markdown Document Content Area -->
+            <div class="artifact-content-container" id="artifact-content-area" style="flex:1;overflow-y:auto;padding:24px 32px;background:#090d16;color:#e2e8f0;font-size:13.5px;line-height:1.7;">
+              <div style="color:var(--text-muted);font-style:italic;text-align:center;padding:60px 20px;">
+                <span style="font-size:36px;display:block;margin-bottom:12px;">📋</span>
+                <strong>No Active Implementation Plan</strong><br/>
+                Enter an objective in the prompt bar below to autonomously research, architect, and inspect your project.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 4. Right Auxiliary Cockpit (The Agent Brain & Stream) -->
+    <aside id="auxiliary-cockpit">
+      <div class="cockpit-header">
+        <div class="cockpit-title">
+          <span style="color:#22d3ee;">🧠</span>
+          <span>Agent Cockpit & Execution Stream</span>
+        </div>
+        <span class="brand-tag">Real LLM Stream</span>
+      </div>
+
+      <div class="cockpit-content" id="cockpit-scroll-area">
+        <!-- Chat & Execution Timeline -->
+        <div id="chat-timeline" class="chat-timeline">
+          <!-- Active Monologue Card -->
+          <div class="agent-monologue-card" id="agent-monologue-card">
+            <div class="monologue-header">
+              <span>Agent Reasoning Monologue</span>
+              <span id="monologue-model-badge" style="font-size:10px;color:#94a3b8;">Groq · GPT OSS 20B</span>
+            </div>
+            <div class="monologue-text">Ready for instructions. Type any technical objective below to autonomously research, plan, write files, and launch your live application.</div>
+          </div>
+
+          <!-- Human-in-the-Loop Interceptor Alert Slot -->
+          <div id="hitl-interceptor-slot"></div>
+
+          <!-- Tool Execution Stream Cards (Legacy / Hidden) -->
+          <div id="tool-stream-list" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Cockpit Footer: Contextual Prompt Bar -->
+      <div class="cockpit-footer" style="position:relative;">
+        <!-- Slash Command Suggestions Dropdown -->
+        <div id="slash-commands-popup" class="slash-commands-popup" style="display:none;">
+          <div class="slash-item" data-cmd="/fix"><span class="slash-name">/fix</span><span class="slash-desc">Autonomously diagnose & patch runtime or visual errors</span></div>
+          <div class="slash-item" data-cmd="/test"><span class="slash-name">/test</span><span class="slash-desc">Execute test suite & headless Chrome audit snapshot</span></div>
+          <div class="slash-item" data-cmd="/plan"><span class="slash-name">/plan</span><span class="slash-desc">Generate Antigravity architectural implementation plan</span></div>
+          <div class="slash-item" data-cmd="/audit"><span class="slash-name">/audit</span><span class="slash-desc">Full security, console, and DOM visual audit</span></div>
+          <div class="slash-item" data-cmd="/export"><span class="slash-name">/export</span><span class="slash-desc">Download complete project as a ZIP archive</span></div>
+          <div class="slash-item" data-cmd="/checkpoint"><span class="slash-name">/checkpoint</span><span class="slash-desc">Save a rollback checkpoint (Time-Machine)</span></div>
+          <div class="slash-item" data-cmd="/rollback"><span class="slash-name">/rollback</span><span class="slash-desc">Restore workspace from a previous checkpoint</span></div>
+          <div class="slash-item" data-cmd="/clear"><span class="slash-name">/clear</span><span class="slash-desc">Reset and wipe all workspace files</span></div>
+        </div>
+        <div class="context-chips-row">
+          <span class="context-chip">Build Antigravity Autonomous Workspace</span>
+          <span class="context-chip">Build High-Frequency Crypto Terminal</span>
+          <span class="context-chip">Build Kanban Project Orchestrator</span>
+        </div>
+        <div class="context-input-box">
+          <input type="text" id="contextual-prompt-input" class="context-input" placeholder="Type / for commands, or ask frAIday..." autocomplete="off" />
+          <button id="btn-send-context-prompt" class="btn btn-primary btn-sm" style="padding:4px 12px;white-space:nowrap;">Execute</button>
+          <button id="btn-stop-context-prompt" class="btn btn-danger btn-sm" style="display:none;padding:4px 12px;white-space:nowrap;">⏹ Stop</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- Settings & API Keys Modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal-dialog" style="width: 580px; max-width: 95vw;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">⚙️</span>
+        <span style="font-weight:700;font-size:14px;color:#f8fafc;">LLM & Provider Configuration</span>
+      </div>
+      <button id="btn-close-settings" onclick="window.closeSettingsModalFallback()" style="background:transparent;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px 8px;line-height:1;" title="Close Settings">×</button>
+    </div>
+
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+      <!-- AI Provider -->
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">AI Provider</label>
+        <select id="setting-provider" class="policy-dropdown" style="width:100%;padding:9px 12px;font-size:12px;border-radius:6px;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);color:#f8fafc;">
+          <option value="groq" selected>Groq LPU (Ultra-Fast Inference)</option>
+          <option value="cerebras">Cerebras (Fast Inference)</option>
+          <option value="nvidia">NVIDIA NIM Cloud</option>
+          <option value="openai">OpenAI (GPT-4o / Mini)</option>
+          <option value="ollama">Ollama (Localhost)</option>
+        </select>
+      </div>
+
+      <!-- API Key with Visibility Toggle -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">API Key</label>
+          <span id="key-provider-hint" style="font-size:11px;color:#22d3ee;font-family:var(--font-mono);">Groq Key (gsk_...)</span>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;">
+          <input type="password" id="setting-api-key" placeholder="Enter Groq keys separated by commas (gsk_1, gsk_2, ...)..." style="width:100%;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);border-radius:6px;padding:9px 40px 9px 12px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;" />
+          <button type="button" id="btn-toggle-key-visibility" title="Show/Hide API Key" style="position:absolute;right:8px;background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:15px;padding:4px 6px;line-height:1;">👁️</button>
+        </div>
+        <span id="key-helper-text" style="font-size:10.5px;color:#22d3ee;margin-top:4px;display:block;">⚡ Multi-Key Auto-Rotation Active: 10 Groq keys pooled for high token rate limits & zero-downtime failover!</span>
+      </div>
+
+      <!-- Model Selection: Presets Dropdown + Exact Model Input -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Model</label>
+          <span style="font-size:10.5px;color:#94a3b8;">Choose a preset or type below</span>
+        </div>
+
+        <select id="setting-model-preset" class="policy-dropdown" style="width:100%;padding:8px 12px;font-size:12px;border-radius:6px;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);color:#e2e8f0;margin-bottom:8px;">
+          <!-- Populated dynamically based on provider -->
+        </select>
+
+        <div style="position:relative;">
+          <input type="text" id="setting-model" value="openai/gpt-oss-120b" placeholder="Model identifier (e.g. openai/gpt-oss-120b)" style="width:100%;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);border-radius:6px;padding:8px 12px;color:#22d3ee;font-family:var(--font-mono);font-size:12px;outline:none;" />
+        </div>
+        <span id="model-helper-text" style="font-size:10.5px;color:#94a3b8;margin-top:4px;display:block;">Primary Model: <code>openai/gpt-oss-120b</code>. 120B reasoning intelligence with pooled keys.</span>
+      </div>
+
+      <!-- Safety Policy -->
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Safety Policy</label>
+        <select id="setting-safety" class="policy-dropdown" style="width:100%;padding:8px 12px;font-size:12px;border-radius:6px;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);color:#f8fafc;">
+          <option value="request_review">🛡️ Request Human Review on Destructive Commands</option>
+          <option value="autonomous">⚡ Fully Autonomous Execution</option>
+          <option value="strict">🧪 Strict Sandbox Isolation</option>
+        </select>
+      </div>
+
+      <!-- Live Test Connection Status Alert Box -->
+      <div id="settings-test-status" style="display:none;padding:10px 12px;border-radius:6px;font-size:11.5px;line-height:1.4;"></div>
+    </div>
+
+    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
+      <button type="button" id="btn-test-settings" class="btn btn-secondary btn-sm" style="display:flex;align-items:center;gap:6px;">
+        <span>⚡</span>
+        <span id="btn-test-settings-text">Test Connection</span>
+      </button>
+      <div style="display:flex;gap:8px;">
+        <button type="button" id="btn-cancel-settings" onclick="window.closeSettingsModalFallback()" class="btn btn-secondary btn-sm">Cancel</button>
+        <button type="button" id="btn-save-settings" onclick="window.saveSettingsFallback()" class="btn btn-primary btn-sm">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Verified Visual Audit Snapshot Modal -->
+<div class="modal-overlay" id="screenshot-modal">
+  <div class="modal-dialog" style="width: 820px; max-width: 95vw; max-height: 90vh;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">📸</span>
+        <span style="font-weight:700;font-size:14px;color:#f8fafc;">Headless Chrome Visual Audit Proof</span>
+      </div>
+      <button id="btn-close-screenshot-modal" style="background:transparent;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px 8px;line-height:1;" title="Close">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(15,23,42,0.6);border:1px solid var(--border-medium);padding:8px 14px;border-radius:6px;font-size:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:#34d399;font-weight:700;">✔ Autonomous Browser Certified</span>
+          <span style="color:#64748b;">·</span>
+          <span id="audit-modal-entrypoint" style="color:#94a3b8;font-family:var(--font-mono);">http://localhost:3000/workspace/index.html</span>
+        </div>
+        <a id="audit-modal-open-link" href="/workspace/.system_generated/latest_preview.png" target="_blank" class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;">Open Raw PNG ↗</a>
+      </div>
+      <div style="border-radius:8px;overflow:hidden;border:1px solid var(--border-medium);background:#000;text-align:center;">
+        <img id="audit-modal-img" src="/workspace/.system_generated/latest_preview.png" alt="Headless Chrome Live Verification Screenshot" style="width:100%;height:auto;display:block;max-height:60vh;object-fit:contain;" />
+      </div>
+      <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;">
+        This snapshot is autonomously rendered and captured by an isolated headless Chrome instance directly executing the workspace's HTML and JavaScript client files with WebGL, canvas, and DOM APIs active.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Checkpoints / Time-Machine Modal -->
+<div class="modal-overlay" id="checkpoints-modal">
+  <div class="modal-dialog" style="width: 620px; max-width: 95vw; max-height: 85vh;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">⏱️</span>
+        <span style="font-weight:700;font-size:14px;color:#f8fafc;">Workspace Checkpoints (Time-Machine)</span>
+      </div>
+      <button id="btn-close-checkpoints" style="background:transparent;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px 8px;line-height:1;" title="Close">×</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;max-height:65vh;overflow-y:auto;">
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="checkpoint-name-input" placeholder="New checkpoint name (e.g. before-refactor)..." style="flex:1;background:rgba(15,23,42,0.9);border:1px solid var(--border-medium);border-radius:6px;padding:8px 12px;color:#f8fafc;font-size:12px;outline:none;" />
+        <button id="btn-create-checkpoint" class="btn btn-primary btn-sm" style="white-space:nowrap;">+ Create Checkpoint</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Saved Checkpoints</div>
+      <div id="checkpoints-list" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;">Loading checkpoints...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.openSettingsModalFallback = function() {
+    const app = window.frAidayApp || window.fraidayApp;
+    if (app && typeof app.openSettingsModal === 'function') {
+      app.openSettingsModal();
+    } else {
+      const m = document.getElementById('settings-modal');
+      if (m) {
+        m.classList.add('open');
+        m.style.display = 'flex';
+        m.style.opacity = '1';
+        m.style.visibility = 'visible';
+      }
+    }
+  };
+
+  window.closeSettingsModalFallback = function() {
+    const app = window.frAidayApp || window.fraidayApp;
+    if (app && typeof app.closeSettingsModal === 'function') {
+      app.closeSettingsModal();
+    } else {
+      const m = document.getElementById('settings-modal');
+      if (m) {
+        m.classList.remove('open');
+        m.style.display = 'none';
+        m.style.opacity = '0';
+        m.style.visibility = 'hidden';
+      }
+    }
+  };
+
+  window.saveSettingsFallback = function() {
+    const app = window.frAidayApp || window.fraidayApp;
+    if (app && typeof app.saveSettingsModal === 'function') {
+      app.saveSettingsModal();
+    } else {
+      const p = document.getElementById('setting-provider')?.value || 'groq';
+      const k = document.getElementById('setting-api-key')?.value || '';
+      const m = document.getElementById('setting-model')?.value || 'openai/gpt-oss-120b';
+      const s = document.getElementById('setting-safety')?.value || 'request_review';
+      try {
+        localStorage.setItem('fraiday_provider', p);
+        localStorage.setItem('fraiday_api_key', k);
+        localStorage.setItem('fraiday_model', m);
+        localStorage.setItem('fraiday_safety', s);
+      } catch (_) {}
+      fetch('/api/friday/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: p, api_key: k, model: m, safety: s })
+      }).catch(console.warn);
+      const hud = document.getElementById('hud-model-name');
+      if (hud) hud.innerText = p.toUpperCase() + ' (' + m.split('/').pop() + ')';
+      window.closeSettingsModalFallback();
+    }
+  };
+</script>
+
+<!-- Main Script -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

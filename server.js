@@ -5,6 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
 const { initGameSocket } = require('./games/business-board/api');
+const fridayApi = require('./friday/api');
 
 const app = express();
 const httpServer = createServer(app);
@@ -54,8 +55,8 @@ if (fs.existsSync(path.join(__dirname, '.env'))) {
 }
 
 // ── Body Parser ──
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // ── Anime API routes ──
 const animeApi = require('./anime/api');
@@ -298,6 +299,14 @@ app.use('/chatbox', express.static(path.join(__dirname, 'chatbox'), {
 
 // ── Serve games frontend ──
 app.use('/games', express.static(path.join(__dirname, 'games'), {
+  extensions: ['html'],
+  index: 'index.html',
+}));
+
+// ── PBG Friday (frAIday AI Workspace) ──
+app.use('/api/friday', fridayApi);
+app.use('/friday/workspace', express.static(path.join(__dirname, 'friday', 'workspace')));
+app.use('/friday', express.static(path.join(__dirname, 'friday'), {
   extensions: ['html'],
   index: 'index.html',
 }));

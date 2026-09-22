@@ -112,6 +112,12 @@
   const pauseOverlayTitle = document.getElementById('pauseOverlayTitle');
   const pauseOverlayDesc = document.getElementById('pauseOverlayDesc');
   const pauseOverlayResumeBtn = document.getElementById('pauseOverlayResumeBtn');
+  const cinemaServerBtn = document.getElementById('cinemaServerBtn');
+  const cinemaServerMenu = document.getElementById('cinemaServerMenu');
+  const cinemaServerLabel = document.getElementById('cinemaServerLabel');
+  const cinemaTrendingHeader = document.getElementById('cinemaTrendingHeader');
+  const cinemaQuickPills = document.getElementById('cinemaQuickPills');
+  let currentAnimeServers = [];
 
   // ── State ──
   let socket = null;
@@ -431,12 +437,19 @@
     if (currentRoom === 'anime-manga') {
       cinemaStage.style.display = 'flex';
       chatLayout.classList.add('cinema-active');
-      if (currentAnimeState) updateAnimeUI(currentAnimeState);
+      if (currentAnimeState) {
+        updateAnimeUI(currentAnimeState);
+      } else {
+        renderQuickPills();
+      }
     } else {
       cinemaStage.style.display = 'none';
       chatLayout.classList.remove('cinema-active');
       cinemaSearchDrawer.style.display = 'none';
+      if (cinemaServerMenu) cinemaServerMenu.style.display = 'none';
       if (animeVideo) animeVideo.pause();
+      const iframe = cinemaPlayerWrap ? cinemaPlayerWrap.querySelector('iframe.cinema-iframe') : null;
+      if (iframe) iframe.src = 'about:blank';
     }
 
     setTimeout(() => scrollToBottom(false), 50);
@@ -1398,15 +1411,37 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  CINEMA STAGE (100% Real-Time Synchronized HTML5 Video Player)
+  //  CINEMA STAGE (Anime Watch Together Cinema Player)
   // ════════════════════════════════════════════════════════════════
   let animeSearchTimeout = null;
 
+  const POPULAR_ANIME_FALLBACKS = [
+    { id: 151807, title: 'Solo Leveling', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-3CDvjB6e1a4Y.png', format: 'TV', episodes: 12, year: 2024 },
+    { id: 101922, title: 'Demon Slayer: Kimetsu no Yaiba', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-PEn1CTDYwgvr.jpg', format: 'TV', episodes: 26, year: 2019 },
+    { id: 113415, title: 'Jujutsu Kaisen', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx113415-bbBWj4pEFseh.jpg', format: 'TV', episodes: 24, year: 2020 },
+    { id: 21, title: 'One Piece', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-YCDoj1EkAxFn.jpg', format: 'TV', episodes: 1100, year: 1999 },
+    { id: 20, title: 'Naruto', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20-dE6UHbFFg1A5.jpg', format: 'TV', episodes: 220, year: 2002 },
+    { id: 16498, title: 'Attack on Titan', image: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-C6FPmWm59CyP.jpg', format: 'TV', episodes: 25, year: 2013 },
+  ];
+
+  function renderQuickPills() {
+    if (!cinemaQuickPills) return;
+    cinemaQuickPills.innerHTML = '';
+    POPULAR_ANIME_FALLBACKS.forEach(anime => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cinema-pill-btn';
+      btn.innerHTML = `<i class="fas fa-play" style="font-size:0.65rem; color:var(--pink-400)"></i> ${escapeHtml(anime.title)}`;
+      btn.addEventListener('click', () => selectAnime(anime));
+      cinemaQuickPills.appendChild(btn);
+    });
+  }
+
   function initCinemaStage() {
+    renderQuickPills();
+
     cinemaSearchToggle.addEventListener('click', () => {
-      const isVisible = cinemaSearchDrawer.style.display === 'block';
-      cinemaSearchDrawer.style.display = isVisible ? 'none' : 'block';
-      if (!isVisible) animeSearchInput.focus();
+      openCinemaSearch();
     });
 
     cinemaSearchClose.addEventListener('click', () => {
@@ -1414,9 +1449,23 @@
     });
 
     cinemaQuickBrowseBtn.addEventListener('click', () => {
-      cinemaSearchDrawer.style.display = 'block';
-      animeSearchInput.focus();
+      openCinemaSearch();
     });
+
+    // Server Switcher Toggle
+    if (cinemaServerBtn && cinemaServerMenu) {
+      cinemaServerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = cinemaServerMenu.style.display === 'flex';
+        cinemaServerMenu.style.display = isVisible ? 'none' : 'flex';
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#cinemaServerWrap')) {
+          cinemaServerMenu.style.display = 'none';
+        }
+      });
+    }
 
     // Native Video Player Event Listeners (Broadcast play/pause/seek to room)
     if (animeVideo) {
@@ -1444,7 +1493,9 @@
     cinemaResyncBtn.addEventListener('click', () => {
       if (currentAnimeState && currentAnimeState.currentAnime) {
         const directStream = currentAnimeState.currentAnime.directStreamUrl || currentAnimeState.currentAnime.directStream;
-        if (directStream && animeVideo) {
+        const isNativeStream = directStream && (directStream.includes('.m3u8') || directStream.includes('.mp4'));
+
+        if (isNativeStream && animeVideo) {
           if (typeof currentAnimeState.currentTime === 'number') {
             animeVideo.currentTime = currentAnimeState.currentTime;
           }
@@ -1474,13 +1525,71 @@
     animeSearchInput.addEventListener('input', () => {
       clearTimeout(animeSearchTimeout);
       const q = animeSearchInput.value.trim();
-      if (q.length < 2) { animeResults.style.display = 'none'; return; }
-      animeSearchTimeout = setTimeout(() => searchAnime(q), 350);
+      if (q.length === 0) {
+        loadTrendingAnimeInDrawer();
+        return;
+      }
+      if (q.length < 2) return;
+      if (cinemaTrendingHeader) cinemaTrendingHeader.style.display = 'none';
+      animeSearchTimeout = setTimeout(() => searchAnime(q), 300);
     });
 
     cinemaPrevEp.addEventListener('click', () => changeAnimeEpisode(-1));
     cinemaNextEp.addEventListener('click', () => changeAnimeEpisode(1));
     cinemaStopBtn.addEventListener('click', () => socket.emit('anime-clear'));
+  }
+
+  async function openCinemaSearch() {
+    const isVisible = cinemaSearchDrawer.style.display === 'block';
+    if (isVisible) {
+      cinemaSearchDrawer.style.display = 'none';
+      return;
+    }
+    cinemaSearchDrawer.style.display = 'block';
+    animeSearchInput.focus();
+    if (!animeSearchInput.value.trim()) {
+      await loadTrendingAnimeInDrawer();
+    }
+  }
+
+  async function loadTrendingAnimeInDrawer() {
+    if (cinemaTrendingHeader) cinemaTrendingHeader.style.display = 'flex';
+    animeResults.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.8rem;"><i class="fas fa-spinner fa-spin"></i> Loading trending anime...</div>';
+    animeResults.style.display = 'block';
+    try {
+      const res = await fetch('/api/anime/trending?perPage=12');
+      if (!res.ok) throw new Error('Trending fetch failed');
+      const data = await res.json();
+      renderAnimeSearchResults(data.results || [], true);
+    } catch (err) {
+      renderAnimeSearchResults(POPULAR_ANIME_FALLBACKS, true);
+    }
+  }
+
+  function renderAnimeSearchResults(items, isTrending = false) {
+    if (!items || items.length === 0) {
+      animeResults.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.8rem;">No anime found</div>';
+      animeResults.style.display = 'block';
+      return;
+    }
+    animeResults.innerHTML = '';
+    const seen = new Set();
+    items.forEach(item => {
+      if (seen.has(item.id)) return;
+      seen.add(item.id);
+      const div = document.createElement('div');
+      div.className = 'anime-result-item';
+      div.innerHTML = `
+        <img class="anime-result-thumb" src="${item.image || item.coverImage || ''}" alt="" onerror="this.style.display='none'" />
+        <div class="anime-result-info">
+          <div class="anime-result-title">${escapeHtml(item.title)}</div>
+          <div class="anime-result-meta">${item.format || 'TV'}${item.year ? ' · ' + item.year : ''}${item.episodes ? ' · ' + item.episodes + ' eps' : ''}${isTrending ? ' · 🔥 Trending' : ''}</div>
+        </div>
+      `;
+      div.addEventListener('click', () => selectAnime(item));
+      animeResults.appendChild(div);
+    });
+    animeResults.style.display = 'block';
   }
 
   function injectCinemaIframe(src) {
@@ -1489,6 +1598,7 @@
     if (animeVideo) {
       animeVideo.style.display = 'none';
       animeVideo.pause();
+      animeVideo.src = '';
     }
 
     let iframe = cinemaPlayerWrap.querySelector('iframe.cinema-iframe');
@@ -1497,12 +1607,13 @@
       iframe.id = 'animeIframe';
       iframe.className = 'cinema-iframe';
       iframe.setAttribute('allowfullscreen', 'true');
+      iframe.setAttribute('webkitallowfullscreen', 'true');
+      iframe.setAttribute('mozallowfullscreen', 'true');
       iframe.setAttribute('frameborder', '0');
-      iframe.setAttribute('marginwidth', '0');
-      iframe.setAttribute('marginheight', '0');
+      iframe.setAttribute('referrerpolicy', 'origin');
       iframe.setAttribute('scrolling', 'no');
-      iframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-      iframe.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;border:none;background:#000;';
+      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+      iframe.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;border:none;background:#000;z-index:5;';
       cinemaPlayerWrap.insertBefore(iframe, cinemaPauseOverlay);
     }
 
@@ -1549,32 +1660,48 @@
       const res = await fetch(`/api/anime/search?q=${encodeURIComponent(query)}`);
       if (!res.ok) throw new Error('Search failed');
       const data = await res.json();
-      if (!data.results || data.results.length === 0) {
-        animeResults.innerHTML = '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.8rem;">No anime found matching your query</div>';
-        animeResults.style.display = 'block';
-        return;
-      }
-      animeResults.innerHTML = '';
-      const seen = new Set();
-      data.results.forEach(item => {
-        if (seen.has(item.id)) return;
-        seen.add(item.id);
-        const div = document.createElement('div');
-        div.className = 'anime-result-item';
-        div.innerHTML = `
-          <img class="anime-result-thumb" src="${item.image || ''}" alt="" onerror="this.style.display='none'" />
-          <div class="anime-result-info">
-            <div class="anime-result-title">${escapeHtml(item.title)}</div>
-            <div class="anime-result-meta">${item.subOrDub === 'dub' ? 'DUB' : 'SUB'}</div>
-          </div>
-        `;
-        div.addEventListener('click', () => selectAnime(item));
-        animeResults.appendChild(div);
-      });
-      animeResults.style.display = 'block';
+      renderAnimeSearchResults(data.results || [], false);
     } catch (err) {
       console.error('Anime search error:', err);
+      const filtered = POPULAR_ANIME_FALLBACKS.filter(a => a.title.toLowerCase().includes(query.toLowerCase()));
+      renderAnimeSearchResults(filtered, false);
     }
+  }
+
+  async function loadAnimeServers(episodeId) {
+    try {
+      const res = await fetch(`/api/anime/watch/${episodeId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.servers && Array.isArray(data.servers)) {
+        currentAnimeServers = data.servers;
+        renderServerMenu(data.servers, data.currentServer);
+      }
+    } catch (e) {
+      console.warn('Servers load error:', e);
+    }
+  }
+
+  function renderServerMenu(servers, activeId) {
+    if (!cinemaServerMenu) return;
+    cinemaServerMenu.innerHTML = '';
+    const currentActiveId = currentAnimeState?.currentAnime?.server || activeId || servers[0]?.id;
+    servers.forEach(server => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = `cinema-server-item${server.id === currentActiveId ? ' active' : ''}`;
+      item.innerHTML = `<i class="fas fa-play" style="font-size:0.65rem;"></i> ${escapeHtml(server.name)}`;
+      item.addEventListener('click', () => {
+        cinemaServerMenu.style.display = 'none';
+        if (cinemaServerLabel) cinemaServerLabel.textContent = server.name;
+        socket.emit('anime-switch-server', {
+          serverId: server.id,
+          serverName: server.name,
+          embedUrl: server.url,
+        });
+      });
+      cinemaServerMenu.appendChild(item);
+    });
   }
 
   async function selectAnime(item) {
@@ -1582,25 +1709,23 @@
     animeResults.style.display = 'none';
     animeSearchInput.value = '';
     try {
-      const animeId = item.id.replace(/-episode-\d+.*$/, '');
-      let episodeId = item.episodeId || (item.id.includes('-episode-') ? item.id : `${animeId}-episode-1`);
+      const animeId = String(item.id).replace(/-episode-\d+.*$/, '');
       let episodeNumber = item.episodeNumber || 1;
       let animeTitle = item.title || 'PBG Anime';
-      let animeImage = item.image || '';
+      let animeImage = item.image || item.coverImage || '';
 
-      // 1. Fetch exact episode metadata first to get guaranteed valid episode ID
+      // 1. Fetch anime info to get metadata and total episodes
       try {
         const infoRes = await fetch(`/api/anime/info/${animeId}`);
         if (infoRes.ok) {
           const info = await infoRes.json();
           currentAnimeInfo = info;
           if (info.title) animeTitle = info.title;
-          if (info.image) animeImage = info.image;
-          if (info.episodes && info.episodes.length > 0) {
-            const firstEp = info.episodes.find(e => e.number === 1) || info.episodes[0];
-            if (firstEp) {
-              episodeId = firstEp.id;
-              episodeNumber = firstEp.number;
+          if (info.coverImage) animeImage = info.coverImage;
+          if (info.totalEpisodes && typeof info.totalEpisodes === 'number') {
+            currentAnimeInfo.episodes = [];
+            for (let i = 1; i <= info.totalEpisodes; i++) {
+              currentAnimeInfo.episodes.push({ id: `${animeId}-episode-${i}`, number: i });
             }
           }
         }
@@ -1608,19 +1733,26 @@
         console.warn('Anime info lookup warning:', e);
       }
 
-      // 2. Fetch the watch stream with the accurate episode ID
+      // 2. Fetch the watch stream for episode 1
+      const episodeId = `${animeId}-episode-${episodeNumber}`;
       const watchRes = await fetch(`/api/anime/watch/${episodeId}`);
       if (!watchRes.ok) throw new Error('Watch fetch failed for ' + episodeId);
       const watchData = await watchRes.json();
 
+      if (watchData.servers && Array.isArray(watchData.servers)) {
+        currentAnimeServers = watchData.servers;
+        currentAnimeServers._forEp = episodeId;
+        renderServerMenu(watchData.servers, watchData.currentServer);
+      }
+
       socket.emit('anime-watch', {
         animeId: animeId,
         title: animeTitle || watchData.title,
-        image: animeImage || watchData.image,
+        image: animeImage || '',
         episodeId: episodeId,
         episodeNumber: episodeNumber,
         embedUrl: watchData.embedUrl || watchData.iframeSrc || '',
-        directStreamUrl: watchData.directStreamUrl || '',
+        directStreamUrl: null,
       });
 
       cinemaPrevEp.disabled = episodeNumber <= 1;
@@ -1633,7 +1765,7 @@
   async function changeAnimeEpisode(delta) {
     const currentEpNum = parseInt(cinemaAnimeEp.textContent.replace(/\D/g, '')) || 1;
     const newEpNum = Math.max(1, currentEpNum + delta);
-    const animeId = currentAnimeState?.currentAnime?.animeId || 'anime';
+    const animeId = currentAnimeState?.currentAnime?.animeId || '151807';
     let nextEpisodeId = `${animeId}-episode-${newEpNum}`;
 
     if (currentAnimeInfo && currentAnimeInfo.episodes && currentAnimeInfo.episodes.length > 0) {
@@ -1645,11 +1777,18 @@
       const watchRes = await fetch(`/api/anime/watch/${nextEpisodeId}`);
       if (!watchRes.ok) return;
       const watchData = await watchRes.json();
+
+      if (watchData.servers && Array.isArray(watchData.servers)) {
+        currentAnimeServers = watchData.servers;
+        currentAnimeServers._forEp = nextEpisodeId;
+        renderServerMenu(watchData.servers, watchData.currentServer);
+      }
+
       socket.emit('anime-episode', {
         episodeId: nextEpisodeId,
         episodeNumber: newEpNum,
         embedUrl: watchData.embedUrl || watchData.iframeSrc || '',
-        directStreamUrl: watchData.directStreamUrl || '',
+        directStreamUrl: null,
       });
     } catch (err) {
       console.error('Episode change error:', err);
@@ -1666,9 +1805,16 @@
       cinemaPrevEp.disabled = state.currentAnime.episodeNumber <= 1;
       cinemaNextEp.disabled = false;
 
-      const directStream = state.currentAnime.directStreamUrl || state.currentAnime.directStream;
+      // Update server label
+      if (cinemaServerLabel && state.currentAnime.server && currentAnimeServers.length) {
+        const found = currentAnimeServers.find(s => s.id === state.currentAnime.server);
+        if (found) cinemaServerLabel.textContent = found.name;
+      }
 
-      if (directStream) {
+      const directStream = state.currentAnime.directStreamUrl || state.currentAnime.directStream;
+      const isNativeStream = directStream && (directStream.includes('.m3u8') || directStream.includes('.mp4'));
+
+      if (isNativeStream) {
         // True 100% Native HLS Video Stream
         removeCinemaIframe();
         if (animeVideo) {
@@ -1715,7 +1861,7 @@
           }
         }
       } else if (state.currentAnime.embedUrl) {
-        // Fallback Iframe Player
+        // Embedded Cinema Player
         if (animeVideo) {
           animeVideo.style.display = 'none';
           animeVideo.pause();
@@ -1737,13 +1883,22 @@
         }
       }
 
+      // Fetch servers list for this episode if not loaded or changed
+      const epId = state.currentAnime.episodeId || `${state.currentAnime.animeId}-episode-${state.currentAnime.episodeNumber}`;
+      if (!currentAnimeServers.length || currentAnimeServers._forEp !== epId) {
+        currentAnimeServers._forEp = epId;
+        loadAnimeServers(epId);
+      }
+
       if (!currentAnimeInfo || currentAnimeInfo.id !== state.currentAnime.animeId) {
         fetch(`/api/anime/info/${state.currentAnime.animeId}`)
           .then(r => r.json())
           .then(info => {
             currentAnimeInfo = info;
             cinemaPrevEp.disabled = state.currentAnime.episodeNumber <= 1;
-            cinemaNextEp.disabled = state.currentAnime.episodeNumber >= info.totalEpisodes;
+            if (info.totalEpisodes) {
+              cinemaNextEp.disabled = state.currentAnime.episodeNumber >= info.totalEpisodes;
+            }
           })
           .catch(() => {});
       }
@@ -1751,6 +1906,7 @@
       cinemaAnimeTitle.textContent = 'PBG Anime Cinema';
       cinemaAnimeEp.textContent = 'Select an anime';
       cinemaEmptyState.style.display = 'block';
+      renderQuickPills();
       removeCinemaIframe();
       if (animeVideo) {
         animeVideo.style.display = 'none';

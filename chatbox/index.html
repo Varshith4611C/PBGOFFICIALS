@@ -135,6 +135,12 @@
               <i class="fas fa-pause"></i> <span class="cinema-btn-text">Pause</span>
             </button>
             <button class="cinema-btn" id="cinemaResyncBtn" title="Resync Stream with Room"><i class="fas fa-arrows-rotate"></i> Sync</button>
+            <div class="cinema-server-wrapper" id="cinemaServerWrap" style="position: relative;">
+              <button class="cinema-btn" id="cinemaServerBtn" title="Switch Video Server"><i class="fas fa-server"></i> <span id="cinemaServerLabel">HD-1 (Sub)</span></button>
+              <div class="cinema-server-menu" id="cinemaServerMenu" style="display: none;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
             <button class="cinema-btn" id="cinemaPrevEp" title="Previous Episode" disabled><i class="fas fa-backward-step"></i></button>
             <button class="cinema-btn" id="cinemaNextEp" title="Next Episode" disabled><i class="fas fa-forward-step"></i></button>
             <button class="cinema-btn" id="cinemaSearchToggle" title="Browse / Search Anime"><i class="fas fa-magnifying-glass"></i> Search</button>
@@ -146,8 +152,11 @@
         <div class="cinema-search-drawer" id="cinemaSearchDrawer" style="display: none;">
           <div class="cinema-search-input-wrap">
             <i class="fas fa-search"></i>
-            <input type="text" id="animeSearchInput" placeholder="Search anime from PBG Anime (e.g. Naruto, Bleach, Jujutsu)..." autocomplete="off" />
+            <input type="text" id="animeSearchInput" placeholder="Search anime from PBG Anime (e.g. Solo Leveling, Naruto, Bleach, Jujutsu)..." autocomplete="off" />
             <button class="cinema-search-close-btn" id="cinemaSearchClose" aria-label="Close search"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="cinema-drawer-trending-header" id="cinemaTrendingHeader" style="display: none;">
+            <span><i class="fas fa-fire" style="color: var(--pink-400);"></i> Trending Anime on PBG</span>
           </div>
           <div class="anime-results" id="animeResults" style="display: none;"></div>
         </div>
@@ -158,6 +167,9 @@
             <div class="cinema-empty-icon"><i class="fas fa-film"></i></div>
             <h3>Watch Anime Together with Friends</h3>
             <p>Stream episodes directly from PBG Anime and enjoy live chat in sync with the room.</p>
+            <div class="cinema-quick-pills" id="cinemaQuickPills">
+              <!-- Populated with instant 1-click popular watch pills -->
+            </div>
             <button class="cinema-cta-btn" id="cinemaQuickBrowseBtn"><i class="fas fa-search"></i> Search Anime to Watch</button>
           </div>
           <!-- Native Video Player (HLS Stream for 100% True Synchronized Playback) -->

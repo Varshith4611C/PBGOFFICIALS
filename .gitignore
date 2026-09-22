@@ -6,3 +6,9 @@ node_modules/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# PBG Friday (frAIday workspace)
+friday/.fraiday_session.json
+friday/.fraiday_session_*.tmp
+friday/workspace/
+friday/__pycache__/
