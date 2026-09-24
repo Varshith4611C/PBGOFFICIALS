@@ -440,16 +440,40 @@ class Game {
     this.startGame(playerName, true);
   }
 
-  createRemoteEntity(socketId, name, hue) {
-    const e = this.createEntity(name || 'Online Player', rand(500, ARENA_W - 500), rand(500, ARENA_H - 500), false, 2, 1);
-    e.socketId = socketId;
-    e.isRemotePlayer = true;
-    e.hue = hue !== undefined ? hue : 280;
-    e.targetX = e.segments[0].x;
-    e.targetY = e.segments[0].y;
-    e.targetAngle = 0;
-    e.remoteSegments = [{ value: 2, x: e.targetX, y: e.targetY }];
-    this.entities.push(e);
+  createRemoteEntity(socketId, name, hue, initX, initY, initSegments) {
+    let e = this.entities.find(ent => ent.socketId === socketId);
+    if (!e) {
+      const sx = (initX !== undefined && !isNaN(initX)) ? initX : rand(500, ARENA_W - 500);
+      const sy = (initY !== undefined && !isNaN(initY)) ? initY : rand(500, ARENA_H - 500);
+      const startVal = (initSegments && initSegments[0] && initSegments[0].value) ? initSegments[0].value : 2;
+      e = this.createEntity(name || 'Online Player', sx, sy, false, startVal, 1);
+      e.socketId = socketId;
+      e.isRemotePlayer = true;
+      e.hue = hue !== undefined ? hue : 280;
+      e.targetX = sx;
+      e.targetY = sy;
+      e.targetAngle = 0;
+      if (initSegments && Array.isArray(initSegments) && initSegments.length) {
+        e.remoteSegments = initSegments;
+        e.segments = initSegments.map(s => ({
+          x: s.x !== undefined ? s.x : sx,
+          y: s.y !== undefined ? s.y : sy,
+          value: s.value || 2,
+          scale: 1,
+          isAttaching: false,
+        }));
+      } else {
+        e.remoteSegments = [{ value: startVal, x: sx, y: sy }];
+      }
+      this.entities.push(e);
+    } else {
+      e.alive = true;
+      e.name = name || e.name;
+      if (hue !== undefined) e.hue = hue;
+      if (initX !== undefined && !isNaN(initX)) e.targetX = initX;
+      if (initY !== undefined && !isNaN(initY)) e.targetY = initY;
+      if (initSegments && Array.isArray(initSegments)) e.remoteSegments = initSegments;
+    }
     return e;
   }
 
@@ -489,6 +513,9 @@ class Game {
 
       for (const [sId, rem] of this.multiplayer.remotePlayers.entries()) {
         if (!rem || !rem.alive) continue;
+        if (!this.entities.includes(rem)) {
+          this.entities.push(rem);
+        }
         const head = rem.segments[0];
         if (head && rem.targetX !== undefined) {
           head.x += (rem.targetX - head.x) * 0.28;

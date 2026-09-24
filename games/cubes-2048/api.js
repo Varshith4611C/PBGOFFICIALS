@@ -190,6 +190,12 @@ function initCubesSocket(io) {
       if (myPlayerInfo) {
         myPlayerInfo.score = state.score || myPlayerInfo.score;
         myPlayerInfo.alive = state.alive !== undefined ? state.alive : true;
+        myPlayerInfo.x = state.x;
+        myPlayerInfo.y = state.y;
+        myPlayerInfo.angle = state.angle;
+        myPlayerInfo.speed = state.speed;
+        myPlayerInfo.boosting = state.boosting;
+        myPlayerInfo.segments = state.segments;
       }
       // Relay player movement and cubes to other peers in room
       socket.to(currentRoomCode).emit('peer-update', {

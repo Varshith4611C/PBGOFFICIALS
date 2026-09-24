@@ -66,21 +66,26 @@ class CubesMultiplayerClient {
         this.roomCode = roomCode;
         this.isHost = isHost;
         this.playerId = player.socketId;
+        this.remotePlayers.clear();
 
-        // Register existing players
+        // 1. FIRST start game arena so game is running and player is spawned
+        this.onRoomJoined(roomCode, isHost);
+
+        // 2. THEN register all existing players so they stay in this.game.entities
         if (existingPlayers && existingPlayers.length) {
           for (const ep of existingPlayers) {
             this.registerRemotePlayer(ep);
           }
         }
 
-        this.onRoomJoined(roomCode, isHost);
         this.showToast(`Joined online room: ${roomCode}`, 'success');
       });
 
       this.socket.on('player-joined', ({ player }) => {
         this.registerRemotePlayer(player);
         this.showToast(`🌐 ${player.name} joined the arena!`, 'info');
+        // Immediately broadcast our state so the new player gets our coordinates right away
+        this.broadcastState(performance.now(), true);
       });
 
       this.socket.on('player-left', ({ socketId, playerName }) => {
@@ -203,11 +208,33 @@ class CubesMultiplayerClient {
 
   registerRemotePlayer(info) {
     if (!info || !info.socketId || info.socketId === this.playerId) return;
-    if (this.remotePlayers.has(info.socketId)) return;
 
-    // Create a remote player snake in the game
-    const remote = this.game.createRemoteEntity(info.socketId, info.name || 'Online Player', info.hue || 180);
-    this.remotePlayers.set(info.socketId, remote);
+    let remote = this.remotePlayers.get(info.socketId);
+    if (!remote || !this.game.entities.includes(remote)) {
+      remote = this.game.createRemoteEntity(
+        info.socketId,
+        info.name || 'Online Player',
+        info.hue || 180,
+        info.x,
+        info.y,
+        info.segments
+      );
+      this.remotePlayers.set(info.socketId, remote);
+    }
+
+    remote.alive = true;
+    if (info.x !== undefined && info.y !== undefined) {
+      remote.targetX = info.x;
+      remote.targetY = info.y;
+      remote.targetAngle = info.angle || 0;
+      if (remote.segments && remote.segments[0]) {
+        remote.segments[0].x = info.x;
+        remote.segments[0].y = info.y;
+      }
+    }
+    if (info.segments && Array.isArray(info.segments)) {
+      remote.remoteSegments = info.segments;
+    }
   }
 
   removeRemotePlayer(socketId) {
@@ -221,9 +248,18 @@ class CubesMultiplayerClient {
   }
 
   handlePeerUpdate(data) {
+    if (!data || !data.socketId || data.socketId === this.playerId) return;
+
     let remote = this.remotePlayers.get(data.socketId);
-    if (!remote) {
-      remote = this.game.createRemoteEntity(data.socketId, data.name, data.hue);
+    if (!remote || !this.game.entities.includes(remote)) {
+      remote = this.game.createRemoteEntity(
+        data.socketId,
+        data.name,
+        data.hue,
+        data.x,
+        data.y,
+        data.segments
+      );
       this.remotePlayers.set(data.socketId, remote);
     }
 
@@ -243,9 +279,9 @@ class CubesMultiplayerClient {
   }
 
   // ── Broadcast Local Player State ──
-  broadcastState(now) {
+  broadcastState(now, force = false) {
     if (!this.socket || !this.connected || !this.roomCode) return;
-    if (now - this.lastBroadcast < this.broadcastInterval) return;
+    if (!force && (now - this.lastBroadcast < this.broadcastInterval)) return;
     this.lastBroadcast = now;
 
     const p = this.game.player;
