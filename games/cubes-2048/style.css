@@ -239,7 +239,7 @@ html, body {
 /* ── Leaderboard Panel ── */
 .hud-leaderboard {
   position: fixed;
-  top: 68px;
+  top: 216px;
   right: 18px;
   background: var(--bg-card);
   backdrop-filter: blur(16px);
@@ -547,16 +547,18 @@ html, body {
 /* ── Mobile Boost Button ── */
 .mobile-boost-btn {
   position: fixed;
-  top: max(68px, calc(52px + env(safe-area-inset-top)));
-  right: max(16px, env(safe-area-inset-right));
-  width: 68px;
-  height: 68px;
+  top: 40%;
+  transform: translateY(-50%);
+  left: max(16px, env(safe-area-inset-left));
+  right: auto;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(99, 102, 241, 0.25));
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.28), rgba(99, 102, 241, 0.28));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 2px solid var(--cyan-400);
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.35);
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.4);
   z-index: 40;
   display: none;
   align-items: center;
@@ -566,15 +568,15 @@ html, body {
   touch-action: none;
   cursor: pointer;
   pointer-events: auto;
-  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .mobile-boost-btn:active {
-  background: rgba(34, 211, 238, 0.45);
-  transform: scale(0.92);
-  box-shadow: 0 0 28px rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.5);
+  transform: translateY(-50%) scale(0.92);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.65);
 }
 
 .mobile-boost-btn.on-cooldown {
@@ -713,11 +715,13 @@ html, body {
   }
 
   .mobile-boost-btn {
-    width: 60px;
-    height: 60px;
-    font-size: 1.35rem;
-    top: max(60px, calc(46px + env(safe-area-inset-top)));
-    right: max(12px, env(safe-area-inset-right));
+    width: 58px;
+    height: 58px;
+    font-size: 1.3rem;
+    top: 40%;
+    transform: translateY(-50%);
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
   }
 }
 

@@ -230,11 +230,8 @@ class Game {
 
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        // Upper-right zone triggers boost; anywhere in the bottom half (full width) or left side controls joystick
-        const isUpperRight = (t.clientY < this.screenH * 0.45 && t.clientX >= this.screenW * 0.5);
-
-        if (!isUpperRight && this.joystickTouchId === null && el && knob) {
-          // Anywhere from bottom half or left side -> Dynamic floating joystick under thumb
+        if (this.joystickTouchId === null && el && knob) {
+          // Dynamic floating joystick under thumb
           this.joystickTouchId = t.identifier;
           this.joystickOrigin = { x: t.clientX, y: t.clientY };
 
@@ -242,10 +239,6 @@ class Game {
           el.style.top = `${t.clientY}px`;
           knob.style.transform = 'translate(-50%, -50%)';
           el.classList.add('active');
-        } else if (isUpperRight) {
-          // Upper-right area -> Hold to boost!
-          this.boostTouchIds.add(t.identifier);
-          this.wantBoost = true;
         }
       }
     }, { passive: false });
@@ -1592,17 +1585,17 @@ class Game {
   /* ── Minimap ── */
   renderMinimap(ctx) {
     const isMobile = this.screenW <= 768;
-    const size = isMobile ? 80 : 130;
-    const pad = 16;
-    // On mobile, position bottom-center away from joystick (bottom-left) and boost button (bottom-right)
-    const mx = isMobile ? Math.round((this.screenW - size) / 2) : (this.screenW - size - pad);
-    const my = isMobile ? (this.screenH - size - 12) : (this.screenH - size - pad);
+    const size = isMobile ? 86 : 130;
+    const pad = isMobile ? 12 : 18;
+    // Position at top right
+    const mx = this.screenW - size - pad;
+    const my = isMobile ? 62 : 68;
 
     // Background
     ctx.fillStyle = 'rgba(10, 15, 30, 0.75)';
     roundRect(ctx, mx - 4, my - 4, size + 8, size + 8, 10);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(100, 120, 180, 0.2)';
+    ctx.strokeStyle = 'rgba(100, 120, 180, 0.25)';
     ctx.lineWidth = 1;
     roundRect(ctx, mx - 4, my - 4, size + 8, size + 8, 10);
     ctx.stroke();
@@ -1624,7 +1617,7 @@ class Game {
       const dx = mx + head.x * scale;
       const dy = my + head.y * scale;
       const dotSize = e.isPlayer ? (isMobile ? 3.5 : 4) : (isMobile ? 2 : 2.5);
-      ctx.fillStyle = e.isPlayer ? '#22d3ee' : `hsl(${e.hue}, 60%, 55%)`;
+      ctx.fillStyle = e.isPlayer ? '#22d3ee' : (e.isRemotePlayer ? '#c084fc' : `hsl(${e.hue}, 60%, 55%)`);
       ctx.beginPath();
       ctx.arc(dx, dy, dotSize, 0, Math.PI * 2);
       ctx.fill();
