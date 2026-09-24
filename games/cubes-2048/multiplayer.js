@@ -14,6 +14,7 @@ class CubesMultiplayerClient {
     this.lastBroadcast = 0;
     this.broadcastInterval = 40; // 25Hz broadcast rate
     this.remotePlayers = new Map(); // socketId -> remoteEntity
+    this.remoteBots = new Map(); // botId -> remoteBotEntity
 
     this.initSocket();
   }
@@ -58,15 +59,17 @@ class CubesMultiplayerClient {
         this.roomCode = roomCode;
         this.isHost = isHost;
         this.playerId = player.socketId;
+        this.remoteBots.clear();
         this.onRoomJoined(roomCode, isHost);
         this.showToast(`Private room created: ${roomCode}`, 'success');
       });
 
-      this.socket.on('joined-room', ({ roomCode, player, existingPlayers, isHost }) => {
+      this.socket.on('joined-room', ({ roomCode, player, existingPlayers, existingBots, isHost }) => {
         this.roomCode = roomCode;
         this.isHost = isHost;
         this.playerId = player.socketId;
         this.remotePlayers.clear();
+        this.remoteBots.clear();
 
         // 1. FIRST start game arena so game is running and player is spawned
         this.onRoomJoined(roomCode, isHost);
@@ -76,6 +79,11 @@ class CubesMultiplayerClient {
           for (const ep of existingPlayers) {
             this.registerRemotePlayer(ep);
           }
+        }
+
+        // 3. If guest, sync existing bots spawned by host
+        if (!isHost && existingBots && existingBots.length) {
+          this.syncRemoteBots(existingBots);
         }
 
         this.showToast(`Joined online room: ${roomCode}`, 'success');
@@ -93,9 +101,40 @@ class CubesMultiplayerClient {
         this.showToast(`🚪 ${playerName} left the arena`, 'info');
       });
 
+      // ── Host Migration ──
+      this.socket.on('host-changed', ({ hostId }) => {
+        if (hostId === this.playerId) {
+          this.isHost = true;
+          if (this.game) {
+            this.game.isHost = true;
+            // Promote remote bots to locally simulated bots
+            if (this.game.entities) {
+              for (const e of this.game.entities) {
+                if (e.isMultiplayerBot) {
+                  e.isRemoteBot = false;
+                }
+              }
+            }
+          }
+          this.showToast('👑 You are now the arena host!', 'info');
+        }
+      });
+
       // ── Real-time Peer Update ──
       this.socket.on('peer-update', (data) => {
         this.handlePeerUpdate(data);
+      });
+
+      // ── Host Bots State Sync (for guests) ──
+      this.socket.on('bots-update', ({ bots }) => {
+        if (!this.isHost && bots) {
+          this.syncRemoteBots(bots);
+        }
+      });
+
+      // ── Bot Removed ──
+      this.socket.on('bot-removed', ({ botId }) => {
+        this.removeRemoteBot(botId);
       });
 
       // ── Free Cube Consumed By Other Player ──
@@ -107,16 +146,38 @@ class CubesMultiplayerClient {
       });
 
       // ── Elimination Broadcast ──
-      this.socket.on('player-death', ({ killerId, killerName, victimId, points }) => {
+      this.socket.on('player-death', ({ killerName, victimName, victimId, isBot, points }) => {
         if (victimId === this.playerId) {
-          // Local player was eliminated by killer
+          // Local player was eliminated
           if (this.game && this.game.player && this.game.player.alive) {
             this.game.player.alive = false;
-            this.game.gameOver(`Consumed by ${killerName}!`);
+            this.game.gameOver(isBot ? `Defeated by bot ${killerName}!` : `Consumed by ${killerName}!`);
           }
         } else {
           this.removeRemotePlayer(victimId);
-          this.showToast(`💥 ${killerName} dominated ${points} cubes!`, 'warning');
+          const vName = victimName || 'A player';
+          if (isBot) {
+            this.showToast(`💥 ${vName} was eliminated by ${killerName}!`, 'warning');
+          } else {
+            this.showToast(`💥 ${killerName} eliminated ${vName}!`, 'warning');
+          }
+        }
+      });
+
+      // ── Tail Cut Event ──
+      this.socket.on('player-was-cut', ({ cutIndex, cutterName }) => {
+        if (!this.game || !this.game.player || !this.game.player.alive) return;
+        const p = this.game.player;
+        if (p.segments && cutIndex < p.segments.length) {
+          const cut = p.segments.splice(cutIndex);
+          if (cut.length > 0) {
+            this.game.spawnParticles(cut[0].x, cut[0].y, '#f87171', 14);
+            if (this.game.sound) this.game.sound.divide();
+            this.showToast(`✂️ Tail cut by ${cutterName}! (-${cut.length} cubes)`, 'warning');
+            p.currentAnim = null;
+            this.game.organizeAndMergeInstant(p);
+            this.broadcastState(performance.now(), true);
+          }
         }
       });
 
@@ -278,28 +339,114 @@ class CubesMultiplayerClient {
     }
   }
 
-  // ── Broadcast Local Player State ──
+  // ── Broadcast Local Player State & Host Bots ──
   broadcastState(now, force = false) {
     if (!this.socket || !this.connected || !this.roomCode) return;
     if (!force && (now - this.lastBroadcast < this.broadcastInterval)) return;
     this.lastBroadcast = now;
 
     const p = this.game.player;
-    if (!p || !p.alive || !p.segments.length) return;
+    if (p && p.alive && p.segments.length) {
+      const head = p.segments[0];
+      const segs = p.segments.map(s => ({ value: s.value, x: Math.round(s.x), y: Math.round(s.y) }));
 
-    const head = p.segments[0];
-    const segs = p.segments.map(s => ({ value: s.value, x: Math.round(s.x), y: Math.round(s.y) }));
+      this.socket.emit('player-update', {
+        x: Math.round(head.x),
+        y: Math.round(head.y),
+        angle: Number(p.angle.toFixed(3)),
+        speed: Math.round(p.speed),
+        boosting: p.boosting,
+        segments: segs,
+        score: this.game.entityScore(p),
+        name: p.name,
+        hue: p.hue,
+      });
+    }
 
-    this.socket.emit('player-update', {
-      x: Math.round(head.x),
-      y: Math.round(head.y),
-      angle: Number(p.angle.toFixed(3)),
-      speed: Math.round(p.speed),
-      boosting: p.boosting,
-      segments: segs,
-      score: this.game.entityScore(p),
-      name: p.name,
-      hue: p.hue,
+    // If host, also broadcast multiplayer bots states to all guests
+    if (this.isHost && this.game && this.game.entities) {
+      const botStates = [];
+      for (const e of this.game.entities) {
+        if (e.isMultiplayerBot && e.alive && e.segments && e.segments.length) {
+          botStates.push({
+            botId: e.botId,
+            name: e.name,
+            hue: e.hue,
+            x: Math.round(e.segments[0].x),
+            y: Math.round(e.segments[0].y),
+            angle: Number(e.angle.toFixed(3)),
+            speed: Math.round(e.speed),
+            boosting: e.boosting,
+            segments: e.segments.map(s => ({ value: s.value, x: Math.round(s.x), y: Math.round(s.y) })),
+            score: this.game.entityScore(e),
+          });
+        }
+      }
+      this.socket.emit('bots-update', { bots: botStates });
+    }
+  }
+
+  // ── Sync Remote Bots (for guests) ──
+  syncRemoteBots(bots) {
+    if (!bots || !Array.isArray(bots) || this.isHost) return;
+
+    const activeBotIds = new Set();
+    for (const b of bots) {
+      if (!b || !b.botId) continue;
+      activeBotIds.add(b.botId);
+
+      let botEnt = this.remoteBots.get(b.botId);
+      if (!botEnt || !this.game.entities.includes(botEnt)) {
+        botEnt = this.game.createRemoteBotEntity(
+          b.botId,
+          b.name,
+          b.hue,
+          b.x,
+          b.y,
+          b.segments
+        );
+        this.remoteBots.set(b.botId, botEnt);
+      }
+
+      botEnt.alive = true;
+      botEnt.targetX = b.x;
+      botEnt.targetY = b.y;
+      botEnt.targetAngle = b.angle;
+      botEnt.speed = b.speed || BASE_SPEED;
+      botEnt.boosting = !!b.boosting;
+      botEnt.name = b.name || botEnt.name;
+      botEnt.hue = b.hue !== undefined ? b.hue : botEnt.hue;
+
+      if (b.segments && Array.isArray(b.segments)) {
+        botEnt.remoteSegments = b.segments;
+      }
+    }
+
+    // Remove any bots not in the incoming active list
+    for (const [id] of this.remoteBots.entries()) {
+      if (!activeBotIds.has(id)) {
+        this.removeRemoteBot(id);
+      }
+    }
+  }
+
+  removeRemoteBot(botId) {
+    const b = this.remoteBots.get(botId);
+    if (b) {
+      b.alive = false;
+      this.remoteBots.delete(botId);
+      if (this.game) {
+        this.game.entities = this.game.entities.filter(e => e !== b);
+      }
+    }
+  }
+
+  broadcastBotKilled(botId, botName, killerName) {
+    if (!this.socket || !this.connected || !this.roomCode) return;
+    this.socket.emit('bot-killed', {
+      botId,
+      botName,
+      killerName: killerName || (this.game && this.game.player ? this.game.player.name : 'Player'),
     });
   }
 
@@ -313,12 +460,39 @@ class CubesMultiplayerClient {
     this.socket.emit('player-eliminated', { victimSocketId, points });
   }
 
+  broadcastDiedToBot(botName) {
+    if (!this.socket || !this.connected || !this.roomCode) return;
+    this.socket.emit('player-death-event', {
+      killerName: botName,
+      isBot: true,
+      victimSocketId: this.playerId,
+    });
+  }
+
+  broadcastDiedToPlayer(killerSocketId, killerName) {
+    if (!this.socket || !this.connected || !this.roomCode) return;
+    this.socket.emit('player-death-event', {
+      killerName: killerName,
+      isBot: false,
+      victimSocketId: this.playerId,
+    });
+  }
+
+  broadcastPlayerCut(victimSocketId, cutIndex) {
+    if (!this.socket || !this.connected || !this.roomCode) return;
+    this.socket.emit('player-cut', {
+      victimSocketId,
+      cutIndex,
+    });
+  }
+
   leave() {
     if (this.socket && this.connected) {
       this.socket.emit('leave-room');
     }
     this.roomCode = null;
     this.remotePlayers.clear();
+    this.remoteBots.clear();
     const roomBadge = document.getElementById('mp-room-badge');
     if (roomBadge) roomBadge.classList.add('hidden');
   }

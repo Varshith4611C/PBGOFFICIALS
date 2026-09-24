@@ -70,6 +70,7 @@ function initCubesSocket(io) {
           isPrivate: false,
           host: socket.id,
           players: new Map(),
+          bots: [],
           createdAt: Date.now(),
         };
         activeRooms.set(roomCode, targetRoom);
@@ -94,6 +95,7 @@ function initCubesSocket(io) {
         roomCode: currentRoomCode,
         player: myPlayerInfo,
         existingPlayers,
+        existingBots: targetRoom.bots || [],
         isHost: myPlayerInfo.isHost,
       });
 
@@ -114,6 +116,7 @@ function initCubesSocket(io) {
         isPrivate: true,
         host: socket.id,
         players: new Map(),
+        bots: [],
         createdAt: Date.now(),
       };
 
@@ -178,6 +181,7 @@ function initCubesSocket(io) {
         roomCode: currentRoomCode,
         player: myPlayerInfo,
         existingPlayers,
+        existingBots: room.bots || [],
         isHost: myPlayerInfo.isHost,
       });
 
@@ -218,15 +222,80 @@ function initCubesSocket(io) {
       socket.to(currentRoomCode).emit('cube-removed', { cubeId, eaterId: socket.id });
     });
 
-    // ── Player Consumed Other Player ──
+    // ── Player Death (by Bot or PvP) ──
+    socket.on('player-death-event', ({ killerName, isBot, victimSocketId, points }) => {
+      if (!currentRoomCode) return;
+      const vId = victimSocketId || socket.id;
+      const room = activeRooms.get(currentRoomCode);
+      let victimName = myPlayerInfo ? myPlayerInfo.name : 'Player';
+      if (room && victimSocketId) {
+        const vInfo = room.players.get(victimSocketId);
+        if (vInfo) victimName = vInfo.name;
+      }
+
+      nsp.to(currentRoomCode).emit('player-death', {
+        killerName: killerName || (myPlayerInfo ? myPlayerInfo.name : 'Opponent'),
+        victimName: victimName,
+        victimId: vId,
+        isBot: !!isBot,
+        points: points || 0,
+      });
+    });
+
+    // ── Player Consumed Other Player (PvP) ──
     socket.on('player-eliminated', ({ victimSocketId, points }) => {
       if (!currentRoomCode) return;
+      const room = activeRooms.get(currentRoomCode);
+      let victimName = 'Player';
+      if (room && victimSocketId) {
+        const vInfo = room.players.get(victimSocketId);
+        if (vInfo) victimName = vInfo.name;
+      }
       nsp.to(currentRoomCode).emit('player-death', {
         killerId: socket.id,
         killerName: myPlayerInfo ? myPlayerInfo.name : 'A player',
+        victimName,
         victimId: victimSocketId,
-        points,
+        isBot: false,
+        points: points || 0,
       });
+    });
+
+    // ── Player Tail Cut by Another Player ──
+    socket.on('player-cut', ({ victimSocketId, cutIndex }) => {
+      if (!currentRoomCode || !victimSocketId) return;
+      socket.to(victimSocketId).emit('player-was-cut', {
+        cutIndex,
+        cutterName: myPlayerInfo ? myPlayerInfo.name : 'Opponent',
+        cutterId: socket.id,
+      });
+    });
+
+    // ── Host Bots State Sync (relayed to guests) ──
+    socket.on('bots-update', ({ bots }) => {
+      if (!currentRoomCode) return;
+      const room = activeRooms.get(currentRoomCode);
+      if (room && room.host === socket.id && Array.isArray(bots)) {
+        room.bots = bots;
+        socket.to(currentRoomCode).emit('bots-update', { bots });
+      }
+    });
+
+    // ── Bot Killed / Eliminated ──
+    socket.on('bot-killed', ({ botId, botName, killerName, points }) => {
+      if (!currentRoomCode) return;
+      const room = activeRooms.get(currentRoomCode);
+      if (room) {
+        if (room.bots) {
+          room.bots = room.bots.filter(b => b.botId !== botId);
+        }
+        nsp.to(currentRoomCode).emit('bot-removed', {
+          botId,
+          botName,
+          killerName: killerName || (myPlayerInfo ? myPlayerInfo.name : 'A player'),
+          points: points || 0,
+        });
+      }
     });
 
     // ── Disconnect ──
