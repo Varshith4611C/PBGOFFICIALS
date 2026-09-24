@@ -5,6 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
 const { initGameSocket } = require('./games/business-board/api');
+const { initCubesSocket } = require('./games/cubes-2048/api');
 const fridayApi = require('./friday/api');
 
 const app = express();
@@ -333,6 +334,9 @@ initChatSocket(io);
 
 // ── Initialize Socket.IO for Business Board Game ──
 initGameSocket(io);
+
+// ── Initialize Socket.IO for Cubes 2048 ──
+initCubesSocket(io);
 
 
 // ── Fallback: send index.html for any unmatched route (SPA-friendly) ──

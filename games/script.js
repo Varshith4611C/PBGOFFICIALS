@@ -26,6 +26,29 @@ const GAMES_DATA = [
     ]
   },
   {
+    id: 'cubes-2048',
+    title: 'Cubes 2048',
+    category: ['arcade', 'io', 'multiplayer'],
+    status: 'live',
+    rating: '4.8',
+    plays: '1.2k',
+    url: '/games/cubes-2048/',
+    icon: '🧊',
+    accentColor: '#43e97b',
+    shortDesc: 'Snake meets 2048! Collect numbered cubes, merge matching values, eat smaller opponents, dodge ÷ signs, and dominate the arena with AI bots.',
+    tags: ['Snake × 2048', '.io Arena', 'Merge & Grow', 'Speed Boost', 'AI Bots', 'Leaderboard'],
+    playerCount: '1 Player vs AI',
+    duration: '3 – 10 Mins',
+    rulesSummary: [
+      'Move your snake with mouse (or touch joystick on mobile) to collect free cubes scattered across the arena.',
+      'When two adjacent cubes in your snake share the same number, they merge into double the value (2+2→4, 4+4→8, etc.).',
+      'Eat other snakes whose head value is smaller than yours to absorb all their cubes.',
+      'Avoid ÷ division signs — they halve all your cube values!',
+      'Use speed boost (click/space) strategically with its 6-second cooldown to chase prey or escape threats.',
+      'Climb the live leaderboard by growing your total score as high as possible.'
+    ]
+  },
+  {
     id: 'chess-arena',
     title: 'PBG Chess Arena',
     category: ['strategy', 'multiplayer'],

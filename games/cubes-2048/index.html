@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Cubes 2048 — PBG Games | Merge & Dominate</title>
+  <meta name="description" content="Play Cubes 2048 on PBG Games — an addictive Snake × 2048 merge arena. Collect cubes, merge same numbers, eat smaller opponents, and climb the leaderboard!" />
+  <meta name="keywords" content="Cubes 2048, PBG Games, .io game, snake 2048, merge game, browser game, arcade" />
+  <meta name="theme-color" content="#060a14" />
+  <link rel="canonical" href="https://pbgofficials.dev/games/cubes-2048/" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="game" />
+  <meta property="og:title" content="Cubes 2048 — PBG Games" />
+  <meta property="og:description" content="Snake × 2048 merge arena. Collect, merge, eat, dominate." />
+  <meta property="og:image" content="/assets/images/logo.jpg" />
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Game Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══ Game Canvas ═══ -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ═══ HUD: Top Bar ═══ -->
+  <div class="hud-top" id="hud-top">
+    <div class="hud-left">
+      <a href="/games/" class="btn-back" id="btn-back" title="Back to PBG Games">
+        <i class="fas fa-arrow-left"></i> <span class="back-text">PBG Games</span>
+      </a>
+
+      <div class="hud-score">
+        <div class="hud-stat-col">
+          <div class="hud-score-label">Score</div>
+          <div class="hud-score-value" id="hud-score-val">2</div>
+        </div>
+        <div class="hud-stat-col hud-head-col">
+          <div class="hud-score-label">Head</div>
+          <div class="hud-head-value" id="hud-head-val">2</div>
+        </div>
+      </div>
+
+      <!-- Mobile Leaderboard Toggle -->
+      <button class="btn-lb-toggle" id="btn-lb-toggle" title="Toggle Leaderboard" aria-label="Toggle Leaderboard">
+        <i class="fas fa-trophy"></i>
+      </button>
+    </div>
+
+    <!-- Multiplayer In-Game Room Badge -->
+    <div class="mp-room-badge hidden" id="mp-room-badge">
+      <span class="status-dot green"></span>
+      <span class="mp-room-label">ROOM:</span>
+      <span class="mp-room-code" id="mp-room-code-val">CUBE-ABCD</span>
+      <button class="btn-copy-room" id="btn-copy-room" title="Copy Room Code"><i class="fas fa-copy"></i></button>
+    </div>
+
+    <div class="hud-right">
+      <div class="hud-boost">
+        <div class="boost-label"><i class="fas fa-bolt"></i> Boost</div>
+        <div class="boost-bar-track">
+          <div class="boost-bar-fill" id="boost-fill" style="width:100%"></div>
+        </div>
+        <div class="boost-key-hint">SPACE / CLICK</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HUD: Leaderboard ═══ -->
+  <div class="hud-leaderboard" id="hud-leaderboard">
+    <div class="lb-title">
+      <span><i class="fas fa-trophy"></i> Leaderboard</span>
+      <button class="lb-close-btn" id="lb-close" aria-label="Close Leaderboard"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="lb-body">
+      <!-- Populated by game.js -->
+    </div>
+  </div>
+
+  <!-- ═══ Mobile Joystick ═══ -->
+  <div class="mobile-joystick" id="joystick-zone">
+    <div class="joystick-knob" id="joystick-knob"></div>
+  </div>
+
+  <!-- ═══ Mobile Boost Button ═══ -->
+  <div class="mobile-boost-btn" id="mobile-boost-btn" aria-label="Boost">
+    <i class="fas fa-bolt"></i>
+  </div>
+
+  <!-- ═══ Start Screen Overlay (Solo vs Multiplayer) ═══ -->
+  <div class="overlay" id="start-overlay">
+    <div class="overlay-card start-card">
+      <div class="overlay-icon">🧊</div>
+      <div class="overlay-title">Cubes 2048</div>
+      <div class="overlay-subtitle">
+        Merge equal cubes, eat smaller snakes, avoid ÷ division signs, and dominate the arena!
+      </div>
+
+      <!-- Player Name Input -->
+      <div class="overlay-input-wrap">
+        <input
+          type="text"
+          class="overlay-input"
+          id="player-name"
+          placeholder="Enter your nickname..."
+          maxlength="16"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <!-- Match Mode Options (Solo vs Multiplayer) -->
+      <div class="mode-options-grid">
+        <button class="mode-card active" id="tab-solo" type="button">
+          <div class="mode-card-icon"><i class="fas fa-gamepad"></i></div>
+          <div class="mode-card-title">Solo Mode</div>
+          <div class="mode-card-desc">Bot arena offline</div>
+        </button>
+        <button class="mode-card" id="tab-multiplayer" type="button">
+          <div class="mode-card-icon"><i class="fas fa-globe"></i></div>
+          <div class="mode-card-title">Multiplayer</div>
+          <div class="mode-card-desc">Real-time online</div>
+        </button>
+      </div>
+
+      <!-- Mode View: Solo -->
+      <div class="mode-panel active" id="panel-solo">
+        <button class="btn-play" id="btn-start">
+          <i class="fas fa-play"></i> PLAY SOLO ARENA
+        </button>
+      </div>
+
+      <!-- Mode View: Multiplayer -->
+      <div class="mode-panel" id="panel-multiplayer" style="display:none;">
+        <div class="mp-status-pill online" id="mp-status-indicator">
+          <span class="status-dot green"></span> Online Server Ready
+        </div>
+
+        <button class="btn-play btn-quickmatch" id="btn-quick-match">
+          <i class="fas fa-bolt"></i> QUICK MATCH (FIND ARENA)
+        </button>
+
+        <div class="mp-divider">
+          <span>OR PRIVATE ROOM</span>
+        </div>
+
+        <div class="mp-room-actions">
+          <button class="btn-room-action btn-create" id="btn-create-room">
+            <i class="fas fa-plus"></i> Create Room
+          </button>
+          <div class="mp-join-group">
+            <input
+              type="text"
+              class="input-room-code"
+              id="input-room-code"
+              placeholder="CODE"
+              maxlength="9"
+              autocomplete="off"
+            />
+            <button class="btn-room-action btn-join" id="btn-join-room">
+              <i class="fas fa-right-to-bracket"></i> Join
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay-controls">
+        <div class="control-pill desktop-only"><kbd>Mouse</kbd> Steer</div>
+        <div class="control-pill desktop-only"><kbd>Space</kbd> / <kbd>Click</kbd> Boost</div>
+        <div class="control-pill mobile-only"><i class="fas fa-hand-pointer"></i> Bottom Half: Steer</div>
+        <div class="control-pill mobile-only"><i class="fas fa-bolt"></i> Top Right: Boost</div>
+        <div class="control-pill"><kbd>÷</kbd> = Halve cubes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Game Over Overlay ═══ -->
+  <div class="overlay hidden" id="gameover-overlay">
+    <div class="overlay-card">
+      <div class="overlay-icon">💥</div>
+      <div class="overlay-title">Game Over</div>
+      <div class="overlay-subtitle" id="go-subtitle">You were consumed by a bigger snake!</div>
+
+      <div class="gameover-stats">
+        <div class="stat-box">
+          <div class="stat-label">Final Score</div>
+          <div class="stat-value" id="go-score">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Cubes Eaten</div>
+          <div class="stat-value gold" id="go-cubes">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Merges</div>
+          <div class="stat-value purple" id="go-merges">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Time Survived</div>
+          <div class="stat-value green" id="go-time">0s</div>
+        </div>
+      </div>
+
+      <button class="btn-play" id="btn-restart">
+        <i class="fas fa-rotate-right"></i> PLAY AGAIN
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Toast Container ═══ -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ═══ Scripts ═══ -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
+  <script src="sound.js"></script>
+  <script src="multiplayer.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
