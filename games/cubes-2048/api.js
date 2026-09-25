@@ -89,7 +89,7 @@ function initCubesSocket(io) {
       targetRoom.players.set(socket.id, myPlayerInfo);
       socket.join(currentRoomCode);
 
-      const existingPlayers = Array.from(targetRoom.players.values()).filter(p => p.socketId !== socket.id);
+      const existingPlayers = Array.from(targetRoom.players.values()).filter(p => p.socketId !== socket.id && p.alive !== false);
 
       socket.emit('joined-room', {
         roomCode: currentRoomCode,
@@ -175,7 +175,7 @@ function initCubesSocket(io) {
       room.players.set(socket.id, myPlayerInfo);
       socket.join(currentRoomCode);
 
-      const existingPlayers = Array.from(room.players.values()).filter(p => p.socketId !== socket.id);
+      const existingPlayers = Array.from(room.players.values()).filter(p => p.socketId !== socket.id && p.alive !== false);
 
       socket.emit('joined-room', {
         roomCode: currentRoomCode,
@@ -190,17 +190,18 @@ function initCubesSocket(io) {
 
     // ── Continuous State Sync (20-30Hz) ──
     socket.on('player-update', (state) => {
-      if (!currentRoomCode) return;
-      if (myPlayerInfo) {
-        myPlayerInfo.score = state.score || myPlayerInfo.score;
-        myPlayerInfo.alive = state.alive !== undefined ? state.alive : true;
-        myPlayerInfo.x = state.x;
-        myPlayerInfo.y = state.y;
-        myPlayerInfo.angle = state.angle;
-        myPlayerInfo.speed = state.speed;
-        myPlayerInfo.boosting = state.boosting;
-        myPlayerInfo.segments = state.segments;
-      }
+      if (!currentRoomCode || !myPlayerInfo) return;
+      if (myPlayerInfo.alive === false || state.alive === false) return; // Do not relay updates for dead players!
+
+      myPlayerInfo.score = state.score || myPlayerInfo.score;
+      myPlayerInfo.alive = true;
+      myPlayerInfo.x = state.x;
+      myPlayerInfo.y = state.y;
+      myPlayerInfo.angle = state.angle;
+      myPlayerInfo.speed = state.speed;
+      myPlayerInfo.boosting = state.boosting;
+      myPlayerInfo.segments = state.segments;
+
       // Relay player movement and cubes to other peers in room
       socket.to(currentRoomCode).emit('peer-update', {
         socketId: socket.id,
@@ -211,8 +212,8 @@ function initCubesSocket(io) {
         boosting: state.boosting,
         segments: state.segments,
         score: state.score,
-        name: myPlayerInfo ? myPlayerInfo.name : state.name,
-        hue: myPlayerInfo ? myPlayerInfo.hue : state.hue,
+        name: myPlayerInfo.name || state.name,
+        hue: myPlayerInfo.hue || state.hue,
       });
     });
 
@@ -228,9 +229,12 @@ function initCubesSocket(io) {
       const vId = victimSocketId || socket.id;
       const room = activeRooms.get(currentRoomCode);
       let victimName = myPlayerInfo ? myPlayerInfo.name : 'Player';
-      if (room && victimSocketId) {
-        const vInfo = room.players.get(victimSocketId);
-        if (vInfo) victimName = vInfo.name;
+      if (room && vId) {
+        const vInfo = room.players.get(vId);
+        if (vInfo) {
+          victimName = vInfo.name;
+          vInfo.alive = false; // Mark player dead on server
+        }
       }
 
       nsp.to(currentRoomCode).emit('player-death', {
@@ -249,7 +253,10 @@ function initCubesSocket(io) {
       let victimName = 'Player';
       if (room && victimSocketId) {
         const vInfo = room.players.get(victimSocketId);
-        if (vInfo) victimName = vInfo.name;
+        if (vInfo) {
+          victimName = vInfo.name;
+          vInfo.alive = false; // Mark player dead on server
+        }
       }
       nsp.to(currentRoomCode).emit('player-death', {
         killerId: socket.id,
@@ -296,6 +303,34 @@ function initCubesSocket(io) {
           points: points || 0,
         });
       }
+    });
+
+    // ── Player Respawn in Same Match ──
+    socket.on('player-respawn', ({ x, y, segments, angle }) => {
+      if (!currentRoomCode || !myPlayerInfo) return;
+      myPlayerInfo.alive = true;
+      myPlayerInfo.x = x;
+      myPlayerInfo.y = y;
+      myPlayerInfo.angle = angle || 0;
+      myPlayerInfo.segments = segments || [{ value: 2, x, y }];
+      myPlayerInfo.score = 2;
+
+      // Broadcast respawn to all room peers
+      socket.to(currentRoomCode).emit('player-respawned', {
+        socketId: socket.id,
+        x,
+        y,
+        angle: angle || 0,
+        segments: myPlayerInfo.segments,
+        name: myPlayerInfo.name,
+        hue: myPlayerInfo.hue,
+        score: 2,
+      });
+    });
+
+    // ── Leave Room Explicitly ──
+    socket.on('leave-room', () => {
+      leaveCurrentRoom();
     });
 
     // ── Disconnect ──

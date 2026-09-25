@@ -658,8 +658,8 @@ class Game {
       }
     }
 
-    // Prune dead bots (preserve local player, remote players, and remote bots)
-    this.entities = this.entities.filter(e => e.alive || e.isPlayer || e.isRemotePlayer || (e.isMultiplayerBot && !this.isHost));
+    // Prune dead entities (preserve only local player during gameover overlay)
+    this.entities = this.entities.filter(e => e.alive || e.isPlayer);
 
     // Respawn dead bots (in multiplayer, only host respawns bots!)
     if (!this.isMultiplayer || this.isHost) {
@@ -699,6 +699,11 @@ class Game {
   /* ── Update Single Entity ── */
   updateEntity(e, dt) {
     const head = e.segments[0];
+
+    // Invulnerability shield timer countdown (on respawn)
+    if (e.invulnerableTimer && e.invulnerableTimer > 0) {
+      e.invulnerableTimer = Math.max(0, e.invulnerableTimer - dt);
+    }
 
     // Boost handling
     if (e.isPlayer ? this.wantBoost : (e.aiState === 'chase' || e.aiState === 'flee')) {
@@ -1033,12 +1038,14 @@ class Game {
     for (let i = 0; i < this.entities.length; i++) {
       const a = this.entities[i];
       if (!a.alive || !a.segments.length) continue;
+      if (a.invulnerableTimer && a.invulnerableTimer > 0) continue;
       const aHead = a.segments[0];
 
       for (let j = 0; j < this.entities.length; j++) {
         if (i === j) continue;
         const b = this.entities[j];
         if (!b.alive || !b.segments.length) continue;
+        if (b.invulnerableTimer && b.invulnerableTimer > 0) continue;
 
         // Check a's head vs b's body segments
         for (let k = 0; k < b.segments.length; k++) {
@@ -1087,6 +1094,10 @@ class Game {
     if (!victim || !victim.segments || !victim.segments.length) return;
 
     const eaterHeadVal = eater.segments[0].value;
+    const victimLen = victim.segments.length;
+    const victimHead = victim.segments[0];
+    const victimScore = this.entityScore(victim);
+
     for (const seg of victim.segments) {
       if (seg.value <= eaterHeadVal) {
         this.attachCube(eater, seg.value, seg.x, seg.y);
@@ -1102,20 +1113,28 @@ class Game {
         });
       }
     }
-    this.spawnParticles(victim.segments[0].x, victim.segments[0].y, cubeColor(victim.segments[0].value), 20);
+    this.spawnParticles(victimHead.x, victimHead.y, cubeColor(victimHead.value), 20);
+
+    // Immediately kill and vanish victim
     victim.alive = false;
+    victim.segments = [];
+    this.entities = this.entities.filter(e => e !== victim);
 
     if (eater.isPlayer) {
       this.sound.eat();
       this.stats.botsEaten++;
-      this.stats.cubesEaten += victim.segments.length;
+      this.stats.cubesEaten += victimLen;
       if (this.isMultiplayer && this.multiplayer && victim.isRemotePlayer) {
-        this.multiplayer.broadcastKill(victim.socketId, this.entityScore(victim));
+        this.multiplayer.broadcastKill(victim.socketId, victimScore);
       }
     }
 
-    if (this.isMultiplayer && this.multiplayer && victim.isMultiplayerBot) {
-      this.multiplayer.broadcastBotKilled(victim.botId, victim.name, eater ? eater.name : null);
+    if (this.isMultiplayer && this.multiplayer) {
+      if (victim.isRemotePlayer) {
+        this.multiplayer.removeRemotePlayer(victim.socketId);
+      } else if (victim.isMultiplayerBot) {
+        this.multiplayer.broadcastBotKilled(victim.botId, victim.name, eater ? eater.name : null);
+      }
     }
 
     if (victim.isPlayer) {
@@ -1161,11 +1180,16 @@ class Game {
 
     if (victim.segments.length === 0) {
       victim.alive = false;
-      if (eater.isPlayer && victim.isRemotePlayer && this.isMultiplayer && this.multiplayer) {
-        this.multiplayer.broadcastKill(victim.socketId, this.entityScore(victim));
-      }
-      if (victim.isMultiplayerBot && this.isMultiplayer && this.multiplayer) {
-        this.multiplayer.broadcastBotKilled(victim.botId, victim.name, eater ? eater.name : null);
+      this.entities = this.entities.filter(e => e !== victim);
+      if (this.isMultiplayer && this.multiplayer) {
+        if (victim.isRemotePlayer) {
+          this.multiplayer.removeRemotePlayer(victim.socketId);
+          if (eater.isPlayer) {
+            this.multiplayer.broadcastKill(victim.socketId, this.entityScore(victim));
+          }
+        } else if (victim.isMultiplayerBot) {
+          this.multiplayer.broadcastBotKilled(victim.botId, victim.name, eater ? eater.name : null);
+        }
       }
     } else {
       victim.currentAnim = null;
@@ -1210,13 +1234,22 @@ class Game {
     if (victim.segments[0]) {
       this.spawnParticles(victim.segments[0].x, victim.segments[0].y, '#f87171', 25);
     }
-    victim.alive = false;
+    const victimScore = this.entityScore(victim);
 
-    if (killer && killer.isPlayer && victim.isRemotePlayer && this.isMultiplayer && this.multiplayer) {
-      this.multiplayer.broadcastKill(victim.socketId, this.entityScore(victim));
-    }
-    if (victim.isMultiplayerBot && this.isMultiplayer && this.multiplayer) {
-      this.multiplayer.broadcastBotKilled(victim.botId, victim.name, killer ? killer.name : null);
+    // Immediately kill and vanish victim
+    victim.alive = false;
+    victim.segments = [];
+    this.entities = this.entities.filter(e => e !== victim);
+
+    if (this.isMultiplayer && this.multiplayer) {
+      if (victim.isRemotePlayer) {
+        this.multiplayer.removeRemotePlayer(victim.socketId);
+        if (killer && killer.isPlayer) {
+          this.multiplayer.broadcastKill(victim.socketId, victimScore);
+        }
+      } else if (victim.isMultiplayerBot) {
+        this.multiplayer.broadcastBotKilled(victim.botId, victim.name, killer ? killer.name : null);
+      }
     }
 
     if (victim.isPlayer) {
@@ -1418,9 +1451,6 @@ class Game {
 
     if (this.isMultiplayer && this.multiplayer) {
       this.multiplayer.showToast(`💥 ${reason || 'You were eliminated!'}`, 'error');
-      setTimeout(() => {
-        if (this.multiplayer) this.multiplayer.leave();
-      }, 500);
     }
 
     const ov = document.getElementById('gameover-overlay');
@@ -1431,10 +1461,48 @@ class Game {
       sub.textContent = reason || 'You were consumed by a bigger snake!';
     }
 
+    const restartText = document.getElementById('btn-restart-text');
+    const leaveText = document.getElementById('btn-leave-text');
+    if (this.isMultiplayer) {
+      if (restartText) restartText.textContent = 'RESPAWN';
+      if (leaveText) leaveText.textContent = 'LEAVE ROOM';
+    } else {
+      if (restartText) restartText.textContent = 'PLAY AGAIN';
+      if (leaveText) leaveText.textContent = 'MAIN MENU';
+    }
+
     document.getElementById('go-score').textContent = formatNum(this.stats.maxScore);
     document.getElementById('go-cubes').textContent = this.stats.cubesEaten;
     document.getElementById('go-merges').textContent = this.stats.merges;
     document.getElementById('go-time').textContent = Math.floor(this.stats.timeSurvived) + 's';
+  }
+
+  /* ── Respawn in Same Arena ── */
+  respawnPlayer() {
+    const ov = document.getElementById('gameover-overlay');
+    if (ov) ov.classList.add('hidden');
+
+    const name = (this.player && this.player.name) ? this.player.name : 'Player';
+    const rx = rand(400, ARENA_W - 400);
+    const ry = rand(400, ARENA_H - 400);
+
+    this.player = this.createEntity(name, rx, ry, true, 2, 1);
+    this.player.invulnerableTimer = 2.5; // 2.5s shield against spawn-killing
+    this.entities = this.entities.filter(e => !e.isPlayer);
+    this.entities.push(this.player);
+
+    this.cam.x = rx;
+    this.cam.y = ry;
+    this.state = 'playing';
+    this.elapsed = 0;
+    this.wantBoost = false;
+    this.joystickAngle = null;
+    this.stats = { maxScore: 2, cubesEaten: 0, merges: 0, botsEaten: 0, timeSurvived: 0 };
+
+    if (this.isMultiplayer && this.multiplayer) {
+      this.multiplayer.respawn(rx, ry, this.player.segments, this.player.angle);
+      this.multiplayer.showToast('⚡ Respawned! 2.5s shield active', 'info');
+    }
   }
 
   /* ═══════════════════════════════════════════
@@ -1701,6 +1769,25 @@ class Game {
       ctx.fillStyle = '#e2e8f0';
     }
     ctx.fillText(displayName, hsx, nameY);
+
+    // Invulnerability shield effect (e.g. on respawn)
+    if (entity.invulnerableTimer && entity.invulnerableTimer > 0) {
+      const shieldHead = renderPositions[0];
+      const ssx = this.w2sx(shieldHead.x);
+      const ssy = this.w2sy(shieldHead.y);
+      const shieldRadius = CUBE_SIZE * 0.9 * this.cam.zoom * (1 + Math.sin(this.elapsed * 0.01) * 0.08);
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.beginPath();
+      ctx.arc(ssx, ssy, shieldRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   /* ── Draw Single Cube ── */
@@ -1991,14 +2078,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Game over overlay: Play Again returns to start menu with choices
+  // Game over overlay: Respawn / Play Again & Leave Room
   const restartBtn = document.getElementById('btn-restart');
   if (restartBtn) {
     restartBtn.addEventListener('click', () => {
       const goOverlay = document.getElementById('gameover-overlay');
       if (goOverlay) goOverlay.classList.add('hidden');
+      if (game.isMultiplayer) {
+        game.respawnPlayer();
+      } else {
+        game.startGame(game.player ? game.player.name : 'Player', false);
+      }
+    });
+  }
+
+  const leaveRoomBtn = document.getElementById('btn-leave-room');
+  if (leaveRoomBtn) {
+    leaveRoomBtn.addEventListener('click', () => {
+      const goOverlay = document.getElementById('gameover-overlay');
+      if (goOverlay) goOverlay.classList.add('hidden');
       const roomBadge = document.getElementById('mp-room-badge');
       if (roomBadge) roomBadge.classList.add('hidden');
+      if (game.isMultiplayer && game.multiplayer) {
+        game.multiplayer.leave();
+      }
+      game.state = 'menu';
       if (startOverlay) startOverlay.classList.remove('hidden');
     });
   }

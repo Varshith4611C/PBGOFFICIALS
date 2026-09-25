@@ -207,9 +207,14 @@
         </div>
       </div>
 
-      <button class="btn-play" id="btn-restart">
-        <i class="fas fa-rotate-right"></i> PLAY AGAIN
-      </button>
+      <div class="go-actions" style="display:flex;gap:12px;width:100%;margin-top:14px;">
+        <button class="btn-play" id="btn-restart" style="flex:1;">
+          <i class="fas fa-rotate-right" id="btn-restart-icon"></i> <span id="btn-restart-text">PLAY AGAIN</span>
+        </button>
+        <button class="btn-play" id="btn-leave-room" style="flex:1;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;">
+          <i class="fas fa-door-open"></i> <span id="btn-leave-text">LEAVE</span>
+        </button>
+      </div>
     </div>
   </div>
 

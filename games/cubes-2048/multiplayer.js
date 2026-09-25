@@ -15,6 +15,8 @@ class CubesMultiplayerClient {
     this.broadcastInterval = 40; // 25Hz broadcast rate
     this.remotePlayers = new Map(); // socketId -> remoteEntity
     this.remoteBots = new Map(); // botId -> remoteBotEntity
+    this.eliminatedPlayers = new Map(); // socketId -> timestamp
+    this.eliminatedBots = new Map(); // botId -> timestamp
 
     this.initSocket();
   }
@@ -59,7 +61,10 @@ class CubesMultiplayerClient {
         this.roomCode = roomCode;
         this.isHost = isHost;
         this.playerId = player.socketId;
+        this.remotePlayers.clear();
         this.remoteBots.clear();
+        this.eliminatedPlayers.clear();
+        this.eliminatedBots.clear();
         this.onRoomJoined(roomCode, isHost);
         this.showToast(`Private room created: ${roomCode}`, 'success');
       });
@@ -70,6 +75,8 @@ class CubesMultiplayerClient {
         this.playerId = player.socketId;
         this.remotePlayers.clear();
         this.remoteBots.clear();
+        this.eliminatedPlayers.clear();
+        this.eliminatedBots.clear();
 
         // 1. FIRST start game arena so game is running and player is spawned
         this.onRoomJoined(roomCode, isHost);
@@ -90,6 +97,8 @@ class CubesMultiplayerClient {
       });
 
       this.socket.on('player-joined', ({ player }) => {
+        if (!player || !player.socketId) return;
+        this.eliminatedPlayers.delete(player.socketId); // Clear any prior elimination so player is visible for next match!
         this.registerRemotePlayer(player);
         this.showToast(`🌐 ${player.name} joined the arena!`, 'info');
         // Immediately broadcast our state so the new player gets our coordinates right away
@@ -125,6 +134,14 @@ class CubesMultiplayerClient {
         this.handlePeerUpdate(data);
       });
 
+      // ── Remote Player Respawned in Match ──
+      this.socket.on('player-respawned', (data) => {
+        if (!data || !data.socketId || data.socketId === this.playerId) return;
+        this.eliminatedPlayers.delete(data.socketId);
+        this.registerRemotePlayer(data);
+        this.showToast(`⚡ ${data.name || 'A player'} respawned!`, 'info');
+      });
+
       // ── Host Bots State Sync (for guests) ──
       this.socket.on('bots-update', ({ bots }) => {
         if (!this.isHost && bots) {
@@ -150,6 +167,9 @@ class CubesMultiplayerClient {
         if (victimId === this.playerId) {
           // Local player was eliminated
           if (this.game && this.game.player && this.game.player.alive) {
+            if (this.game.player.invulnerableTimer && this.game.player.invulnerableTimer > 0) {
+              return; // Protected by respawn shield!
+            }
             this.game.player.alive = false;
             this.game.gameOver(isBot ? `Defeated by bot ${killerName}!` : `Consumed by ${killerName}!`);
           }
@@ -167,6 +187,7 @@ class CubesMultiplayerClient {
       // ── Tail Cut Event ──
       this.socket.on('player-was-cut', ({ cutIndex, cutterName }) => {
         if (!this.game || !this.game.player || !this.game.player.alive) return;
+        if (this.game.player.invulnerableTimer && this.game.player.invulnerableTimer > 0) return;
         const p = this.game.player;
         if (p.segments && cutIndex < p.segments.length) {
           const cut = p.segments.splice(cutIndex);
@@ -270,6 +291,9 @@ class CubesMultiplayerClient {
   registerRemotePlayer(info) {
     if (!info || !info.socketId || info.socketId === this.playerId) return;
 
+    // A registration (from joined-room or player-joined) means this player is entering/re-entering the match!
+    this.eliminatedPlayers.delete(info.socketId);
+
     let remote = this.remotePlayers.get(info.socketId);
     if (!remote || !this.game.entities.includes(remote)) {
       remote = this.game.createRemoteEntity(
@@ -299,17 +323,38 @@ class CubesMultiplayerClient {
   }
 
   removeRemotePlayer(socketId) {
+    if (!socketId) return;
+    this.eliminatedPlayers.set(socketId, Date.now()); // Record elimination timestamp
     const remote = this.remotePlayers.get(socketId);
     if (remote) {
       remote.alive = false;
+      remote.segments = [];
       this.remotePlayers.delete(socketId);
-      // Remove from entities
-      this.game.entities = this.game.entities.filter(e => e !== remote);
+    }
+    if (this.game && this.game.entities) {
+      for (const e of this.game.entities) {
+        if (e.socketId === socketId) {
+          e.alive = false;
+          e.segments = [];
+        }
+      }
+      this.game.entities = this.game.entities.filter(e => e.socketId !== socketId);
     }
   }
 
   handlePeerUpdate(data) {
     if (!data || !data.socketId || data.socketId === this.playerId) return;
+
+    // Drop stale in-flight packets within 1500ms of elimination so the dead corpse does not revive.
+    // After 1500ms (or upon player-joined), the player is allowed to rejoin/respawn cleanly.
+    const killedAt = this.eliminatedPlayers.get(data.socketId);
+    if (killedAt) {
+      if (Date.now() - killedAt < 1500) {
+        return;
+      } else {
+        this.eliminatedPlayers.delete(data.socketId);
+      }
+    }
 
     let remote = this.remotePlayers.get(data.socketId);
     if (!remote || !this.game.entities.includes(remote)) {
@@ -366,7 +411,10 @@ class CubesMultiplayerClient {
     // If host, also broadcast multiplayer bots states to all guests
     if (this.isHost && this.game && this.game.entities) {
       const botStates = [];
+      const now = Date.now();
       for (const e of this.game.entities) {
+        const killedAt = this.eliminatedBots.get(e.botId);
+        if (killedAt && now - killedAt < 2000) continue;
         if (e.isMultiplayerBot && e.alive && e.segments && e.segments.length) {
           botStates.push({
             botId: e.botId,
@@ -391,8 +439,17 @@ class CubesMultiplayerClient {
     if (!bots || !Array.isArray(bots) || this.isHost) return;
 
     const activeBotIds = new Set();
+    const now = Date.now();
     for (const b of bots) {
       if (!b || !b.botId) continue;
+      const killedAt = this.eliminatedBots.get(b.botId);
+      if (killedAt) {
+        if (now - killedAt < 2000) {
+          continue; // Never re-create an eliminated bot within 2s of kill
+        } else {
+          this.eliminatedBots.delete(b.botId);
+        }
+      }
       activeBotIds.add(b.botId);
 
       let botEnt = this.remoteBots.get(b.botId);
@@ -431,17 +488,28 @@ class CubesMultiplayerClient {
   }
 
   removeRemoteBot(botId) {
+    if (!botId) return;
+    this.eliminatedBots.set(botId, Date.now());
     const b = this.remoteBots.get(botId);
     if (b) {
       b.alive = false;
+      b.segments = [];
       this.remoteBots.delete(botId);
-      if (this.game) {
-        this.game.entities = this.game.entities.filter(e => e !== b);
+    }
+    if (this.game && this.game.entities) {
+      for (const e of this.game.entities) {
+        if (e.botId === botId) {
+          e.alive = false;
+          e.segments = [];
+        }
       }
+      this.game.entities = this.game.entities.filter(e => e.botId !== botId);
     }
   }
 
   broadcastBotKilled(botId, botName, killerName) {
+    if (!botId) return;
+    this.removeRemoteBot(botId); // Immediately purge locally
     if (!this.socket || !this.connected || !this.roomCode) return;
     this.socket.emit('bot-killed', {
       botId,
@@ -456,6 +524,8 @@ class CubesMultiplayerClient {
   }
 
   broadcastKill(victimSocketId, points) {
+    if (!victimSocketId) return;
+    this.removeRemotePlayer(victimSocketId); // Immediately purge locally
     if (!this.socket || !this.connected || !this.roomCode) return;
     this.socket.emit('player-eliminated', { victimSocketId, points });
   }
@@ -486,6 +556,22 @@ class CubesMultiplayerClient {
     });
   }
 
+  respawn(x, y, segments, angle) {
+    if (!this.socket || !this.connected || !this.roomCode) return;
+    this.eliminatedPlayers.delete(this.playerId);
+    const segs = segments && segments.length
+      ? segments.map(s => ({ value: s.value, x: Math.round(s.x), y: Math.round(s.y) }))
+      : [{ value: 2, x: Math.round(x), y: Math.round(y) }];
+
+    this.socket.emit('player-respawn', {
+      x: Math.round(x),
+      y: Math.round(y),
+      segments: segs,
+      angle: angle || 0,
+    });
+    this.broadcastState(performance.now(), true);
+  }
+
   leave() {
     if (this.socket && this.connected) {
       this.socket.emit('leave-room');
@@ -493,6 +579,8 @@ class CubesMultiplayerClient {
     this.roomCode = null;
     this.remotePlayers.clear();
     this.remoteBots.clear();
+    this.eliminatedPlayers.clear();
+    this.eliminatedBots.clear();
     const roomBadge = document.getElementById('mp-room-badge');
     if (roomBadge) roomBadge.classList.add('hidden');
   }
