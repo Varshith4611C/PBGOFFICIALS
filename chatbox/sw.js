@@ -1,5 +1,5 @@
 // PBG Service Worker for PWA and Background Media Persistence
-const CACHE_NAME = 'pbg-cache-v1';
+const CACHE_NAME = 'pbg-cache-v4';
 const PRECACHE_ASSETS = [
   '/chatbox/',
   '/chatbox/index.html',
@@ -35,9 +35,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network first for HTML/JS/CSS to ensure fresh updates, falling back to cache
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => cachedResponse);
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

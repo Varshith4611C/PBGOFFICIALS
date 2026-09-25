@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
   next();
 });
@@ -363,6 +363,11 @@ function getNetworkIP() {
 
 const networkIP = getNetworkIP();
 
+// Handle mDNS errors gracefully
+mdns.on('error', (err) => {
+  console.warn('[mDNS Error]:', err && err.message ? err.message : err);
+});
+
 // Respond to mDNS queries for "pbg.local"
 mdns.on('query', (query) => {
   const dominated = query.questions.filter(q =>
@@ -378,6 +383,15 @@ mdns.on('query', (query) => {
       }]
     });
   }
+});
+
+// Process-level crash prevention
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Unhandled Rejection]:', reason);
 });
 
 httpServer.listen(PORT, () => {

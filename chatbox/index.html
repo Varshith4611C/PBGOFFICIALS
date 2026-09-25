@@ -33,7 +33,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.4" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 <body>
@@ -187,10 +187,119 @@
         </div>
       </section>
 
+      <!-- ══════ MUSIC VIDEO STAGE (Music Room — Watch Video & Listen in Real-Time Sync) ══════ -->
+      <section class="music-stage" id="musicStage" style="display: none;">
+        <!-- Music Stage Header Bar -->
+        <div class="music-stage-header">
+          <div class="music-stage-title-wrap">
+            <span class="music-stage-badge" id="musicStageBadge"><i class="fas fa-play"></i> NOW PLAYING</span>
+            <div class="music-stage-titles">
+              <h2 class="music-stage-title" id="musicStageTitle">Lofi Chillout Radio</h2>
+              <span class="music-stage-artist" id="musicStageArtist">SomaFM • 24/7 Live Radio</span>
+            </div>
+          </div>
+          <div class="music-stage-controls">
+            <button class="music-stage-btn music-stage-btn-primary" id="musicStageTogglePlay" title="Play / Pause for Room">
+              <i class="fas fa-pause"></i> <span class="music-stage-btn-text">Pause</span>
+            </button>
+            <button class="music-stage-btn" id="musicStageSkipBtn" title="Next Track / Station"><i class="fas fa-forward-step"></i> <span class="btn-text-hide">Skip</span></button>
+            <button class="music-stage-btn" id="musicStageResyncBtn" title="Resync Video & Audio with Room"><i class="fas fa-arrows-rotate"></i> <span class="btn-text-hide">Sync</span></button>
+            <button class="music-stage-btn" id="musicStageSearchToggle" title="Search YouTube / Add Songs"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="music-stage-btn" id="musicStageLibToggle" title="Open Music Library"><i class="fas fa-compact-disc"></i> Library</button>
+            <button class="music-stage-btn" id="musicStageQueueToggle" title="View Queue"><i class="fas fa-list"></i> <span class="music-queue-badge" id="musicStageQueueBadge" style="display: none;">0</span></button>
+            <a href="#" target="_blank" class="music-stage-btn" id="musicStageDirectYtBtn" title="Open Video on YouTube" rel="noopener noreferrer"><i class="fab fa-youtube" style="color: #ef4444;"></i></a>
+            <button class="music-stage-btn" id="musicStageTheaterBtn" title="Toggle Theater Mode"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+
+        <!-- Music Search & Add Drawer -->
+        <div class="music-stage-drawer" id="musicStageSearchDrawer" style="display: none;">
+          <div class="music-stage-search-wrap">
+            <i class="fab fa-youtube" style="color: #ef4444;"></i>
+            <input type="text" id="musicStageSearchInput" placeholder="Search YouTube or paste URL (e.g. YOASOBI Idol, Chainsaw Man)..." autocomplete="off" />
+            <button class="music-stage-search-btn" id="musicStageSearchBtn"><i class="fas fa-search"></i> Search</button>
+            <button class="music-stage-drawer-close" id="musicStageSearchClose" aria-label="Close search"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="music-stage-search-results" id="musicStageSearchResults" style="display: none;"></div>
+        </div>
+
+        <!-- Music Queue Drawer -->
+        <div class="music-stage-drawer" id="musicStageQueueDrawer" style="display: none;">
+          <div class="music-stage-drawer-head">
+            <span><i class="fas fa-list"></i> Upcoming Songs Queue (<span id="musicStageQueueCount">0</span>)</span>
+            <button class="music-stage-drawer-close" id="musicStageQueueClose" aria-label="Close queue"><i class="fas fa-xmark"></i></button>
+          </div>
+          <ul class="music-stage-queue-list" id="musicStageQueueList"></ul>
+        </div>
+
+        <!-- Video Player Stage Screen -->
+        <div class="music-player-wrap" id="musicPlayerWrap">
+          <div class="music-video-container" id="musicVideoContainer">
+            <iframe id="musicIframe" src="" playsinline="1" webkit-playsinline="1" referrerpolicy="no-referrer-when-downgrade" allow="accelerometer; autoplay *; clipboard-write; encrypted-media *; gyroscope; picture-in-picture *; web-share" allowfullscreen></iframe>
+          </div>
+
+          <!-- Ambient Glow for dynamic video lighting -->
+          <div class="music-video-ambient-glow" id="musicVideoGlow"></div>
+
+          <!-- Mobile Tap-to-Play Audio & Video Unlock Overlay -->
+          <div class="music-mobile-play-overlay" id="musicMobilePlayOverlay" style="display: none;">
+            <div class="mpo-card">
+              <div class="mpo-icon"><i class="fas fa-play"></i></div>
+              <div class="mpo-text">
+                <h4 id="mpoTitle">Tap to Play Music & Video</h4>
+                <p id="mpoSub">Mobile browsers require 1 tap to start synchronized playback</p>
+              </div>
+              <button class="mpo-btn" id="musicMobilePlayBtn"><i class="fas fa-volume-high"></i> Start Playing</button>
+            </div>
+          </div>
+
+          <!-- YouTube Restricted/Unavailable Fallback Card -->
+          <div class="music-restricted-fallback" id="musicRestrictedFallback" style="display: none;">
+            <div class="mrf-card">
+              <div class="mrf-icon"><i class="fab fa-youtube"></i></div>
+              <div class="mrf-text">
+                <h4 id="mrfTitle">Video Embedding Restricted</h4>
+                <p id="mrfDesc">The copyright owner restricted external playback for this video. We found an alternate version for you.</p>
+              </div>
+              <div class="mrf-actions">
+                <button class="mrf-btn mrf-btn-primary" id="mrfSwitchAlternateBtn"><i class="fas fa-arrows-rotate"></i> Try Alternate Version</button>
+                <a href="#" target="_blank" class="mrf-btn mrf-btn-secondary" id="mrfDirectLink" rel="noopener noreferrer"><i class="fas fa-arrow-up-right-from-square"></i> Open in YouTube</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Video Overlay Banner -->
+          <div class="music-video-track-overlay" id="musicVideoTrackOverlay">
+            <div class="mvo-vinyl" id="musicStageVinyl">
+              <i class="fas fa-music"></i>
+            </div>
+            <div class="mvo-info">
+              <span class="mvo-status" id="musicVideoStatus">LIVE 24/7 VIDEO</span>
+              <div class="mvo-title" id="musicVideoOverlayTitle">Lofi Chillout Radio</div>
+              <div class="mvo-sub" id="musicVideoOverlaySub">24/7 Ambient Beats</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Music Stage Bottom Toolbar (Radio Station Switcher) -->
+        <div class="music-stage-bottom-bar">
+          <div class="music-stage-stations-row">
+            <span class="ms-stations-label"><i class="fas fa-tower-broadcast"></i> 24/7 Radio:</span>
+            <div class="music-stage-pills" id="musicStagePills">
+              <!-- Dynamically populated live radio pills -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Audio Elements for Radio Streams & Background Audio -->
+        <audio id="realRadioAudio" preload="auto" style="display: none;"></audio>
+        <audio id="bgAudioAnchor" loop preload="auto" style="display: none;"></audio>
+      </section>
+
       <!-- Main Chat Area (Full height & width, with Music Deck when in Music Room) -->
       <main class="chat-main" id="chatMain">
 
-        <!-- ══════ MUSIC AUDIO DECK (Music Room — 24/7 Live Radio, Library & Shared Beats) ══════ -->
+        <!-- ══════ MUSIC AUDIO DECK (Compact Audio Bar) ══════ -->
         <div class="music-audio-deck" id="musicAudioDeck" style="display: none;">
           <div class="music-deck-main">
             <!-- Vinyl / Equalizer Graphic -->
@@ -256,17 +365,6 @@
               </div>
               <ul class="music-queue-items" id="musicQueueList"></ul>
             </div>
-          </div>
-
-          <!-- HTML5 Live Audio Element for 24/7 Web Radios (Direct Stream) -->
-          <audio id="realRadioAudio" preload="auto" style="display: none;"></audio>
-
-          <!-- Background Audio Anchor for Mobile MediaSession & YouTube Background Playback -->
-          <audio id="bgAudioAnchor" loop preload="auto" style="display: none;"></audio>
-
-          <!-- Hidden YouTube Audio Engine with API enabled -->
-          <div class="music-audio-engine" style="position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; overflow: hidden;">
-            <iframe id="musicIframe" src="" allow="autoplay; encrypted-media" style="width: 1px; height: 1px;"></iframe>
           </div>
         </div>
 
@@ -417,6 +515,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+  <script src="script.js?v=2.4"></script>
 </body>
 </html>

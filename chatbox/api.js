@@ -47,6 +47,7 @@ const RADIO_STATIONS = [
     tag: 'Lofi', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/groovesalad-128-mp3'),
+    videoId: 'lTRiuFIWV54', // 1 A.M Study Session / Lofi Girl Official Release
     icon: '🎧'
   },
   { 
@@ -56,6 +57,7 @@ const RADIO_STATIONS = [
     tag: 'Anime', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/lush-128-mp3'),
+    videoId: 'x_DXS14SXmc', // YOASOBI Idol / Anime music video
     icon: '🎌'
   },
   { 
@@ -65,6 +67,7 @@ const RADIO_STATIONS = [
     tag: 'Synthwave', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/vaporwaves-128-mp3'),
+    videoId: '4xDzrJKXOOY', // Lazerhawk Overdrive / Synthwave retro neon
     icon: '🌆'
   },
   { 
@@ -74,6 +77,7 @@ const RADIO_STATIONS = [
     tag: 'Gaming', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/defcon-128-mp3'),
+    videoId: 'CID-sYQNCew', // Attack on Titan / Gaming energy
     icon: '🎮'
   },
   { 
@@ -83,6 +87,7 @@ const RADIO_STATIONS = [
     tag: 'Chillhop', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/secretagent-128-mp3'),
+    videoId: 'DWcJFNfaw9c', // Lofi Sleep & Chillout Beats
     icon: '☕'
   },
   { 
@@ -92,6 +97,7 @@ const RADIO_STATIONS = [
     tag: 'EDM', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/beatblender-128-mp3'),
+    videoId: 'M2cckDmNLMI', // Chainsaw Man KICK BACK
     icon: '⚡'
   },
   { 
@@ -101,6 +107,7 @@ const RADIO_STATIONS = [
     tag: 'Ambient', 
     type: 'stream',
     streamUrl: '/api/music/radio-proxy?url=' + encodeURIComponent('https://ice1.somafm.com/dronezone-128-mp3'),
+    videoId: 'a2GujJZfXpg', // RADWIMPS Sparkle (Your Name)
     icon: '🌌'
   },
 ];
@@ -108,7 +115,7 @@ const RADIO_STATIONS = [
 // ── Curated Library Tracks (Verified 200 OK Embeddable Hits) ──
 const MUSIC_LIBRARY = [
   // Anime Hits
-  { id: 'lib-idol', title: 'Idol (Oshi no Ko OP)', artist: 'YOASOBI', category: 'Anime Hits', videoId: 'ZRtdQ81jPUQ', type: 'youtube' },
+  { id: 'lib-idol', title: 'Idol (Oshi no Ko OP)', artist: 'YOASOBI', category: 'Anime Hits', videoId: 'x_DXS14SXmc', type: 'youtube' },
   { id: 'lib-kickback', title: 'KICK BACK (Chainsaw Man OP)', artist: 'Kenshi Yonezu', category: 'Anime Hits', videoId: 'M2cckDmNLMI', type: 'youtube' },
   { id: 'lib-peacesign', title: 'Peace Sign (My Hero Academia OP)', artist: 'Kenshi Yonezu', category: 'Anime Hits', videoId: '9aJVr5tTTWk', type: 'youtube' },
   { id: 'lib-crybaby', title: 'Cry Baby (Tokyo Revengers OP)', artist: 'Official HIGE DANdism', category: 'Anime Hits', videoId: 'O1bhZgkC4Gw', type: 'youtube' },
@@ -156,6 +163,7 @@ const musicState = {
     tag: RADIO_STATIONS[0].tag,
     type: RADIO_STATIONS[0].type,
     streamUrl: RADIO_STATIONS[0].streamUrl,
+    videoId: RADIO_STATIONS[0].videoId,
     addedBy: 'PBG Radio 24/7',
   },
   stations: RADIO_STATIONS,
@@ -389,6 +397,7 @@ function initChatSocket(io) {
         tag: station.tag,
         type: 'stream',
         streamUrl: station.streamUrl,
+        videoId: station.videoId || 'lTRiuFIWV54',
         addedBy: user.username,
       };
       musicState.isPlaying = true;
@@ -606,6 +615,7 @@ function initChatSocket(io) {
           tag: nextStation.tag,
           type: 'stream',
           streamUrl: nextStation.streamUrl,
+          videoId: nextStation.videoId || 'jfKfPfyJRdk',
           addedBy: 'PBG Radio 24/7',
         };
         musicState.isPlaying = true;
