@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --config wrangler.toml",
+    "deploy": "wrangler deploy --config wrangler.toml",
     "db:create": "wrangler d1 create pbg-mail-db",
     "db:migrate": "wrangler d1 execute pbg-mail-db --file=schema.sql --remote",
     "db:migrate:local": "wrangler d1 execute pbg-mail-db --file=schema.sql --local",
