@@ -1,5 +1,5 @@
 // PBG Service Worker for PWA and Background Media Persistence
-const CACHE_NAME = 'pbg-cache-v4';
+const CACHE_NAME = 'pbg-cache-v7';
 const PRECACHE_ASSETS = [
   '/chatbox/',
   '/chatbox/index.html',

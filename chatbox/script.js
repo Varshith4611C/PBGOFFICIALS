@@ -158,6 +158,35 @@
   const cinemaQuickPills = document.getElementById('cinemaQuickPills');
   let currentAnimeServers = [];
 
+  // Gaming Stage Elements (WebRTC Screen Sharing)
+  const gamingStage = document.getElementById('gamingStage');
+  const gamingBadge = document.getElementById('gamingBadge');
+  const gamingStreamerTitle = document.getElementById('gamingStreamerTitle');
+  const gamingStreamerSub = document.getElementById('gamingStreamerSub');
+  const gamingLivePill = document.getElementById('gamingLivePill');
+  const gamingStartShareBtn = document.getElementById('gamingStartShareBtn');
+  const gamingStopShareBtn = document.getElementById('gamingStopShareBtn');
+  const gamingAudioToggle = document.getElementById('gamingAudioToggle');
+  const gamingPipBtn = document.getElementById('gamingPipBtn');
+  const gamingFullscreenBtn = document.getElementById('gamingFullscreenBtn');
+  const gamingTheaterBtn = document.getElementById('gamingTheaterBtn');
+  const gamingPlayerWrap = document.getElementById('gamingPlayerWrap');
+  const gamingStandby = document.getElementById('gamingStandby');
+  const gamingStandbyStartBtn = document.getElementById('gamingStandbyStartBtn');
+  const gamingVideoContainer = document.getElementById('gamingVideoContainer');
+  const gamingVideo = document.getElementById('gamingVideo');
+  const gamingGlow = document.getElementById('gamingGlow');
+  const gamingVideoOverlay = document.getElementById('gamingVideoOverlay');
+  const gamingOverlayAvatar = document.getElementById('gamingOverlayAvatar');
+  const gamingOverlayTitle = document.getElementById('gamingOverlayTitle');
+  const gamingOverlaySub = document.getElementById('gamingOverlaySub');
+  const gamingCameraBtn = document.getElementById('gamingCameraBtn');
+  const gamingStandbyCamBtn = document.getElementById('gamingStandbyCamBtn');
+  const gamingHttpsBanner = document.getElementById('gamingHttpsBanner');
+  const gamingHttpsLink = document.getElementById('gamingHttpsLink');
+  const gamingMobileUnmuteOverlay = document.getElementById('gamingMobileUnmuteOverlay');
+  const gamingMobileUnmuteBtn = document.getElementById('gamingMobileUnmuteBtn');
+
   // ── State ──
   let socket = null;
   let currentUser = null;
@@ -180,6 +209,21 @@
   let hlsInstance = null;
   let isRemoteAnimeSync = false;
   let lastSeekEmit = 0;
+
+  // Gaming Screen Sharing WebRTC State
+  let currentGamingState = null;
+  let localScreenStream = null;
+  let isSharingScreen = false;
+  const streamerPeerConnections = new Map(); // viewerSocketId -> RTCPeerConnection
+  let viewerPeerConnection = null;
+  let viewerRemoteStream = null;
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
 
   // ── Safe LocalStorage ──
   function getStoredUsername() {
@@ -385,6 +429,17 @@
       handleRemoteAnimeAction(action, currentTime, username);
     });
 
+    // Gaming room state & WebRTC signaling listeners
+    socket.on('gaming-state', (state) => {
+      currentGamingState = state;
+      updateGamingUI(state);
+      updateGamingBadge();
+    });
+
+    socket.on('gaming-signal', ({ from, fromUser, signal }) => {
+      handleGamingSignal(from, fromUser, signal);
+    });
+
     initMessageInput();
     initEmojiPicker();
     initSidebars();
@@ -394,6 +449,7 @@
     initMusicStage();
     initMusicLibrary();
     initCinemaStage();
+    initGamingStage();
     updateRoomView();
   }
 
@@ -411,6 +467,12 @@
         badge = '<span class="room-feature-badge badge-listen">🎵 Video & Song</span>';
       } else if (room.id === 'anime-manga') {
         badge = '<span class="room-feature-badge badge-watch">📺 Watch</span>';
+      } else if (room.id === 'gaming') {
+        if (currentGamingState && currentGamingState.isLive) {
+          badge = '<span class="room-feature-badge badge-live-stream"><span class="glp-dot"></span> LIVE</span>';
+        } else {
+          badge = '<span class="room-feature-badge badge-gaming">🖥️ Screen Share</span>';
+        }
       }
       li.innerHTML = `
         <span class="room-icon">${room.icon}</span>
@@ -433,6 +495,22 @@
 
   function switchRoom(roomId) {
     if (roomId === currentRoom) return;
+
+    // If switching away from gaming while streaming or viewing
+    if (currentRoom === 'gaming' && roomId !== 'gaming') {
+      if (isSharingScreen) {
+        stopScreenShare();
+      } else if (viewerPeerConnection) {
+        if (currentGamingState && currentGamingState.streamerId) {
+          socket.emit('gaming-signal', {
+            to: currentGamingState.streamerId,
+            signal: { type: 'viewer-leave' }
+          });
+        }
+        cleanupViewerConnection();
+      }
+    }
+
     currentRoom = roomId;
     lastMessageUser = null;
     lastMessageTime = 0;
@@ -506,6 +584,27 @@
       if (animeVideo) animeVideo.pause();
       const iframe = cinemaPlayerWrap ? cinemaPlayerWrap.querySelector('iframe.cinema-iframe') : null;
       if (iframe) iframe.src = 'about:blank';
+    }
+
+    if (currentRoom === 'gaming') {
+      if (gamingStage) gamingStage.style.display = 'flex';
+      chatLayout.classList.add('gaming-active');
+      if (currentGamingState) {
+        updateGamingUI(currentGamingState);
+      }
+      // If live and we are not the streamer and not connected yet, request stream
+      if (currentGamingState && currentGamingState.isLive && currentGamingState.streamerId !== socket?.id) {
+        if (!viewerPeerConnection) {
+          socket.emit('gaming-signal', {
+            to: currentGamingState.streamerId,
+            signal: { type: 'viewer-join' }
+          });
+        }
+      }
+    } else {
+      if (gamingStage) gamingStage.style.display = 'none';
+      chatLayout.classList.remove('gaming-active');
+      chatLayout.classList.remove('gaming-theater');
     }
 
     setTimeout(() => scrollToBottom(false), 50);
@@ -1013,6 +1112,7 @@
               videoId: item.videoId,
               title: item.title,
               artist: item.artist,
+              playNow: true,
             });
             musicUrlInput.value = '';
             musicQuickResults.style.display = 'none';
@@ -1025,6 +1125,7 @@
               videoId: item.videoId,
               title: item.title,
               artist: item.artist,
+              playNow: false,
             });
             const qBtn = row.querySelector('.music-quick-q');
             qBtn.innerHTML = '<i class="fas fa-check"></i>';
@@ -1079,6 +1180,7 @@
         videoId,
         title: `YouTube Track (${videoId})`,
         artist: currentUser?.username || 'Custom Audio',
+        playNow: true,
       });
       musicUrlInput.value = '';
       if (musicQuickResults) musicQuickResults.style.display = 'none';
@@ -1098,6 +1200,7 @@
         videoId: top.videoId,
         title: top.title,
         artist: top.artist,
+        playNow: true,
       });
       musicUrlInput.value = '';
       if (musicQuickResults) musicQuickResults.style.display = 'none';
@@ -1272,6 +1375,7 @@
           videoId,
           title: `YouTube Video (${videoId})`,
           artist: currentUser?.username || 'Custom Music',
+          playNow: true,
         });
         musicStageSearchInput.value = '';
         musicStageSearchDrawer.style.display = 'none';
@@ -1306,18 +1410,24 @@
               <div class="music-quick-artist">${escapeHtml(item.artist)}${item.duration ? ` • ${escapeHtml(item.duration)}` : ''}</div>
             </div>
             <div class="music-quick-actions">
-              <button class="music-quick-play" title="Play Video Now"><i class="fas fa-play"></i></button>
+              <button class="music-quick-play" title="Play Video Now"><i class="fas fa-play"></i> <span>Play</span></button>
               <button class="music-quick-q" title="Add to Queue"><i class="fas fa-plus"></i></button>
             </div>
           `;
 
           row.querySelector('.music-quick-play').addEventListener('click', (e) => {
             e.stopPropagation();
+            hideMobilePlayOverlay();
+            if (bgAudioAnchor) {
+              if (!bgAudioAnchor.src.startsWith('data:audio')) bgAudioAnchor.src = SILENT_AUDIO_URI;
+              bgAudioAnchor.play().catch(() => {});
+            }
             stopAllAudio();
             socket.emit('music-add', {
               videoId: item.videoId,
               title: item.title,
               artist: item.artist,
+              playNow: true,
             });
             musicStageSearchInput.value = '';
             musicStageSearchResults.style.display = 'none';
@@ -1330,6 +1440,7 @@
               videoId: item.videoId,
               title: item.title,
               artist: item.artist,
+              playNow: false,
             });
             const qBtn = row.querySelector('.music-quick-q');
             qBtn.innerHTML = '<i class="fas fa-check"></i>';
@@ -1586,9 +1697,9 @@
           }
         }
 
-        // Check if on a mobile or touch screen device and playback might need a tap
-        const isMobileTouch = window.innerWidth <= 860 || ('ontouchstart' in window);
-        if (state.isPlaying && isMobileTouch && currentRoom === 'music') {
+        // Check if on a mobile touch screen device and native audio hasn't started
+        const isMobilePhone = window.innerWidth <= 768 && ('ontouchstart' in window);
+        if (state.isPlaying && isMobilePhone && currentRoom === 'music' && bgAudioAnchor && bgAudioAnchor.paused) {
           showMobilePlayOverlay('Tap to Play Video & Sound', 'Tap to start synchronized YouTube music video with audio');
         } else if (!state.isPlaying) {
           hideMobilePlayOverlay();
@@ -1835,11 +1946,17 @@
 
       card.querySelector('.music-yt-play-btn').addEventListener('click', (e) => {
         e.stopPropagation();
+        hideMobilePlayOverlay();
+        if (bgAudioAnchor) {
+          if (!bgAudioAnchor.src.startsWith('data:audio')) bgAudioAnchor.src = SILENT_AUDIO_URI;
+          bgAudioAnchor.play().catch(() => {});
+        }
         stopAllAudio();
         socket.emit('music-add', {
           videoId: item.videoId,
           title: item.title,
           artist: item.artist,
+          playNow: true,
         });
         musicLibraryModal.style.display = 'none';
       });
@@ -1850,6 +1967,7 @@
           videoId: item.videoId,
           title: item.title,
           artist: item.artist,
+          playNow: false,
         });
         const btn = card.querySelector('.music-yt-queue-btn');
         btn.innerHTML = '<i class="fas fa-check"></i> Queued';
@@ -2488,6 +2606,564 @@
       cinemaTogglePlay.style.display = 'none';
       cinemaPrevEp.disabled = true;
       cinemaNextEp.disabled = true;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  GAMING ROOM — Real-Time WebRTC Screen Sharing & Gameplay Stream
+  // ════════════════════════════════════════════════════════════════
+
+  function initGamingStage() {
+    if (!gamingStage) return;
+
+    if (gamingStartShareBtn) {
+      gamingStartShareBtn.addEventListener('click', startScreenShare);
+    }
+    if (gamingStandbyStartBtn) {
+      gamingStandbyStartBtn.addEventListener('click', startScreenShare);
+    }
+    if (gamingCameraBtn) {
+      gamingCameraBtn.addEventListener('click', startCameraStream);
+    }
+    if (gamingStandbyCamBtn) {
+      gamingStandbyCamBtn.addEventListener('click', startCameraStream);
+    }
+    if (gamingStopShareBtn) {
+      gamingStopShareBtn.addEventListener('click', stopScreenShare);
+    }
+    if (gamingAudioToggle) {
+      gamingAudioToggle.addEventListener('click', toggleGamingAudio);
+    }
+    if (gamingPipBtn) {
+      gamingPipBtn.addEventListener('click', toggleGamingPip);
+    }
+    if (gamingFullscreenBtn) {
+      gamingFullscreenBtn.addEventListener('click', toggleGamingFullscreen);
+    }
+    if (gamingTheaterBtn) {
+      gamingTheaterBtn.addEventListener('click', toggleGamingTheater);
+    }
+    if (gamingHttpsLink) {
+      const httpsPort = location.port ? '3443' : '';
+      const portPart = httpsPort ? `:${httpsPort}` : '';
+      gamingHttpsLink.href = `https://${location.hostname}${portPart}${location.pathname}${location.search}`;
+    }
+    if (gamingMobileUnmuteBtn) {
+      gamingMobileUnmuteBtn.addEventListener('click', () => {
+        if (gamingVideo) {
+          gamingVideo.muted = false;
+          updateGamingAudioIcon();
+          if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'none';
+        }
+      });
+    }
+    if (gamingVideo) {
+      gamingVideo.addEventListener('click', () => {
+        if (gamingVideo.muted && viewerRemoteStream) {
+          gamingVideo.muted = false;
+          updateGamingAudioIcon();
+          if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'none';
+        }
+      });
+    }
+
+    checkHttpsBanner();
+  }
+
+  function checkHttpsBanner() {
+    if (!gamingHttpsBanner) return;
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    if (!window.isSecureContext && location.protocol === 'http:' && isMobile) {
+      gamingHttpsBanner.style.display = 'flex';
+    } else {
+      gamingHttpsBanner.style.display = 'none';
+    }
+  }
+
+  async function startScreenShare() {
+    // 1. Check for insecure context on mobile (HTTP over LAN IP)
+    if (!window.isSecureContext && location.protocol === 'http:') {
+      const httpsPort = location.port ? '3443' : '';
+      const portPart = httpsPort ? `:${httpsPort}` : '';
+      const httpsUrl = `https://${location.hostname}${portPart}${location.pathname}${location.search}`;
+      if (confirm('Mobile browsers (Chrome & Safari) require a secure connection (HTTPS) for screen sharing and camera streaming.\n\nWould you like to switch to HTTPS mode now?')) {
+        window.location.href = httpsUrl;
+        return;
+      }
+    }
+
+    if (currentGamingState && currentGamingState.isLive && currentGamingState.streamerId !== socket?.id) {
+      alert(`${currentGamingState.streamerName || 'Another player'} is currently streaming live. Please wait for them to finish or ask in chat!`);
+      return;
+    }
+
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    let stream = null;
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      try {
+        if (isMobile) {
+          // Mobile Android Chrome only supports basic video constraints (audio and displaySurface: monitor fail)
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: false
+          });
+        } else {
+          // Desktop Chrome / Edge / Firefox
+          try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+              video: {
+                cursor: 'always',
+                displaySurface: 'monitor',
+                frameRate: { ideal: 30, max: 60 }
+              },
+              audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+              }
+            });
+          } catch (deskErr) {
+            console.warn('[Gaming] Desktop high-spec constraints failed, retrying simple:', deskErr);
+            stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          }
+        }
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          console.log('[Gaming] Screen sharing was cancelled.');
+          return;
+        }
+        console.warn('[Gaming] Initial getDisplayMedia failed, trying fallback video: true', err);
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        } catch (fallbackErr) {
+          if (fallbackErr.name === 'NotAllowedError') return;
+          console.warn('[Gaming] Fallback getDisplayMedia failed:', fallbackErr);
+        }
+      }
+    }
+
+    // If getDisplayMedia is not available (mobile browsers on Android & iOS restrict web-based screen capture by OS policy):
+    if (!stream) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const useCam = confirm('Full screen sharing is restricted by mobile browsers (Android & iOS) due to system security.\n\nWould you like to stream your Mobile Camera / Desk Cam live to the room instead?\n\n(Tip: To share full screen or PC gameplay, open this room on a PC or Laptop)');
+        if (useCam) {
+          return startCameraStream();
+        }
+      } else {
+        alert('Media devices are not available in this browser. If you are on mobile, please make sure you are accessing via HTTPS (https://' + location.hostname + ':3443)');
+      }
+      return;
+    }
+
+    initStreamerBroadcast(stream, `${currentUser?.username || 'Player'}'s Screen`);
+  }
+
+  async function startCameraStream() {
+    if (!window.isSecureContext && location.protocol === 'http:') {
+      const httpsPort = location.port ? '3443' : '';
+      const portPart = httpsPort ? `:${httpsPort}` : '';
+      const httpsUrl = `https://${location.hostname}${portPart}${location.pathname}${location.search}`;
+      if (confirm('Mobile camera streaming requires HTTPS.\n\nSwitch to HTTPS mode now?')) {
+        window.location.href = httpsUrl;
+        return;
+      }
+    }
+
+    if (currentGamingState && currentGamingState.isLive && currentGamingState.streamerId !== socket?.id) {
+      alert(`${currentGamingState.streamerName || 'Another player'} is currently streaming live. Please wait for them to finish!`);
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Camera access is not supported by your browser or requires HTTPS (https://' + location.hostname + ':3443).');
+      return;
+    }
+
+    try {
+      // Use back camera by default for streaming handheld game/desk/screen
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      initStreamerBroadcast(stream, `📷 ${currentUser?.username || 'Player'}'s Game Cam`);
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        console.log('[Gaming] Camera access cancelled.');
+        return;
+      }
+      try {
+        // Fallback without audio constraint in case microphone was blocked
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        });
+        initStreamerBroadcast(stream, `📷 ${currentUser?.username || 'Player'}'s Game Cam`);
+      } catch (err2) {
+        try {
+          // Final fallback to any available camera (front or rear)
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          initStreamerBroadcast(stream, `📷 ${currentUser?.username || 'Player'}'s Cam`);
+        } catch (err3) {
+          alert('Could not start camera stream: ' + (err3.message || err3.name) + '\n\nNote: If using Chrome on mobile with self-signed HTTPS, check that camera permissions are allowed in site settings.');
+        }
+      }
+    }
+  }
+
+  function initStreamerBroadcast(stream, title) {
+    localScreenStream = stream;
+    isSharingScreen = true;
+
+    if (gamingVideo) {
+      gamingVideo.srcObject = stream;
+      gamingVideo.muted = true; // Streamer video muted locally to prevent echo
+      gamingVideo.setAttribute('playsinline', 'true');
+      gamingVideo.setAttribute('webkit-playsinline', 'true');
+      gamingVideo.play().catch(e => console.warn('[Gaming] Streamer video play:', e));
+    }
+
+    // If user clicks the native browser floating "Stop sharing" button or track ends
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.onended = () => {
+        stopScreenShare();
+      };
+    }
+
+    socket.emit('gaming-start-share', { title });
+
+    updateGamingUI({
+      isLive: true,
+      streamerId: socket.id,
+      streamerName: currentUser?.username || 'You',
+      streamerColor: currentUser?.color || '#10b981',
+      title: title || `${currentUser?.username || 'You'}'s Stream`,
+      startedAt: Date.now()
+    });
+    updateGamingBadge();
+  }
+
+  function stopScreenShare() {
+    if (localScreenStream) {
+      localScreenStream.getTracks().forEach(t => t.stop());
+      localScreenStream = null;
+    }
+
+    streamerPeerConnections.forEach(pc => pc.close());
+    streamerPeerConnections.clear();
+    isSharingScreen = false;
+
+    if (gamingVideo && !viewerRemoteStream) {
+      gamingVideo.srcObject = null;
+    }
+
+    if (socket) {
+      socket.emit('gaming-stop-share');
+    }
+
+    updateGamingUI({
+      isLive: false,
+      streamerId: null
+    });
+    updateGamingBadge();
+  }
+
+  function cleanupViewerConnection() {
+    if (viewerPeerConnection) {
+      viewerPeerConnection.close();
+      viewerPeerConnection = null;
+    }
+    viewerRemoteStream = null;
+    if (gamingVideo && !isSharingScreen) {
+      gamingVideo.srcObject = null;
+    }
+    if (gamingMobileUnmuteOverlay) {
+      gamingMobileUnmuteOverlay.style.display = 'none';
+    }
+  }
+
+  function updateGamingUI(state) {
+    checkHttpsBanner();
+
+    if (!state || !state.isLive) {
+      // Standby Mode
+      if (gamingStandby) gamingStandby.style.display = 'flex';
+      if (gamingVideoContainer) gamingVideoContainer.style.display = 'none';
+      if (gamingLivePill) gamingLivePill.style.display = 'none';
+      if (gamingStartShareBtn) gamingStartShareBtn.style.display = 'inline-flex';
+      if (gamingCameraBtn) gamingCameraBtn.style.display = 'inline-flex';
+      if (gamingStopShareBtn) gamingStopShareBtn.style.display = 'none';
+      if (gamingAudioToggle) gamingAudioToggle.style.display = 'none';
+      if (gamingPipBtn) gamingPipBtn.style.display = 'none';
+      if (gamingFullscreenBtn) gamingFullscreenBtn.style.display = 'none';
+      if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'none';
+      if (gamingStreamerTitle) gamingStreamerTitle.textContent = 'Gaming Live Stage';
+      if (gamingStreamerSub) gamingStreamerSub.textContent = 'Share your screen, console, or camera with the community';
+      cleanupViewerConnection();
+      return;
+    }
+
+    // Active Stream Mode
+    if (gamingStandby) gamingStandby.style.display = 'none';
+    if (gamingVideoContainer) gamingVideoContainer.style.display = 'block';
+    if (gamingLivePill) gamingLivePill.style.display = 'inline-flex';
+    if (gamingPipBtn) gamingPipBtn.style.display = 'inline-flex';
+    if (gamingFullscreenBtn) gamingFullscreenBtn.style.display = 'inline-flex';
+
+    const isMe = socket && socket.id === state.streamerId;
+    if (isMe) {
+      // We are the broadcaster
+      if (gamingStartShareBtn) gamingStartShareBtn.style.display = 'none';
+      if (gamingCameraBtn) gamingCameraBtn.style.display = 'none';
+      if (gamingStopShareBtn) gamingStopShareBtn.style.display = 'inline-flex';
+      if (gamingAudioToggle) gamingAudioToggle.style.display = 'none';
+      if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'none';
+      if (gamingStreamerTitle) gamingStreamerTitle.textContent = state.title || 'Your Live Stream';
+      if (gamingStreamerSub) gamingStreamerSub.textContent = 'Broadcasting live to everyone in #gaming';
+      if (gamingOverlayAvatar) {
+        gamingOverlayAvatar.textContent = '🎮';
+        gamingOverlayAvatar.style.background = 'var(--emerald-500)';
+      }
+      if (gamingOverlayTitle) gamingOverlayTitle.textContent = state.title || 'Your Screen (Live)';
+      if (gamingOverlaySub) gamingOverlaySub.textContent = 'Broadcasting via WebRTC P2P';
+    } else {
+      // We are a viewer
+      if (gamingStartShareBtn) gamingStartShareBtn.style.display = 'none';
+      if (gamingCameraBtn) gamingCameraBtn.style.display = 'none';
+      if (gamingStopShareBtn) gamingStopShareBtn.style.display = 'none';
+      if (gamingAudioToggle) gamingAudioToggle.style.display = 'inline-flex';
+      if (gamingStreamerTitle) gamingStreamerTitle.textContent = `${state.streamerName}'s Live Stream`;
+      if (gamingStreamerSub) gamingStreamerSub.textContent = `Streaming screen & audio live in #gaming`;
+      if (gamingOverlayAvatar) {
+        gamingOverlayAvatar.textContent = getInitials(state.streamerName);
+        if (state.streamerColor) gamingOverlayAvatar.style.background = state.streamerColor;
+      }
+      if (gamingOverlayTitle) gamingOverlayTitle.textContent = state.title || `${state.streamerName}'s Screen`;
+      if (gamingOverlaySub) gamingOverlaySub.textContent = `WebRTC Live Stream by ${state.streamerName}`;
+
+      // If viewer is in gaming room, request stream connection from streamer
+      if (currentRoom === 'gaming' && socket && state.streamerId && !viewerPeerConnection) {
+        socket.emit('gaming-signal', {
+          to: state.streamerId,
+          signal: { type: 'viewer-join' }
+        });
+      }
+    }
+  }
+
+  function updateGamingBadge() {
+    const gamingItem = document.querySelector('.room-item[data-room-id="gaming"]');
+    if (!gamingItem) return;
+    const nameEl = gamingItem.querySelector('.room-name');
+    if (!nameEl) return;
+    const existingBadge = nameEl.querySelector('.room-feature-badge');
+    if (existingBadge) existingBadge.remove();
+
+    if (currentGamingState && currentGamingState.isLive) {
+      nameEl.insertAdjacentHTML('beforeend', ' <span class="room-feature-badge badge-live-stream"><span class="glp-dot"></span> LIVE</span>');
+    } else {
+      nameEl.insertAdjacentHTML('beforeend', ' <span class="room-feature-badge badge-gaming">🖥️ Screen Share</span>');
+    }
+  }
+
+  async function handleGamingSignal(from, fromUser, signal) {
+    if (!signal) return;
+
+    // ── Streamer handles signals from viewers ──
+    if (isSharingScreen && localScreenStream) {
+      if (signal.type === 'viewer-join') {
+        console.log(`[Gaming WebRTC] Viewer joined: ${fromUser || from}`);
+        if (streamerPeerConnections.has(from)) {
+          streamerPeerConnections.get(from).close();
+        }
+
+        const pc = new RTCPeerConnection(rtcConfig);
+        streamerPeerConnections.set(from, pc);
+
+        // Add local screen and audio tracks
+        localScreenStream.getTracks().forEach(track => {
+          pc.addTrack(track, localScreenStream);
+        });
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && socket) {
+            socket.emit('gaming-signal', {
+              to: from,
+              signal: { type: 'ice-candidate', candidate: event.candidate }
+            });
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+            pc.close();
+            streamerPeerConnections.delete(from);
+          }
+        };
+
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket.emit('gaming-signal', {
+            to: from,
+            signal: { type: 'offer', sdp: offer }
+          });
+        } catch (err) {
+          console.error('[Gaming WebRTC] Error creating offer for viewer:', err);
+        }
+      } else if (signal.type === 'answer') {
+        const pc = streamerPeerConnections.get(from);
+        if (pc && signal.sdp) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          } catch (err) {
+            console.error('[Gaming WebRTC] Error setting remote description (answer):', err);
+          }
+        }
+      } else if (signal.type === 'ice-candidate' && signal.candidate) {
+        const pc = streamerPeerConnections.get(from);
+        if (pc) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } catch (err) {
+            console.warn('[Gaming WebRTC] Streamer addIceCandidate error:', err);
+          }
+        }
+      } else if (signal.type === 'viewer-leave') {
+        const pc = streamerPeerConnections.get(from);
+        if (pc) {
+          pc.close();
+          streamerPeerConnections.delete(from);
+        }
+      }
+      return;
+    }
+
+    // ── Viewer handles signals from streamer ──
+    if (signal.type === 'offer' && signal.sdp) {
+      console.log('[Gaming WebRTC] Received offer from streamer:', from);
+      if (viewerPeerConnection) {
+        viewerPeerConnection.close();
+      }
+
+      viewerPeerConnection = new RTCPeerConnection(rtcConfig);
+
+      viewerPeerConnection.ontrack = (event) => {
+        console.log('[Gaming WebRTC] Received remote stream track:', event.track.kind);
+        viewerRemoteStream = event.streams[0];
+        if (gamingVideo) {
+          gamingVideo.srcObject = viewerRemoteStream;
+          gamingVideo.setAttribute('playsinline', 'true');
+          gamingVideo.setAttribute('webkit-playsinline', 'true');
+
+          const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+          if (isMobile) {
+            // Mute video first on mobile so browser autoplay never blocks
+            gamingVideo.muted = true;
+            updateGamingAudioIcon();
+            if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'block';
+            gamingVideo.play().catch(e => console.warn('[Gaming WebRTC] Mobile autoplay error:', e));
+          } else {
+            gamingVideo.muted = false;
+            gamingVideo.play().catch(err => {
+              console.warn('[Gaming WebRTC] Autoplay with sound blocked, trying muted:', err);
+              gamingVideo.muted = true;
+              updateGamingAudioIcon();
+              if (gamingMobileUnmuteOverlay) gamingMobileUnmuteOverlay.style.display = 'block';
+              gamingVideo.play().catch(e => console.error('[Gaming WebRTC] Play failed:', e));
+            });
+            updateGamingAudioIcon();
+          }
+        }
+      };
+
+      viewerPeerConnection.onicecandidate = (event) => {
+        if (event.candidate && socket) {
+          socket.emit('gaming-signal', {
+            to: from,
+            signal: { type: 'ice-candidate', candidate: event.candidate }
+          });
+        }
+      };
+
+      try {
+        await viewerPeerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        const answer = await viewerPeerConnection.createAnswer();
+        await viewerPeerConnection.setLocalDescription(answer);
+        socket.emit('gaming-signal', {
+          to: from,
+          signal: { type: 'answer', sdp: answer }
+        });
+      } catch (err) {
+        console.error('[Gaming WebRTC] Error responding to streamer offer:', err);
+      }
+    } else if (signal.type === 'ice-candidate' && signal.candidate) {
+      if (viewerPeerConnection) {
+        try {
+          await viewerPeerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } catch (err) {
+          console.warn('[Gaming WebRTC] Viewer addIceCandidate error:', err);
+        }
+      }
+    }
+  }
+
+  function toggleGamingAudio() {
+    if (!gamingVideo) return;
+    gamingVideo.muted = !gamingVideo.muted;
+    updateGamingAudioIcon();
+  }
+
+  function updateGamingAudioIcon() {
+    if (!gamingAudioToggle) return;
+    if (gamingVideo && gamingVideo.muted) {
+      gamingAudioToggle.innerHTML = '<i class="fas fa-volume-xmark" style="color: var(--pink-400);"></i>';
+      gamingAudioToggle.title = 'Unmute Stream Sound';
+    } else {
+      gamingAudioToggle.innerHTML = '<i class="fas fa-volume-high" style="color: var(--emerald-400);"></i>';
+      gamingAudioToggle.title = 'Mute Stream Sound';
+    }
+  }
+
+  async function toggleGamingPip() {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (gamingVideo && document.pictureInPictureEnabled) {
+        await gamingVideo.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.warn('[Gaming] Picture-in-picture error:', err);
+    }
+  }
+
+  function toggleGamingFullscreen() {
+    if (!gamingPlayerWrap) return;
+    if (!document.fullscreenElement) {
+      if (gamingPlayerWrap.requestFullscreen) {
+        gamingPlayerWrap.requestFullscreen();
+      } else if (gamingPlayerWrap.webkitRequestFullscreen) {
+        gamingPlayerWrap.webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  }
+
+  function toggleGamingTheater() {
+    chatLayout.classList.toggle('gaming-theater');
+    const isTheater = chatLayout.classList.contains('gaming-theater');
+    if (gamingTheaterBtn) {
+      gamingTheaterBtn.innerHTML = isTheater ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
+      gamingTheaterBtn.title = isTheater ? 'Exit Theater Mode' : 'Toggle Theater Mode';
     }
   }
 

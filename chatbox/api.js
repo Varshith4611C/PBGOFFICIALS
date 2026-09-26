@@ -141,7 +141,7 @@ let customSongs = loadCustomSongs();
 const ROOMS = [
   { id: 'general',       name: 'General',        icon: '💬', description: 'Hang out, share links, and talk about anything',       features: [] },
   { id: 'anime-manga',   name: 'Anime & Manga',  icon: '🎌', description: 'Watch anime together in cinema mode & live chat',     features: ['watch-together'] },
-  { id: 'gaming',        name: 'Gaming',          icon: '🎮', description: 'LFG, discuss games, share clips, and tournaments',     features: [] },
+  { id: 'gaming',        name: 'Gaming',          icon: '🎮', description: 'Screen share, stream gameplay, LFG & community chat',   features: ['screen-share'] },
   { id: 'music',         name: 'Music',           icon: '🎵', description: '24/7 Live Radio Stations, Music Library & Shared Beats', features: ['listen-together'] },
   { id: 'off-topic',     name: 'Off-Topic',       icon: '🌀', description: 'Memes, random chats, and whatever\'s on your mind',    features: [] },
 ];
@@ -153,6 +153,17 @@ ROOMS.forEach(r => { messageStore[r.id] = []; });
 
 // Track connected users: socketId → { username, avatar, color, room }
 const connectedUsers = new Map();
+
+// ── Gaming Room State (Real-Time WebRTC Screen Sharing & Gameplay Stream) ──
+const gamingState = {
+  isLive: false,
+  streamerId: null,
+  streamerName: null,
+  streamerAvatar: null,
+  streamerColor: null,
+  title: 'Gaming Live Screen',
+  startedAt: null,
+};
 
 // ── Music Room State ──
 const musicState = {
@@ -281,6 +292,8 @@ function initChatSocket(io) {
         socket.emit('music-state', musicState);
       } else if (targetRoom === 'anime-manga') {
         socket.emit('anime-state', animeState);
+      } else if (targetRoom === 'gaming') {
+        socket.emit('gaming-state', gamingState);
       }
     });
 
@@ -291,6 +304,22 @@ function initChatSocket(io) {
 
       const oldRoom = user.room;
       socket.leave(oldRoom);
+
+      // If active streamer in gaming leaves the room, end stream
+      if (oldRoom === 'gaming' && gamingState.streamerId === socket.id) {
+        gamingState.isLive = false;
+        gamingState.streamerId = null;
+        gamingState.streamerName = null;
+        gamingState.startedAt = null;
+        io.to('gaming').emit('gaming-state', gamingState);
+        io.to('gaming').emit('new-message', {
+          id: makeId('sys'),
+          type: 'system',
+          text: `🎮 ${user.username}'s screen share ended`,
+          timestamp: Date.now(),
+          room: 'gaming',
+        });
+      }
 
       // System message in old room
       io.to(oldRoom).emit('new-message', {
@@ -327,6 +356,8 @@ function initChatSocket(io) {
         socket.emit('music-state', musicState);
       } else if (newRoom === 'anime-manga') {
         socket.emit('anime-state', animeState);
+      } else if (newRoom === 'gaming') {
+        socket.emit('gaming-state', gamingState);
       }
     });
 
@@ -448,7 +479,7 @@ function initChatSocket(io) {
     });
 
     // Add a custom music track via URL to queue/play
-    socket.on('music-add', ({ videoId, url, title, artist }) => {
+    socket.on('music-add', ({ videoId, url, title, artist, playNow }) => {
       const user = connectedUsers.get(socket.id);
       if (!user || user.room !== 'music') return;
 
@@ -466,7 +497,10 @@ function initChatSocket(io) {
         addedBy: user.username,
       };
 
-      if (!musicState.currentTrack || !musicState.isPlaying || musicState.currentTrack.type === 'stream') {
+      // Play immediately if playNow is explicitly true, OR if playNow is not explicitly false AND (no track / not playing / on radio)
+      const shouldPlayNow = playNow === true || (playNow !== false && (!musicState.currentTrack || !musicState.isPlaying || musicState.currentTrack.type === 'stream'));
+
+      if (shouldPlayNow) {
         musicState.currentTrack = track;
         musicState.isPlaying = true;
         musicState.startedAt = Date.now();
@@ -834,10 +868,85 @@ function initChatSocket(io) {
       });
     });
 
+    // ════════════════════════════════════════════════════════════════
+    //  GAMING ROOM WEBRTC SCREEN SHARING SIGNALING ENGINE
+    // ════════════════════════════════════════════════════════════════
+
+    socket.on('gaming-start-share', ({ title } = {}) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'gaming') return;
+
+      gamingState.isLive = true;
+      gamingState.streamerId = socket.id;
+      gamingState.streamerName = user.username;
+      gamingState.streamerColor = user.color;
+      gamingState.title = (title || `${user.username}'s Screen`).slice(0, 100);
+      gamingState.startedAt = Date.now();
+
+      io.to('gaming').emit('gaming-state', gamingState);
+
+      io.to('gaming').emit('new-message', {
+        id: makeId('sys'),
+        type: 'system',
+        text: `🎮 ${user.username} is now streaming their screen live! Click to watch together`,
+        timestamp: Date.now(),
+        room: 'gaming',
+      });
+    });
+
+    socket.on('gaming-stop-share', () => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'gaming' || gamingState.streamerId !== socket.id) return;
+
+      gamingState.isLive = false;
+      gamingState.streamerId = null;
+      gamingState.streamerName = null;
+      gamingState.streamerColor = null;
+      gamingState.startedAt = null;
+
+      io.to('gaming').emit('gaming-state', gamingState);
+
+      io.to('gaming').emit('new-message', {
+        id: makeId('sys'),
+        type: 'system',
+        text: `🎮 ${user.username} stopped sharing their screen`,
+        timestamp: Date.now(),
+        room: 'gaming',
+      });
+    });
+
+    // P2P WebRTC Signaling Router (relay offer/answer/candidates/requests)
+    socket.on('gaming-signal', ({ to, signal }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || user.room !== 'gaming' || !to) return;
+
+      io.to(to).emit('gaming-signal', {
+        from: socket.id,
+        fromUser: user.username,
+        signal,
+      });
+    });
+
     // ── Disconnect ──
     socket.on('disconnect', () => {
       const user = connectedUsers.get(socket.id);
       if (user) {
+        // If active streamer in gaming disconnects, close stream cleanly
+        if (user.room === 'gaming' && gamingState.streamerId === socket.id) {
+          gamingState.isLive = false;
+          gamingState.streamerId = null;
+          gamingState.streamerName = null;
+          gamingState.startedAt = null;
+          io.to('gaming').emit('gaming-state', gamingState);
+          io.to('gaming').emit('new-message', {
+            id: makeId('sys'),
+            type: 'system',
+            text: `🎮 ${user.username}'s screen share ended`,
+            timestamp: Date.now(),
+            room: 'gaming',
+          });
+        }
+
         io.to(user.room).emit('new-message', {
           id: makeId('sys'),
           type: 'system',

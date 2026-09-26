@@ -1,7 +1,10 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const https = require('https');
 const axios = require('axios');
-const { createServer } = require('http');
+const http = require('http');
+const { createServer } = http;
 const { Server } = require('socket.io');
 const { initChatSocket } = require('./chatbox/api');
 const { initGameSocket } = require('./games/business-board/api');
@@ -12,13 +15,29 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 const PORT = process.env.PORT || 3000;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
+
+// Initialize HTTPS server if certificates exist (enables mobile screen sharing & camera)
+let httpsServer = null;
+const keyPath = path.join(__dirname, 'certs', 'key.pem');
+const certPath = path.join(__dirname, 'certs', 'cert.pem');
+if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  try {
+    const key = fs.readFileSync(keyPath);
+    const cert = fs.readFileSync(certPath);
+    httpsServer = https.createServer({ key, cert }, app);
+    io.attach(httpsServer);
+  } catch (err) {
+    console.warn('[HTTPS] Could not initialize HTTPS server:', err.message);
+  }
+}
 
 // ── SEO & Security headers ──
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), display-capture=(self), geolocation=()');
   next();
 });
 
@@ -36,7 +55,6 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
 // ── Load .env file if present ──
-const fs = require('fs');
 if (fs.existsSync(path.join(__dirname, '.env'))) {
   try {
     const envContent = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
@@ -161,8 +179,6 @@ Guidelines:
 });
 
 // ── Music Live Radio Proxy Endpoint ──
-const http = require('http');
-const https = require('https');
 app.get('/api/music/radio-proxy', (req, res) => {
   const streamUrl = req.query.url;
   if (!streamUrl) return res.status(400).send('Missing stream URL');
@@ -396,8 +412,16 @@ process.on('unhandledRejection', (reason, promise) => {
 
 httpServer.listen(PORT, () => {
   console.log(`\n  ⚡ PBG Officials server running at:\n`);
-  console.log(`     Local:   http://localhost:${PORT}`);
-  console.log(`     Network: http://${networkIP}:${PORT}`);
-  console.log(`     mDNS:    http://pbg.local:${PORT}  ← use this!\n`);
+  console.log(`     HTTP Local:   http://localhost:${PORT}`);
+  console.log(`     HTTP Network: http://${networkIP}:${PORT}`);
+  console.log(`     mDNS:         http://pbg.local:${PORT}  ← use this!`);
 });
+
+if (httpsServer) {
+  httpsServer.listen(HTTPS_PORT, () => {
+    console.log(`\n  🔒 Secure Context HTTPS (Required for Mobile Screen Share & Camera):\n`);
+    console.log(`     HTTPS Local:   https://localhost:${HTTPS_PORT}`);
+    console.log(`     HTTPS Network: https://${networkIP}:${HTTPS_PORT}\n`);
+  });
+}
 

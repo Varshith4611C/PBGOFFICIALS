@@ -33,7 +33,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
-  <link rel="stylesheet" href="style.css?v=2.4" />
+  <link rel="stylesheet" href="style.css?v=2.7" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 <body>
@@ -296,6 +296,115 @@
         <audio id="bgAudioAnchor" loop preload="auto" style="display: none;"></audio>
       </section>
 
+      <!-- ══════ GAMING STAGE (Gaming Room — Real-Time WebRTC Screen Sharing & Gameplay Stream) ══════ -->
+      <section class="gaming-stage" id="gamingStage" style="display: none;">
+        <!-- Gaming Stage Header Bar -->
+        <div class="gaming-header">
+          <div class="gaming-title-wrap">
+            <span class="gaming-badge" id="gamingBadge"><i class="fas fa-desktop"></i> SCREEN SHARE</span>
+            <div class="gaming-titles">
+              <h2 class="gaming-title" id="gamingStreamerTitle">Gaming Live Stage</h2>
+              <span class="gaming-subtitle" id="gamingStreamerSub">Share your screen or gameplay with the community</span>
+            </div>
+          </div>
+          <div class="gaming-controls">
+            <!-- Live indicator pill -->
+            <span class="gaming-live-pill" id="gamingLivePill" style="display: none;">
+              <span class="glp-dot"></span> LIVE
+            </span>
+            <!-- Streamer Actions -->
+            <button class="gaming-btn gaming-btn-primary" id="gamingStartShareBtn" title="Share Screen or Gameplay">
+              <i class="fas fa-desktop"></i> <span class="gaming-btn-text">Share Screen</span>
+            </button>
+            <button class="gaming-btn" id="gamingCameraBtn" title="Share Camera / Game Desk Cam">
+              <i class="fas fa-camera"></i> <span class="gaming-btn-text">Share Cam</span>
+            </button>
+            <button class="gaming-btn gaming-btn-danger" id="gamingStopShareBtn" title="Stop Sharing Screen" style="display: none;">
+              <i class="fas fa-stop"></i> <span class="gaming-btn-text">Stop Stream</span>
+            </button>
+            <!-- Viewer Audio Mute/Unmute Toggle -->
+            <button class="gaming-btn" id="gamingAudioToggle" title="Mute / Unmute Stream Sound" style="display: none;">
+              <i class="fas fa-volume-high"></i>
+            </button>
+            <!-- Picture-in-Picture Toggle -->
+            <button class="gaming-btn" id="gamingPipBtn" title="Picture-in-Picture" style="display: none;">
+              <i class="fas fa-clone"></i>
+            </button>
+            <!-- Fullscreen Toggle -->
+            <button class="gaming-btn" id="gamingFullscreenBtn" title="Fullscreen Stream" style="display: none;">
+              <i class="fas fa-maximize"></i>
+            </button>
+            <!-- Theater Mode Toggle -->
+            <button class="gaming-btn" id="gamingTheaterBtn" title="Toggle Theater Mode">
+              <i class="fas fa-expand"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Insecure Context / Mobile HTTPS Notice Banner -->
+        <div class="gaming-https-banner" id="gamingHttpsBanner" style="display: none;">
+          <div class="ghb-content">
+            <i class="fas fa-shield-halved"></i>
+            <span>Mobile screenshare & camera require a secure connection (HTTPS).</span>
+            <a href="#" id="gamingHttpsLink" class="ghb-link">Switch to HTTPS <i class="fas fa-arrow-up-right-from-square"></i></a>
+          </div>
+        </div>
+
+        <!-- Gaming Player Screen / Standby Area -->
+        <div class="gaming-player-wrap" id="gamingPlayerWrap">
+          <!-- Standby Deck (Shown when nobody is streaming) -->
+          <div class="gaming-standby" id="gamingStandby">
+            <div class="gaming-standby-glow"></div>
+            <div class="gaming-standby-icon">
+              <i class="fas fa-gamepad"></i>
+            </div>
+            <h3>Gaming Live Screen Share</h3>
+            <p>Stream your PC gameplay, console, or mobile desk camera in real-time with the room.</p>
+            
+            <div class="gaming-features-row">
+              <span class="gaming-feat-pill"><i class="fas fa-mobile-screen"></i> Mobile & PC</span>
+              <span class="gaming-feat-pill"><i class="fas fa-bolt"></i> Low Latency WebRTC</span>
+              <span class="gaming-feat-pill"><i class="fas fa-camera"></i> Screen & Cam</span>
+              <span class="gaming-feat-pill"><i class="fas fa-users"></i> Watch Together</span>
+            </div>
+
+            <div class="gaming-standby-actions">
+              <button class="gaming-cta-btn" id="gamingStandbyStartBtn">
+                <i class="fas fa-desktop"></i> Start Screen Share
+              </button>
+              <button class="gaming-cta-btn gaming-cam-cta-btn" id="gamingStandbyCamBtn">
+                <i class="fas fa-camera"></i> Stream Desk / Game Cam
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Stream View (Shown when stream is live) -->
+          <div class="gaming-video-container" id="gamingVideoContainer" style="display: none;">
+            <video id="gamingVideo" autoplay playsinline webkit-playsinline muted></video>
+            <div class="gaming-ambient-glow" id="gamingGlow"></div>
+
+            <!-- Mobile Tap-to-Unmute Floating Button -->
+            <div class="gaming-mobile-unmute-overlay" id="gamingMobileUnmuteOverlay" style="display: none;">
+              <button class="gaming-unmute-banner-btn" id="gamingMobileUnmuteBtn">
+                <i class="fas fa-volume-xmark"></i> <span>Tap to Hear Audio</span>
+              </button>
+            </div>
+
+            <!-- Video Overlay Info -->
+            <div class="gaming-video-overlay" id="gamingVideoOverlay">
+              <div class="gvo-streamer">
+                <div class="gvo-avatar" id="gamingOverlayAvatar">🎮</div>
+                <div class="gvo-info">
+                  <span class="gvo-tag"><span class="glp-dot"></span> LIVE BROADCAST</span>
+                  <div class="gvo-title" id="gamingOverlayTitle">Streamer's Screen</div>
+                  <div class="gvo-sub" id="gamingOverlaySub">WebRTC P2P Stream</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Main Chat Area (Full height & width, with Music Deck when in Music Room) -->
       <main class="chat-main" id="chatMain">
 
@@ -515,6 +624,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js?v=2.4"></script>
+  <script src="script.js?v=2.7"></script>
 </body>
 </html>
