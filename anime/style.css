@@ -2203,3 +2203,60 @@ button {
     grid-template-columns: repeat(5, 1fr) !important;
   }
 }
+
+/* ========================================================
+   CINEMA / THEATRE MODE STYLES
+   ======================================================== */
+.watch-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cinema-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.cinema-toggle-btn:hover, .cinema-toggle-btn.active {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: #a855f7;
+  color: #fff;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.35);
+}
+
+body.cinema-mode-active {
+  background: #000000 !important;
+}
+
+body.cinema-mode-active .navbar,
+body.cinema-mode-active .footer,
+body.cinema-mode-active .watch-sidebar-column,
+body.cinema-mode-active .mobile-bottom-nav {
+  display: none !important;
+}
+
+body.cinema-mode-active .watch-layout-grid {
+  grid-template-columns: 1fr !important;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+body.cinema-mode-active .theatre-player-wrapper {
+  max-height: 82vh;
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.2);
+}
+

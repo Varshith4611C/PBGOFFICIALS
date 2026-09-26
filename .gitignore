@@ -12,3 +12,8 @@ friday/.fraiday_session.json
 friday/.fraiday_session_*.tmp
 friday/workspace/
 friday/__pycache__/
+
+# SSL Certificates & Private Keys
+certs/
+*.pem
+

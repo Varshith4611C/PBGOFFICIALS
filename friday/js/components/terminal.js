@@ -78,9 +78,13 @@ export class TerminalComponent {
   async runCommand(cmd) {
     this.appendCommand(cmd);
     try {
+      const authKey = localStorage.getItem('friday_auth_key') || localStorage.getItem('friday_api_key') || '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (authKey) headers['x-friday-auth'] = authKey;
+
       const resp = await fetch('/api/terminal/exec', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ command: cmd })
       });
       const data = await resp.json();

@@ -139,7 +139,8 @@ class MailAPI {
   }
 
   getAttachmentUrl(emailId, attachmentId) {
-    return `${API_BASE}/api/emails/${emailId}/attachments/${attachmentId}`;
+    const tokenParam = this.token ? `?token=${encodeURIComponent(this.token)}` : '';
+    return `${API_BASE}/api/emails/${emailId}/attachments/${attachmentId}${tokenParam}`;
   }
 
   // ── Contacts ──────────────────────────────────────────────

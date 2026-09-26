@@ -89,6 +89,23 @@
         </div>
       </section>
 
+      <!-- Continue Watching (Jump Back In) -->
+      <section class="section-container" id="continueWatchingSection" style="display: none;">
+        <div class="section-header-row">
+          <div class="section-title-group">
+            <i class="fas fa-clock-rotate-left" style="color: var(--accent-purple);"></i>
+            <h2>Continue Watching</h2>
+          </div>
+          <div class="carousel-nav-group">
+            <button class="carousel-arrow-btn" id="continuePrevBtn" aria-label="Scroll left"><i class="fas fa-chevron-left"></i></button>
+            <button class="carousel-arrow-btn" id="continueNextBtn" aria-label="Scroll right"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="cards-carousel" id="continueWatchingCarousel">
+          <!-- Populated by script.js -->
+        </div>
+      </section>
+
       <!-- Trending Now Carousel -->
       <section class="section-container" id="trendingSection">
         <div class="section-header-row">
@@ -210,6 +227,7 @@
   </nav>
 
   <script src="adguard.js?v=1.0"></script>
-  <script src="script.js?v=2.2"></script>
+  <script src="js/common.js?v=2.3"></script>
+  <script src="js/home.js?v=2.3"></script>
 </body>
 </html>

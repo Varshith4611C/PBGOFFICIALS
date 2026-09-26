@@ -10,9 +10,17 @@ import { verifyToken } from '../lib/crypto.js';
  */
 export async function authenticate(request, env) {
   const authHeader = request.headers.get('Authorization') || '';
-  const token = authHeader.startsWith('Bearer ')
+  let token = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7)
     : null;
+
+  // Also check query parameter (required for direct browser attachment downloads)
+  if (!token) {
+    try {
+      const url = new URL(request.url);
+      token = url.searchParams.get('token');
+    } catch {}
+  }
 
   if (!token) return null;
 

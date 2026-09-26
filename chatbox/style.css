@@ -2639,6 +2639,91 @@ input { font-family: inherit; }
 }
 .msg-action-btn:hover { background: var(--glass-hover); color: var(--emerald-400); }
 
+/* ── Reaction Toolbar on Hover ── */
+.msg-reaction-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  background: var(--navy-900);
+  border-radius: 6px;
+  margin-right: 4px;
+  border-right: 1px solid var(--glass-border);
+}
+.msg-reaction-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+.msg-reaction-btn:hover {
+  transform: scale(1.25);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Inline Reactions Display on Message ── */
+.message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.msg-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-secondary);
+}
+.msg-reaction-pill:hover {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+.msg-reaction-pill.active {
+  background: rgba(52, 211, 153, 0.18);
+  border-color: var(--emerald-400);
+  color: #fff;
+}
+.mrp-emoji {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+.mrp-count {
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+/* ── Audio Visualizer Canvas Styling ── */
+.mvo-visualizer-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  margin-left: auto;
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  backdrop-filter: blur(8px);
+}
+.music-visualizer-canvas {
+  display: block;
+  width: 140px;
+  height: 32px;
+}
+
 /* ── Reply Preview (inline on message) ── */
 .message-reply-preview {
   display: flex; align-items: center; gap: 6px;

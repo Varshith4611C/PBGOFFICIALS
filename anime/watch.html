@@ -59,7 +59,7 @@
   <!-- Watch Container -->
   <main class="watch-page-container">
 
-    <!-- Top Action Bar (Back Circle + Title) -->
+    <!-- Top Action Bar (Back Circle + Title + Cinema Mode) -->
     <div class="watch-top-bar">
       <div class="watch-top-title-wrap">
         <a href="/anime/" class="back-circle-btn" title="Back to Anime"><i class="fas fa-arrow-left"></i></a>
@@ -67,6 +67,11 @@
           <h1 id="watchAnimeHeader" style="font-size: 1.2rem; font-weight: 700; color: #ffffff; margin-bottom: 2px;">Loading Anime...</h1>
           <div id="watchEpisodeHeader" style="font-size: 0.82rem; color: var(--text-secondary);">Episode 1</div>
         </div>
+      </div>
+      <div class="watch-top-actions">
+        <button class="cinema-toggle-btn" id="cinemaToggleBtn" title="Toggle Cinema / Theatre Mode">
+          <i class="fas fa-film"></i> <span>Cinema Mode</span>
+        </button>
       </div>
     </div>
 
@@ -233,6 +238,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
   <script src="adguard.js?v=1.0"></script>
-  <script src="script.js?v=2.2"></script>
+  <script src="js/common.js?v=2.3"></script>
+  <script src="js/watch.js?v=2.3"></script>
 </body>
 </html>

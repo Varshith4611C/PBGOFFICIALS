@@ -2386,4 +2386,44 @@ a {
   }
 }
 
+/* ========================================================
+   MANGA READER THEME PRESETS (OLED, SEPIA, SLATE)
+   ======================================================== */
+body.theme-slate {
+  background-color: #030712 !important;
+  color: #f1f5f9 !important;
+}
+
+body.theme-oled {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+body.theme-oled .reader-navbar {
+  background: rgba(0, 0, 0, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+body.theme-sepia {
+  background-color: #241e17 !important;
+  color: #e2dcd5 !important;
+}
+
+body.theme-sepia .reader-navbar {
+  background: rgba(36, 30, 23, 0.95) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+body.theme-sepia .reader-tool-btn,
+body.theme-sepia .reader-nav-btn {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #f59e0b !important;
+}
+
+body.theme-sepia .reader-progress-bar {
+  background: #f59e0b !important;
+}
+
+
 

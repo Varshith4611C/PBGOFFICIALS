@@ -6,6 +6,8 @@
   <title>PBG Mail — Sign In</title>
   <meta name="description" content="PBG Officials secure webmail — sign in to your @pbgofficials.dev mailbox">
   <link rel="icon" href="https://pbgofficials.dev/favicon.ico">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -151,6 +153,12 @@
         btn.disabled = false;
       }
     });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>

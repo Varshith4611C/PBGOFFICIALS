@@ -257,11 +257,36 @@ async function resolveMangaDexChapters(titles) {
   return null;
 }
 
-// ── Image Proxy (bypasses hotlink protection & CORS) ──
+// ── SSRF Protection Helper ──
+function isDisallowedHost(hostname) {
+  const lower = (hostname || '').toLowerCase();
+  if (lower === 'localhost' || lower === '127.0.0.1' || lower === '0.0.0.0' || lower === '::1') return true;
+  if (/^(10\.|192\.168\.|169\.254\.|127\.)/.test(lower)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
+  if (lower.endsWith('.local') || lower.endsWith('.internal')) return true;
+  return false;
+}
+
+// ── Image Proxy (bypasses hotlink protection & CORS, SSRF protected) ──
 router.get('/img', async (req, res) => {
   try {
     const { url } = req.query;
     if (!url) return res.status(400).send('Missing url parameter');
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).send('Invalid url parameter');
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return res.status(400).send('Invalid protocol. Only HTTP and HTTPS are allowed.');
+    }
+
+    if (isDisallowedHost(parsedUrl.hostname)) {
+      return res.status(403).send('Forbidden image target');
+    }
 
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -276,7 +301,7 @@ router.get('/img', async (req, res) => {
       headers['Referer'] = 'https://anilist.co/';
     }
 
-    const response = await axios.get(url, {
+    const response = await axios.get(parsedUrl.href, {
       responseType: 'arraybuffer',
       headers,
       timeout: 15000,

@@ -440,6 +440,14 @@
       handleGamingSignal(from, fromUser, signal);
     });
 
+    // Message reactions update
+    socket.on('message-reaction-updated', ({ messageId, reactions }) => {
+      const container = document.getElementById(`msg-reactions-${messageId}`);
+      if (container) {
+        container.innerHTML = renderReactionsHtml(reactions, messageId);
+      }
+    });
+
     initMessageInput();
     initEmojiPicker();
     initSidebars();
@@ -450,6 +458,7 @@
     initMusicLibrary();
     initCinemaStage();
     initGamingStage();
+    initVisualizer();
     updateRoomView();
   }
 
@@ -660,8 +669,17 @@
       `;
     }
 
+    const reactionsHtml = renderReactionsHtml(msg.reactions, msg.id);
+
     const actionsHtml = `
       <div class="message-actions">
+        <div class="msg-reaction-bar">
+          <button class="msg-reaction-btn" data-msg-id="${msg.id}" data-emoji="👍" title="Like">👍</button>
+          <button class="msg-reaction-btn" data-msg-id="${msg.id}" data-emoji="❤️" title="Love">❤️</button>
+          <button class="msg-reaction-btn" data-msg-id="${msg.id}" data-emoji="🔥" title="Fire">🔥</button>
+          <button class="msg-reaction-btn" data-msg-id="${msg.id}" data-emoji="😂" title="Laugh">😂</button>
+          <button class="msg-reaction-btn" data-msg-id="${msg.id}" data-emoji="🎌" title="Anime">🎌</button>
+        </div>
         <button class="msg-action-btn msg-reply-btn" data-msg-id="${msg.id}" data-msg-user="${escapeHtml(msg.username)}" data-msg-text="${escapeHtml(msg.text)}" data-msg-color="${msg.color}" title="Reply">
           <i class="fas fa-reply"></i>
         </button>
@@ -676,6 +694,7 @@
         <span class="message-compact-time">${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         <div class="message-body">
           <div class="message-text">${formatMessageText(msg.text)}</div>
+          <div class="message-reactions" id="msg-reactions-${msg.id}">${reactionsHtml}</div>
         </div>
       `;
     } else {
@@ -690,6 +709,7 @@
             <span class="message-time">${formatTime(msg.timestamp)}</span>
           </div>
           <div class="message-text">${formatMessageText(msg.text)}</div>
+          <div class="message-reactions" id="msg-reactions-${msg.id}">${reactionsHtml}</div>
         </div>
       `;
     }
@@ -700,18 +720,57 @@
     lastMessageTime = msg.timestamp;
   }
 
+  function renderReactionsHtml(reactions, msgId) {
+    if (window.ChatReactions) {
+      return window.ChatReactions.renderReactionsHtml(reactions, msgId, currentUser, escapeHtml);
+    }
+    if (!reactions || typeof reactions !== 'object') return '';
+    return Object.entries(reactions).map(([emoji, users]) => {
+      if (!Array.isArray(users) || users.length === 0) return '';
+      const hasMe = currentUser && users.includes(currentUser);
+      return `
+        <button class="msg-reaction-pill${hasMe ? ' active' : ''}" data-msg-id="${msgId}" data-emoji="${emoji}" title="${escapeHtml(users.join(', '))}">
+          <span class="mrp-emoji">${emoji}</span>
+          <span class="mrp-count">${users.length}</span>
+        </button>
+      `;
+    }).join('');
+  }
+
   function formatMessageText(text) {
     let escaped = escapeHtml(text);
     escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
     escaped = escaped.replace(/`(.*?)`/g, '<code style="background:rgba(52,211,153,0.1);padding:2px 6px;border-radius:4px;font-size:0.85em;">$1</code>');
-    escaped = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--emerald-400);text-decoration:underline;">$1</a>');
+    escaped = escaped.replace(/(https?:\/\/[^\s<"'>]+)/g, (match) => {
+      try {
+        const u = new URL(match.replace(/&amp;/g, '&'));
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+          const safeHref = escapeHtml(u.href);
+          return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color:var(--emerald-400);text-decoration:underline;">${match}</a>`;
+        }
+      } catch {}
+      return match;
+    });
     return escaped;
   }
 
   // ── Reply System ──
   function initReply() {
     messagesList.addEventListener('click', (e) => {
+      if (window.ChatReactions && window.ChatReactions.handleReactionClick(e.target, socket)) {
+        return;
+      }
+      const reactionBtn = e.target.closest('.msg-reaction-btn, .msg-reaction-pill');
+      if (reactionBtn) {
+        const msgId = reactionBtn.dataset.msgId;
+        const emoji = reactionBtn.dataset.emoji;
+        if (msgId && emoji && socket) {
+          socket.emit('message-react', { messageId, emoji });
+        }
+        return;
+      }
+
       const replyBtn = e.target.closest('.msg-reply-btn');
       if (replyBtn) {
         setReply({
@@ -1510,6 +1569,16 @@
       }
     };
     window.addEventListener('touchend', handleMobileTouchUnlock, { passive: true });
+  }
+
+  // ── Web Audio API Visualizer Waves Engine ──
+  function initVisualizer() {
+    if (window.ChatVisualizer) {
+      window.ChatVisualizer.init({
+        getAudioEl: () => realRadioAudio,
+        isPlayingFn: () => currentMusicState && currentMusicState.isPlaying && (currentRoom === 'music')
+      });
+    }
   }
 
   function updateMusicUI(state) {

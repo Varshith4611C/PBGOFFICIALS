@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PBG Officials — Multi-Platform Digital Hub | Anime, Manga, TV, Games</title>
-  <meta name="description" content="PBG Officials is the official multi-platform digital hub building anime streaming, manga reading, TV, chat, gaming, and entertainment experiences. Explore PBG Anime, PBG Manga, PBG TV, PBG Games and more." />
-  <meta name="keywords" content="PBG Officials, pbgofficials, PBG, PBG Anime, PBG Manga, PBG TV, PBG Games, PBG ChatBox, anime streaming, manga reader, digital hub, entertainment platform, pbgofficials.dev" />
+  <meta name="description"
+    content="PBG Officials is the official multi-platform digital hub building anime streaming, manga reading, TV, chat, gaming, and entertainment experiences. Explore PBG Anime, PBG Manga, PBG TV, PBG Games and more." />
+  <meta name="keywords"
+    content="PBG Officials, pbgofficials, PBG, PBG Anime, PBG Manga, PBG TV, PBG Games, PBG ChatBox, anime streaming, manga reader, digital hub, entertainment platform, pbgofficials.dev" />
   <meta name="theme-color" content="#020617" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="author" content="PBG Officials" />
@@ -23,7 +26,8 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://pbgofficials.dev/" />
   <meta property="og:title" content="PBG Officials — Multi-Platform Digital Hub | Anime, Manga, TV, Games" />
-  <meta property="og:description" content="PBG Officials is the official multi-platform digital hub building anime streaming, manga reading, TV, chat, gaming, and entertainment experiences." />
+  <meta property="og:description"
+    content="PBG Officials is the official multi-platform digital hub building anime streaming, manga reading, TV, chat, gaming, and entertainment experiences." />
   <meta property="og:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -34,7 +38,8 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://pbgofficials.dev/" />
   <meta name="twitter:title" content="PBG Officials — Multi-Platform Digital Hub" />
-  <meta name="twitter:description" content="PBG Officials is the official multi-platform digital hub for anime, manga, TV, games, and entertainment." />
+  <meta name="twitter:description"
+    content="PBG Officials is the official multi-platform digital hub for anime, manga, TV, games, and entertainment." />
   <meta name="twitter:image" content="https://pbgofficials.dev/assets/images/logo.jpg" />
   <meta name="twitter:image:alt" content="PBG Officials Logo" />
 
@@ -125,71 +130,601 @@
   }
   </script>
 
-  <!-- Google Fonts: Space Grotesk + Inter -->
+  <!-- Google Fonts: Space Grotesk + Inter + Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2.12" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
+
 <body>
 
   <!-- ========== NAVIGATION ========== -->
   <nav class="navbar" id="navbar">
     <div class="container">
       <a href="#" class="nav-logo">
-        <img src="assets/images/logo.jpg" alt="PBG Logo" class="nav-logo-img" />
-        <span>PBG Officials</span>
+        <div class="nav-logo-badge">
+          <img src="assets/images/logo.jpg" alt="PBG Logo" class="nav-logo-img" />
+          <span class="nav-logo-ring"></span>
+        </div>
+        <div class="nav-logo-text">
+          <span class="brand-title">PBG Officials</span>
+          <span class="brand-sub">HUB v2.4</span>
+        </div>
       </a>
       <div class="nav-links" id="navLinks">
-        <a href="#home" class="active">Home</a>
-        <a href="#projects">Projects</a>
-        <a href="/anime/"><i class="fas fa-play" style="font-size: 0.72rem; margin-right: 4px; color: var(--purple-400);"></i>Anime</a>
-        <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener"><i class="fas fa-envelope" style="font-size: 0.72rem; margin-right: 4px; color: var(--cyan-400);"></i>Mail</a>
-        <a href="#about">About</a>
-        <a href="#services">Services</a>
-        <a href="#contact" class="nav-cta">Contact Us</a>
+        <a href="#home" class="active"><i class="fas fa-house nav-icon"></i>Home</a>
+        <a href="#projects"><i class="fas fa-cubes nav-icon"></i>Projects</a>
+        <a href="/anime/"><i class="fas fa-play nav-icon" style="color: var(--purple-400);"></i>Anime</a>
+        <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener"><i class="fas fa-envelope nav-icon"
+            style="color: var(--cyan-400);"></i>Mail</a>
+        <a href="#about"><i class="fas fa-circle-info nav-icon"></i>About</a>
+        <a href="#services"><i class="fas fa-layer-group nav-icon"></i>Services</a>
+        <a href="#contact" class="nav-cta"><span>Contact Us</span><i class="fas fa-arrow-right"></i></a>
+        <div class="nav-drawer-actions">
+          <button class="nav-drawer-btn" id="drawerCmdBtn" type="button">
+            <i class="fas fa-search"></i>
+            <span>Quick Spotlight Search</span>
+          </button>
+          <button class="nav-drawer-btn" id="drawerAppsBtn" type="button">
+            <i class="fas fa-cubes"></i>
+            <span>All Ecosystem Apps</span>
+          </button>
+        </div>
       </div>
-      <div class="nav-hamburger" id="navHamburger">
-        <span></span>
-        <span></span>
-        <span></span>
+      <div class="nav-right-cluster">
+        <div class="nav-right-actions">
+          <button class="nav-cmd-btn" id="navCmdBtn" title="Command Palette (Ctrl + K)" aria-label="Open Command Palette">
+            <i class="fas fa-search cmd-search-ico"></i>
+            <span class="cmd-badge-text">Search</span>
+            <kbd class="nav-kbd">Ctrl K</kbd>
+          </button>
+          <button class="nav-apps-btn" id="navAppsBtn" title="PBG Ecosystem Apps" aria-label="Open PBG Apps Launcher">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="5" r="2.2" />
+              <circle cx="12" cy="5" r="2.2" />
+              <circle cx="19" cy="5" r="2.2" />
+              <circle cx="5" cy="12" r="2.2" />
+              <circle cx="12" cy="12" r="2.2" />
+              <circle cx="19" cy="12" r="2.2" />
+              <circle cx="5" cy="19" r="2.2" />
+              <circle cx="12" cy="19" r="2.2" />
+              <circle cx="19" cy="19" r="2.2" />
+            </svg>
+          </button>
+        </div>
+        <div class="nav-hamburger" id="navHamburger" aria-label="Toggle Navigation Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>
     </div>
   </nav>
+
+  <!-- ========== PBG APPS LAUNCHER DRAWER ========== -->
+  <div class="pbg-apps-menu" id="pbgAppsMenu" aria-hidden="true">
+    <div class="pbg-apps-header">
+      <div class="pbg-apps-title"><i class="fas fa-cubes"></i> PBG Officials Ecosystem</div>
+      <button class="pbg-apps-close" id="pbgAppsClose" aria-label="Close apps menu">&times;</button>
+    </div>
+    <div class="pbg-apps-grid">
+      <a href="/anime/" class="pbg-app-card" data-app="anime">
+        <div class="pbg-app-icon icon-anime">🎌</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG Anime</div>
+          <div class="pbg-app-desc">Free HD Anime Stream</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+      <a href="/manga/" class="pbg-app-card" data-app="manga">
+        <div class="pbg-app-icon icon-manga">📖</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG Manga</div>
+          <div class="pbg-app-desc">Ultra-fast Reader</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+      <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener" class="pbg-app-card" data-app="mail">
+        <div class="pbg-app-icon icon-mail">✉️</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG Mail</div>
+          <div class="pbg-app-desc">Cloud Email Suite</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+      <a href="/chatbox/" class="pbg-app-card" data-app="chatbox">
+        <div class="pbg-app-icon icon-chatbox">💬</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG ChatBox</div>
+          <div class="pbg-app-desc">Rooms &amp; Live Radio</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+      <a href="/games/" class="pbg-app-card" data-app="games">
+        <div class="pbg-app-icon icon-games">🎮</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG Games</div>
+          <div class="pbg-app-desc">Multiplayer Portal</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+      <a href="/friday/" class="pbg-app-card" data-app="friday">
+        <div class="pbg-app-icon icon-friday">⚡</div>
+        <div class="pbg-app-info">
+          <div class="pbg-app-name">PBG Friday</div>
+          <div class="pbg-app-desc">AI Coding Studio</div>
+        </div>
+        <span class="pbg-app-dot"></span>
+      </a>
+    </div>
+  </div>
+  <div class="pbg-apps-backdrop" id="pbgAppsBackdrop"></div>
 
   <!-- ========== HERO SECTION ========== -->
   <section class="hero" id="home">
     <div class="hero-bg">
       <img src="assets/images/hero-bg.jpg" alt="Hero background" />
+      <div class="hero-aurora-glow glow-1"></div>
+      <div class="hero-aurora-glow glow-2"></div>
+      <div class="hero-grid-overlay"></div>
     </div>
     <div class="hero-particles" id="heroParticles"></div>
-    <div class="hero-content">
-      <div class="hero-badge">
+
+    <div class="hero-content container">
+      <!-- Announcement Tag Badge -->
+      <a href="#projects" class="hero-badge reveal">
         <span class="pulse-dot"></span>
-        Building the Future of Entertainment
-      </div>
-      <h1>
-        Welcome to<br />
-        <span class="gradient-text">PBG Officials</span>
+        <span class="hero-badge-tag">PBG ECOSYSTEM 2.0</span>
+        <span class="hero-badge-text">The Unified Entertainment &amp; Tech Hub</span>
+        <i class="fas fa-arrow-right hero-badge-arrow"></i>
+      </a>
+
+      <!-- Main Title -->
+      <h1 class="hero-title reveal reveal-delay-1">
+        <span class="hero-title-prefix">Welcome to</span>
+        <span class="hero-title-gradient">PBG Officials</span>
       </h1>
-      <p class="hero-tagline">
-        A multi-platform digital hub crafting immersive experiences — from anime &amp; manga to games, live TV, chatrooms, and beyond.
+
+      <!-- Tagline -->
+      <p class="hero-tagline reveal reveal-delay-2">
+        A next-generation multi-platform digital hub. Stream anime in 4K, read thousands of manga chapters, collaborate
+        in live audio chat &amp; radio, play multiplayer games, and code with AI — completely free.
       </p>
-      <div class="hero-buttons">
+
+      <!-- Action Buttons -->
+      <div class="hero-buttons reveal reveal-delay-3">
         <a href="#projects" class="btn-primary">
-          <i class="fas fa-rocket"></i> Explore Projects
+          <i class="fas fa-compass"></i>
+          <span>Explore Ecosystem</span>
+          <i class="fas fa-arrow-right btn-arrow"></i>
         </a>
-        <a href="#about" class="btn-secondary">
-          <i class="fas fa-play"></i> Learn More
-        </a>
+        <div class="hero-buttons-sub">
+          <button class="btn-secondary" id="heroCmdTrigger" type="button" aria-label="Spotlight Search">
+            <i class="fas fa-bolt"></i>
+            <span>Spotlight</span>
+            <kbd class="hero-kbd">Ctrl K</kbd>
+          </button>
+          <button class="btn-ghost" id="heroAppsTrigger" type="button" aria-label="All Platforms">
+            <i class="fas fa-cubes"></i>
+            <span>All Platforms</span>
+          </button>
+        </div>
       </div>
+
+      <!-- Live Ecosystem Metrics Strip -->
+      <div class="hero-metrics-bar reveal reveal-delay-4">
+        <div class="hero-metric-item">
+          <span class="metric-val">7+</span>
+          <span class="metric-lbl">Live Platforms</span>
+        </div>
+        <div class="hero-metric-sep"></div>
+        <div class="hero-metric-item">
+          <span class="metric-val">25,000+</span>
+          <span class="metric-lbl">Anime &amp; Manga</span>
+        </div>
+        <div class="hero-metric-sep"></div>
+        <div class="hero-metric-item">
+          <span class="metric-val">0.1s</span>
+          <span class="metric-lbl">Edge Latency</span>
+        </div>
+        <div class="hero-metric-sep"></div>
+        <div class="hero-metric-item">
+          <span class="metric-val">100%</span>
+          <span class="metric-lbl">Free &amp; Zero Ads</span>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE HERO SHOWCASE STUDIO DECK -->
+      <div class="hero-showcase reveal reveal-delay-5" id="heroShowcase">
+        <div class="showcase-glow-backlight"></div>
+        <div class="showcase-window">
+          <!-- Window Header Bar -->
+          <div class="showcase-topbar">
+            <div class="showcase-window-controls">
+              <span class="win-dot dot-close"></span>
+              <span class="win-dot dot-min"></span>
+              <span class="win-dot dot-max"></span>
+            </div>
+            <div class="showcase-address-bar">
+              <i class="fas fa-shield-halved"
+                style="font-size: 0.75rem; color: var(--emerald-400); margin-right: 6px;"></i>
+              <span class="showcase-url">pbgofficials.dev/<span id="showcaseUrlPath">anime</span></span>
+            </div>
+            <div class="showcase-status-chip">
+              <span class="showcase-pulse-beacon"></span>
+              <span class="status-chip-text">Live &bull; 99.9% Uptime</span>
+            </div>
+          </div>
+
+          <!-- Showcase Navigation Tabs -->
+          <div class="showcase-tabs" role="tablist">
+            <button class="showcase-tab active" data-tab="anime" role="tab" aria-selected="true">
+              <span class="tab-emoji">🎌</span>
+              <span class="tab-label">PBG Anime</span>
+              <span class="tab-live-badge">HD</span>
+            </button>
+            <button class="showcase-tab" data-tab="manga" role="tab" aria-selected="false">
+              <span class="tab-emoji">📖</span>
+              <span class="tab-label">PBG Manga</span>
+              <span class="tab-live-badge">Fast</span>
+            </button>
+            <button class="showcase-tab" data-tab="mail" role="tab" aria-selected="false">
+              <span class="tab-emoji">✉️</span>
+              <span class="tab-label">PBG Mail</span>
+              <span class="tab-live-badge">Private</span>
+            </button>
+            <button class="showcase-tab" data-tab="chatbox" role="tab" aria-selected="false">
+              <span class="tab-emoji">💬</span>
+              <span class="tab-label">PBG ChatBox</span>
+              <span class="tab-live-badge">Radio</span>
+            </button>
+            <button class="showcase-tab" data-tab="games" role="tab" aria-selected="false">
+              <span class="tab-emoji">🎮</span>
+              <span class="tab-label">PBG Games</span>
+              <span class="tab-live-badge">PvP</span>
+            </button>
+            <button class="showcase-tab" data-tab="friday" role="tab" aria-selected="false">
+              <span class="tab-emoji">⚡</span>
+              <span class="tab-label">PBG Friday</span>
+              <span class="tab-live-badge">AI</span>
+            </button>
+          </div>
+
+          <!-- Showcase Stage Panels -->
+          <div class="showcase-stage">
+            <!-- PANEL 1: ANIME -->
+            <div class="showcase-panel active" id="panel-anime">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock anime-mock">
+                    <img src="assets/images/showcase-anime.jpg" alt="Solo Leveling 4K Stream" class="anime-mock-bg" />
+                    <div class="anime-mock-scrim"></div>
+                    <div class="mock-player-badge"><i class="fas fa-play"></i> NOW STREAMING</div>
+                    <div class="mock-quality-badge">4K 60FPS &bull; SUB / DUB</div>
+                    <div class="mock-player-overlay">
+                      <div class="mock-play-btn"><i class="fas fa-play"></i></div>
+                      <div class="mock-player-info">
+                        <h4>Solo Leveling: Arise &bull; Episode 12</h4>
+                        <div class="mock-scrubber">
+                          <div class="mock-progress" style="width: 68%;"></div>
+                        </div>
+                        <div class="mock-player-meta">
+                          <span>21:40 / 23:45</span>
+                          <span>Auto-Next &bull; Zero Buffering</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-purple">🎌 Anime Streaming</span>
+                      <span class="preview-tag-pill tag-live">● Live Stream</span>
+                    </div>
+                    <h3 class="preview-title">High-Speed Anime Streaming Hub</h3>
+                    <p class="preview-desc">Stream seasonal simulcasts, trending series, and classic movies. Ultra-fast
+                      HLS video delivery, zero intrusive ads, and synced watch progress.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> 25,000+ episodes in HD &amp; 4K</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Dual audio (Subtitled &amp; English
+                        Dub)</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Global anime search with fuzzy matching
+                      </div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="/anime/" class="showcase-launch-btn">
+                        <span>Launch PBG Anime</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 2: MANGA -->
+            <div class="showcase-panel" id="panel-manga">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock manga-mock">
+                    <div class="mock-manga-reader">
+                      <div class="manga-pages-wrap">
+                        <div class="manga-mock-page left-page">
+                          <img src="assets/images/showcase-manga-1.jpg" alt="Manga Page 14 - Shadow's Awakening"
+                            class="manga-mock-img" />
+                          <span class="manga-page-tag"><i class="fas fa-book-open"></i> PAGE 14 &bull; HD</span>
+                        </div>
+                        <div class="manga-mock-page right-page">
+                          <img src="assets/images/showcase-manga-2.jpg" alt="Manga Page 15 - Battle Spread"
+                            class="manga-mock-img" />
+                          <span class="manga-page-tag"><i class="fas fa-bolt"></i> PAGE 15 &bull; SPREAD</span>
+                        </div>
+                      </div>
+                      <div class="manga-mock-bar">
+                        <span>Ch. 142: The Awakening</span>
+                        <span>Page 14 / 28</span>
+                        <span>HD WebP Caching</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-emerald">📖 Manga &amp; Manhwa</span>
+                      <span class="preview-tag-pill tag-live">● Instant Preload</span>
+                    </div>
+                    <h3 class="preview-title">Ultra-Fast Chapter Reader</h3>
+                    <p class="preview-desc">Read top manga, manhwa, and webtoons with intelligent background page
+                      pre-fetching, responsive vertical or webtoon scroll, and reading history.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> 10,000+ manga &amp; manhwa titles</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Single-page &amp; double-page reader
+                        modes</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Offline bookmarking &amp; chapter jump
+                      </div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="/manga/" class="showcase-launch-btn">
+                        <span>Open PBG Manga</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 3: MAIL -->
+            <div class="showcase-panel" id="panel-mail">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock mail-mock">
+                    <div class="mail-mock-inbox">
+                      <div class="mail-mock-header">
+                        <span><i class="fas fa-inbox"></i> Inbox (4 unread)</span>
+                        <span class="mail-new-btn"><i class="fas fa-pen"></i> New Mail</span>
+                      </div>
+                      <div class="mail-mock-item unread">
+                        <div class="mail-avatar">P</div>
+                        <div class="mail-content">
+                          <div class="mail-sender">PBG Security &bull; <span>Just now</span></div>
+                          <div class="mail-subject">End-to-End Encryption Key Verified</div>
+                        </div>
+                      </div>
+                      <div class="mail-mock-item">
+                        <div class="mail-avatar" style="background: linear-gradient(135deg, #10b981, #06b6d4);">W</div>
+                        <div class="mail-content">
+                          <div class="mail-sender">Cloudflare Workers &bull; <span>10m ago</span></div>
+                          <div class="mail-subject">D1 Database Snapshot Completed</div>
+                        </div>
+                      </div>
+                      <div class="mail-mock-item">
+                        <div class="mail-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">T</div>
+                        <div class="mail-content">
+                          <div class="mail-sender">Team PBG &bull; <span>1h ago</span></div>
+                          <div class="mail-subject">Release Notes: v2.4 Multi-Platform Hub</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-blue">✉️ Cloud Mail</span>
+                      <span class="preview-tag-pill tag-live">● Zero-Tracking</span>
+                    </div>
+                    <h3 class="preview-title">Private Cloud Webmail Suite</h3>
+                    <p class="preview-desc">High-speed serverless webmail running on Cloudflare Workers, Cloudflare D1
+                      SQL, and R2 attachments. No surveillance, zero spam, instant delivery.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Custom domain @pbgofficials.dev
+                        addresses</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> End-to-end encrypted storage &amp; zero
+                        data sales</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Rich markdown &amp; HTML composing
+                      </div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener"
+                        class="showcase-launch-btn">
+                        <span>Open PBG Mailbox</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 4: CHATBOX -->
+            <div class="showcase-panel" id="panel-chatbox">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock chat-mock">
+                    <div class="chat-mock-stage">
+                      <div class="chat-mock-radio">
+                        <div class="radio-disc"><i class="fas fa-music"></i></div>
+                        <div class="radio-meta">
+                          <div class="radio-title">Synchronized Live Radio &bull; Lo-Fi Beats</div>
+                          <div class="radio-equalizer">
+                            <span class="eq-bar bar1"></span>
+                            <span class="eq-bar bar2"></span>
+                            <span class="eq-bar bar3"></span>
+                            <span class="eq-bar bar4"></span>
+                            <span class="eq-bar bar5"></span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="chat-mock-bubbles">
+                        <div class="bubble bubble-other">
+                          <span class="bubble-author">Alex (VIP):</span>
+                          <span>Anyone watching the new anime episode right now? 🎌</span>
+                        </div>
+                        <div class="bubble bubble-me">
+                          <span class="bubble-author">You:</span>
+                          <span>Yes! Streaming on PBG Anime in 4K, audio is crisp!</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-emerald">💬 Realtime Chat &amp; Radio</span>
+                      <span class="preview-tag-pill tag-live">● WebSockets Live</span>
+                    </div>
+                    <h3 class="preview-title">Community Chat &amp; Synchronized Radio</h3>
+                    <p class="preview-desc">Join topic-based live chat rooms, listen to synchronized online music radio
+                      with friends, participate in live voice channels, and share media seamlessly.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Low-latency WebSockets realtime
+                        messaging</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Multi-channel radio station with
+                        synchronized playback</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Voice channels and screen sharing</div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="/chatbox/" class="showcase-launch-btn">
+                        <span>Join PBG ChatBox</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 5: GAMES -->
+            <div class="showcase-panel" id="panel-games">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock games-mock">
+                    <img src="assets/images/showcase-games.jpg" alt="Cyber Arcade Portal" class="games-mock-bg" />
+                    <div class="games-mock-scrim"></div>
+                    <div class="games-mock-board">
+                      <div class="game-badge-chip"><i class="fas fa-trophy"></i> BUSINESS BOARD MULTIPLAYER</div>
+                      <div class="game-board-visual">
+                        <div class="board-tile tile-pbg">PBG Tower</div>
+                        <div class="board-tile tile-dice"><i class="fas fa-dice-five"></i> <span>Roll 9</span></div>
+                        <div class="board-tile tile-gold">$1,450K</div>
+                      </div>
+                      <div class="game-live-players">
+                        <span class="player-chip p1">● Player 1: $1,450K</span>
+                        <span class="player-chip p2">● Player 2: $890K</span>
+                        <span class="player-chip turn">Your Turn!</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-amber">🎮 Games Portal</span>
+                      <span class="preview-tag-pill tag-live">● Multiplayer Live</span>
+                    </div>
+                    <h3 class="preview-title">Multiplayer Browser Arcade</h3>
+                    <p class="preview-desc">Play fast, responsive browser multiplayer games. Compete in the Business
+                      Board Game with custom room codes, roll real-time dice, and top global leaderboards.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Business Board Game with private rooms
+                        &amp; AI bots</div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> 3D Cubes 2048 arena &amp; arcade titles
+                      </div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Zero downloads required — play straight
+                        in browser</div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="/games/" class="showcase-launch-btn">
+                        <span>Play PBG Games</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 6: FRIDAY AI -->
+            <div class="showcase-panel" id="panel-friday">
+              <div class="showcase-panel-inner">
+                <div class="showcase-preview-card">
+                  <div class="preview-media-mock ai-mock">
+                    <div class="code-mock-editor">
+                      <div class="code-mock-tab"><span>app.js</span><i class="fas fa-circle"
+                          style="font-size: 0.5rem; color: var(--cyan-400);"></i></div>
+                      <div class="code-mock-lines">
+                        <div class="code-line"><span class="k">import</span> { PbgEcosystem } <span
+                            class="k">from</span> <span class="s">'@pbg/core'</span>;</div>
+                        <div class="code-line"><span class="k">const</span> hub = <span class="k">new</span>
+                          PbgEcosystem({ mode: <span class="s">'autonomous'</span> });</div>
+                        <div class="code-line"><span class="k">await</span> hub.stream({ anime: <span class="s">'Solo
+                            Leveling'</span>, res: <span class="s">'4K'</span> });</div>
+                        <div class="code-line"><span class="c">// ✓ AI generation completed in 142ms</span></div>
+                      </div>
+                      <div class="code-mock-terminal">
+                        <span class="term-prompt">$</span> friday build --target=production --preview
+                        <span class="term-status"><i class="fas fa-circle-check"></i> Compiled in 0.18s</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="showcase-preview-sidebar">
+                    <div class="preview-badge-row">
+                      <span class="preview-tag-pill tag-cyan">⚡ AI Coding Studio</span>
+                      <span class="preview-tag-pill tag-live">● Autonomous</span>
+                    </div>
+                    <h3 class="preview-title">AI-Native Developer Workspace</h3>
+                    <p class="preview-desc">Build web apps autonomously with PBG Friday. Powered by NVIDIA NIM and deep
+                      reasoning LLMs with tool execution, file generation, and live dev preview.</p>
+                    <div class="preview-features">
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Autonomous code generation and editing
+                      </div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Live synchronized code sandbox preview
+                      </div>
+                      <div class="feat-item"><i class="fas fa-check-circle"></i> Integrated chat and model parameter
+                        switching</div>
+                    </div>
+                    <div class="preview-actions">
+                      <a href="/friday/" class="showcase-launch-btn">
+                        <span>Open PBG Friday</span>
+                        <i class="fas fa-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END INTERACTIVE HERO SHOWCASE -->
+
     </div>
-    <div class="hero-scroll-indicator">
-      <span>Scroll</span>
-      <div class="scroll-line"></div>
-    </div>
+
+    <a href="#projects" class="hero-scroll-indicator" aria-label="Scroll to projects">
+      <span>EXPLORE</span>
+      <div class="scroll-mouse">
+        <div class="scroll-wheel"></div>
+      </div>
+    </a>
   </section>
 
   <!-- ========== PROJECTS SECTION ========== -->
@@ -211,14 +746,16 @@
           <div class="project-card-inner">
             <div class="project-icon">🎌</div>
             <h3>PBG Anime</h3>
-            <p>Stream your favorite anime series and movies with a sleek, ad-free experience. Curated collections and seasonal picks.</p>
+            <p>Stream your favorite anime series and movies with a sleek, ad-free experience. Curated collections and
+              seasonal picks.</p>
             <div class="project-tags">
               <span class="project-tag">Streaming</span>
               <span class="project-tag">Anime</span>
               <span class="project-tag">HD</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Live Now <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Live Now <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
@@ -229,14 +766,16 @@
           <div class="project-card-inner">
             <div class="project-icon">📖</div>
             <h3>PBG Manga</h3>
-            <p>Read manga online with our ultra-fast HD reader. Explore trending titles, popular manhwa, and thousands of chapters.</p>
+            <p>Read manga online with our ultra-fast HD reader. Explore trending titles, popular manhwa, and thousands
+              of chapters.</p>
             <div class="project-tags">
               <span class="project-tag">Reader</span>
               <span class="project-tag">Manga</span>
               <span class="project-tag">Manhwa</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Read Manga <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Read Manga <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
@@ -272,7 +811,8 @@
               <span class="project-tag">Voice</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Live Now <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Live Now <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
@@ -283,14 +823,16 @@
           <div class="project-card-inner">
             <div class="project-icon">🎮</div>
             <h3>PBG Games</h3>
-            <p>Multiplayer browser games portal! Play the Business Board game, challenge friends, and explore all titles.</p>
+            <p>Multiplayer browser games portal! Play the Business Board game, challenge friends, and explore all
+              titles.</p>
             <div class="project-tags">
               <span class="project-tag">Games Portal</span>
               <span class="project-tag">Board Game</span>
               <span class="project-tag">Multiplayer</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Explore Games <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Explore Games <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
@@ -301,32 +843,37 @@
           <div class="project-card-inner">
             <div class="project-icon">🤖</div>
             <h3>PBG Friday</h3>
-            <p>AI-native coding workspace. Build apps autonomously with real tool execution, live preview, and intelligent code generation.</p>
+            <p>AI-native coding workspace. Build apps autonomously with real tool execution, live preview, and
+              intelligent code generation.</p>
             <div class="project-tags">
               <span class="project-tag">AI Coding</span>
               <span class="project-tag">Workspace</span>
               <span class="project-tag">Autonomous</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Try Now <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Try Now <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
 
         <!-- PBG Mail (Cloud Email Suite) -->
-        <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener" class="project-card reveal reveal-delay-7" data-accent="blue">
+        <a href="https://mail.pbgofficials.dev" target="_blank" rel="noopener"
+          class="project-card reveal reveal-delay-7" data-accent="blue">
           <div class="project-card-glow"></div>
           <div class="project-card-inner">
             <div class="project-icon">✉️</div>
             <h3>PBG Mail</h3>
-            <p>Private, high-performance cloud email suite on Cloudflare Workers, D1 &amp; R2. Zero spam, rich-text composing, and end-to-end security.</p>
+            <p>Private, high-performance cloud email suite on Cloudflare Workers, D1 &amp; R2. Zero spam, rich-text
+              composing, and end-to-end security.</p>
             <div class="project-tags">
               <span class="project-tag">Cloud Mail</span>
               <span class="project-tag">Encrypted</span>
               <span class="project-tag">Serverless</span>
             </div>
             <div class="project-status status-live">
-              <span class="status-dot"></span> Open Mailbox <i class="fas fa-arrow-right" style="margin-left: 4px; font-size: 0.72rem;"></i>
+              <span class="status-dot"></span> Open Mailbox <i class="fas fa-arrow-right"
+                style="margin-left: 4px; font-size: 0.72rem;"></i>
             </div>
           </div>
         </a>
@@ -361,10 +908,13 @@
           <span class="section-label">About Us</span>
           <h2 class="section-title">The Vision Behind PBG Officials</h2>
           <p class="section-desc">
-            PBG Officials is a multi-platform digital brand dedicated to building beautiful, functional, and fun digital experiences. We create platforms that bring communities together through shared passions — anime, manga, gaming, and beyond.
+            PBG Officials is a multi-platform digital brand dedicated to building beautiful, functional, and fun digital
+            experiences. We create platforms that bring communities together through shared passions — anime, manga,
+            gaming, and beyond.
           </p>
           <p class="section-desc" style="margin-top: 16px;">
-            Every project is built with love, modern design, and a commitment to delivering the best user experience across all devices.
+            Every project is built with love, modern design, and a commitment to delivering the best user experience
+            across all devices.
           </p>
           <div class="about-stats">
             <div class="stat-item reveal reveal-delay-1">
@@ -384,50 +934,51 @@
 
         <div class="about-visual reveal reveal-delay-2">
           <div class="about-visual-card">
-            <h3 style="font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: var(--cyan-400);">
+            <h3
+              style="font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: var(--cyan-400);">
               <i class="fas fa-code" style="margin-right: 8px;"></i>Built With
             </h3>
             <div class="tech-stack-grid">
               <div class="tech-item">
                 <div class="tech-icon">⚡</div>
                 <div>
-                  <div class="tech-name">Modern Web</div>
-                  <div class="tech-type">HTML / CSS / JS</div>
+                  <div class="tech-name">Cloudflare Edge &amp; D1</div>
+                  <div class="tech-type">Serverless &amp; Global Cache</div>
                 </div>
               </div>
               <div class="tech-item">
-                <div class="tech-icon">🎨</div>
+                <div class="tech-icon">🌐</div>
                 <div>
-                  <div class="tech-name">Premium UI</div>
-                  <div class="tech-type">Design Systems</div>
-                </div>
-              </div>
-              <div class="tech-item">
-                <div class="tech-icon">📱</div>
-                <div>
-                  <div class="tech-name">Responsive</div>
-                  <div class="tech-type">All Devices</div>
-                </div>
-              </div>
-              <div class="tech-item">
-                <div class="tech-icon">🔒</div>
-                <div>
-                  <div class="tech-name">Secure</div>
-                  <div class="tech-type">Best Practices</div>
+                  <div class="tech-name">WebSockets &amp; WebRTC</div>
+                  <div class="tech-type">Live Radio &amp; P2P Streaming</div>
                 </div>
               </div>
               <div class="tech-item">
                 <div class="tech-icon">🚀</div>
                 <div>
-                  <div class="tech-name">Fast</div>
-                  <div class="tech-type">Performance First</div>
+                  <div class="tech-name">Node.js &amp; Express</div>
+                  <div class="tech-type">High-Throughput Streaming</div>
                 </div>
               </div>
               <div class="tech-item">
-                <div class="tech-icon">🌍</div>
+                <div class="tech-icon">🤖</div>
                 <div>
-                  <div class="tech-name">Global</div>
-                  <div class="tech-type">For Everyone</div>
+                  <div class="tech-name">NVIDIA NIM AI</div>
+                  <div class="tech-type">Deep Reasoning &amp; Vision</div>
+                </div>
+              </div>
+              <div class="tech-item">
+                <div class="tech-icon">🎨</div>
+                <div>
+                  <div class="tech-name">Modern Design System</div>
+                  <div class="tech-type">Glassmorphic Luxury UI</div>
+                </div>
+              </div>
+              <div class="tech-item">
+                <div class="tech-icon">🔒</div>
+                <div>
+                  <div class="tech-name">End-to-End Security</div>
+                  <div class="tech-type">Encrypted &amp; Zero Tracking</div>
                 </div>
               </div>
             </div>
@@ -450,37 +1001,44 @@
       </div>
 
       <div class="services-grid">
-        <div class="service-card reveal reveal-delay-1" style="--card-accent: linear-gradient(90deg, var(--cyan-400), var(--teal-400)); --icon-bg: rgba(34, 211, 238, 0.1);">
+        <div class="service-card reveal reveal-delay-1"
+          style="--card-accent: linear-gradient(90deg, var(--cyan-400), var(--teal-400)); --icon-bg: rgba(34, 211, 238, 0.1);">
           <div class="service-icon"><i class="fas fa-palette"></i></div>
           <h3>UI/UX Design</h3>
-          <p>Stunning, intuitive interfaces designed to captivate users from the first interaction. Every pixel matters.</p>
+          <p>Stunning, intuitive interfaces designed to captivate users from the first interaction. Every pixel matters.
+          </p>
         </div>
 
-        <div class="service-card reveal reveal-delay-2" style="--card-accent: linear-gradient(90deg, var(--purple-400), var(--indigo-400)); --icon-bg: rgba(167, 139, 250, 0.1);">
+        <div class="service-card reveal reveal-delay-2"
+          style="--card-accent: linear-gradient(90deg, var(--purple-400), var(--indigo-400)); --icon-bg: rgba(167, 139, 250, 0.1);">
           <div class="service-icon"><i class="fas fa-code"></i></div>
           <h3>Web Development</h3>
           <p>Cutting-edge web applications built with modern technologies. Fast, responsive, and scalable.</p>
         </div>
 
-        <div class="service-card reveal reveal-delay-3" style="--card-accent: linear-gradient(90deg, var(--pink-400), var(--rose-400)); --icon-bg: rgba(244, 114, 182, 0.1);">
+        <div class="service-card reveal reveal-delay-3"
+          style="--card-accent: linear-gradient(90deg, var(--pink-400), var(--rose-400)); --icon-bg: rgba(244, 114, 182, 0.1);">
           <div class="service-icon"><i class="fas fa-film"></i></div>
           <h3>Content Platforms</h3>
           <p>Streaming, reading, and media platforms optimized for the best content consumption experience.</p>
         </div>
 
-        <div class="service-card reveal reveal-delay-4" style="--card-accent: linear-gradient(90deg, var(--amber-400), var(--orange-400)); --icon-bg: rgba(251, 191, 36, 0.1);">
+        <div class="service-card reveal reveal-delay-4"
+          style="--card-accent: linear-gradient(90deg, var(--amber-400), var(--orange-400)); --icon-bg: rgba(251, 191, 36, 0.1);">
           <div class="service-icon"><i class="fas fa-gamepad"></i></div>
           <h3>Game Development</h3>
           <p>Browser-based games with real-time multiplayer, leaderboards, and competitive tournament systems.</p>
         </div>
 
-        <div class="service-card reveal reveal-delay-5" style="--card-accent: linear-gradient(90deg, var(--emerald-400), var(--teal-400)); --icon-bg: rgba(52, 211, 153, 0.1);">
+        <div class="service-card reveal reveal-delay-5"
+          style="--card-accent: linear-gradient(90deg, var(--emerald-400), var(--teal-400)); --icon-bg: rgba(52, 211, 153, 0.1);">
           <div class="service-icon"><i class="fas fa-users"></i></div>
           <h3>Community Building</h3>
           <p>Chat systems, forums, and social features that bring fans together and foster vibrant communities.</p>
         </div>
 
-        <div class="service-card reveal reveal-delay-6" style="--card-accent: linear-gradient(90deg, var(--blue-400), var(--indigo-400)); --icon-bg: rgba(96, 165, 250, 0.1);">
+        <div class="service-card reveal reveal-delay-6"
+          style="--card-accent: linear-gradient(90deg, var(--blue-400), var(--indigo-400)); --icon-bg: rgba(96, 165, 250, 0.1);">
           <div class="service-icon"><i class="fas fa-shield-halved"></i></div>
           <h3>Platform Security</h3>
           <p>Enterprise-grade security practices, data protection, and user privacy across all our platforms.</p>
@@ -502,14 +1060,16 @@
           </p>
 
           <div class="contact-info">
-            <a href="mailto:support@pbgofficials.dev" class="contact-info-item contact-info-link" title="Send email to support@pbgofficials.dev">
+            <a href="mailto:support@pbgofficials.dev" class="contact-info-item contact-info-link"
+              title="Send email to support@pbgofficials.dev">
               <div class="contact-info-icon"><i class="fas fa-envelope"></i></div>
               <div class="contact-info-text">
                 <h4>Email</h4>
                 <p>support@pbgofficials.dev</p>
               </div>
             </a>
-            <a href="https://discord.gg/rSSDkfWRt" target="_blank" rel="noopener noreferrer" class="contact-info-item contact-info-link" title="Join our Discord server">
+            <a href="https://discord.gg/rSSDkfWRt" target="_blank" rel="noopener noreferrer"
+              class="contact-info-item contact-info-link" title="Join our Discord server">
               <div class="contact-info-icon"><i class="fab fa-discord"></i></div>
               <div class="contact-info-text">
                 <h4>Discord</h4>
@@ -527,7 +1087,8 @@
         </div>
 
         <div class="contact-form-wrapper reveal reveal-delay-2">
-          <form class="contact-form" id="contactForm" action="https://formsubmit.co/support@pbgofficials.dev" method="POST">
+          <form class="contact-form" id="contactForm" action="https://formsubmit.co/support@pbgofficials.dev"
+            method="POST">
             <!-- Hidden configuration fields for FormSubmit -->
             <input type="hidden" name="_captcha" value="false" />
             <input type="hidden" name="_template" value="table" />
@@ -551,7 +1112,8 @@
             </div>
             <div class="form-group">
               <label for="message">Message</label>
-              <textarea id="message" name="message" placeholder="Tell us about your idea, question, or collaboration..." required></textarea>
+              <textarea id="message" name="message" placeholder="Tell us about your idea, question, or collaboration..."
+                required></textarea>
             </div>
             <button type="submit" class="btn-submit" id="submitBtn">
               <i class="fas fa-paper-plane"></i> Send Message
@@ -569,16 +1131,27 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="#" class="nav-logo">
-            <img src="assets/images/logo.jpg" alt="PBG Logo" class="nav-logo-img" />
-            <span>PBG Officials</span>
+            <div class="nav-logo-badge">
+              <img src="assets/images/logo.jpg" alt="PBG Logo" class="nav-logo-img" />
+              <span class="nav-logo-ring"></span>
+            </div>
+            <div class="nav-logo-text">
+              <span class="brand-title">PBG Officials</span>
+              <span class="brand-sub">HUB v2.4</span>
+            </div>
           </a>
           <p>A multi-platform digital hub building the future of entertainment, one project at a time.</p>
           <div class="footer-socials">
-            <a href="https://x.com/PBGOFFICIALS" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
-            <a href="https://discord.gg/rSSDkfWRt" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Discord"><i class="fab fa-discord"></i></a>
-            <a href="https://github.com/Varshith4611C/PBGOFFICIALS" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="GitHub"><i class="fab fa-github"></i></a>
-            <a href="https://www.youtube.com/@PBGOfficial999" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
-            <a href="https://www.instagram.com/pbg_officials/" target="_blank" rel="noopener noreferrer" class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="https://x.com/PBGOFFICIALS" target="_blank" rel="noopener noreferrer" class="social-link"
+              aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
+            <a href="https://discord.gg/rSSDkfWRt" target="_blank" rel="noopener noreferrer" class="social-link"
+              aria-label="Discord"><i class="fab fa-discord"></i></a>
+            <a href="https://github.com/Varshith4611C/PBGOFFICIALS" target="_blank" rel="noopener noreferrer"
+              class="social-link" aria-label="GitHub"><i class="fab fa-github"></i></a>
+            <a href="https://www.youtube.com/@PBGOfficial999" target="_blank" rel="noopener noreferrer"
+              class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+            <a href="https://www.instagram.com/pbg_officials/" target="_blank" rel="noopener noreferrer"
+              class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
           </div>
         </div>
 
@@ -666,7 +1239,8 @@
       <div class="pbg-ai-settings-panel" id="pbgAiSettingsPanel">
         <div class="pbg-ai-settings-header">
           <span><i class="fas fa-sliders"></i> AI Model Settings</span>
-          <button id="pbgAiSettingsClose" class="pbg-ai-settings-close" type="button"><i class="fas fa-times"></i></button>
+          <button id="pbgAiSettingsClose" class="pbg-ai-settings-close" type="button"><i
+              class="fas fa-times"></i></button>
         </div>
         <div class="pbg-ai-field">
           <label for="pbgAiModelSelect">Select AI Model</label>
@@ -692,10 +1266,14 @@
           <h3>Welcome to PBG AI</h3>
           <p>Your intelligent assistant for anime streaming, manga, live radio chat, tech, and code.</p>
           <div class="pbg-ai-chips">
-            <button class="pbg-ai-chip" data-prompt="What platforms and features does PBG Officials offer?">🚀 Explore PBG</button>
-            <button class="pbg-ai-chip" data-prompt="Recommend top 5 must-watch anime right now with brief summaries.">🎬 Top Anime</button>
-            <button class="pbg-ai-chip" data-prompt="What is PBG ChatBox and how does sync music radio work?">💬 PBG ChatBox</button>
-            <button class="pbg-ai-chip" data-prompt="Help me write a modern JavaScript async function with retry logic.">💻 Code Helper</button>
+            <button class="pbg-ai-chip" data-prompt="What platforms and features does PBG Officials offer?">🚀 Explore
+              PBG</button>
+            <button class="pbg-ai-chip"
+              data-prompt="Recommend top 5 must-watch anime right now with brief summaries.">🎬 Top Anime</button>
+            <button class="pbg-ai-chip" data-prompt="What is PBG ChatBox and how does sync music radio work?">💬 PBG
+              ChatBox</button>
+            <button class="pbg-ai-chip"
+              data-prompt="Help me write a modern JavaScript async function with retry logic.">💻 Code Helper</button>
           </div>
         </div>
       </div>
@@ -721,6 +1299,33 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- ========== GLOBAL COMMAND PALETTE (CTRL+K) MODAL ========== -->
+  <div class="cmd-palette-backdrop" id="cmdPaletteBackdrop" style="display: none;" aria-hidden="true">
+    <div class="cmd-palette-modal" id="cmdPaletteModal" role="dialog" aria-modal="true" aria-label="Command Palette">
+      <div class="cmd-palette-search">
+        <i class="fas fa-search cmd-search-icon"></i>
+        <input type="text" id="cmdPaletteInput"
+          placeholder="Search platforms, features, or jump to... (e.g. anime, radio, games)" autocomplete="off"
+          spellcheck="false" />
+        <span class="cmd-key-esc" id="cmdPaletteClose"><kbd>ESC</kbd></span>
+      </div>
+      <div class="cmd-palette-list" id="cmdPaletteList">
+        <!-- Rendered dynamically by script.js -->
+      </div>
+      <div class="cmd-palette-footer">
+        <div class="cmd-footer-keys">
+          <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+          <span><kbd>↵</kbd> Select</span>
+          <span><kbd>ESC</kbd> Close</span>
+        </div>
+        <div class="cmd-footer-brand">
+          <span>PBG Officials Quick Spotlight</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js?v=2.12"></script>
 </body>
+
 </html>

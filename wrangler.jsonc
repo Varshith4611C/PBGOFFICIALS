@@ -6,6 +6,19 @@
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "exclude": [
+      "certs/**",
+      ".env*",
+      "server.js",
+      "package.json",
+      "package-lock.json",
+      "mail/worker/**",
+      "routes/**",
+      "friday/.fraiday_session*",
+      "games/bussiness-game/**",
+      "**/*.pem",
+      "**/*.sql"
+    ]
   }
 }

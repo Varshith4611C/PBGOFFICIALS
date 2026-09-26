@@ -28,6 +28,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ---------- PBG APPS LAUNCHER DRAWER ----------
+  const navAppsBtn = document.getElementById('navAppsBtn');
+  const pbgAppsMenu = document.getElementById('pbgAppsMenu');
+  const pbgAppsBackdrop = document.getElementById('pbgAppsBackdrop');
+  const pbgAppsClose = document.getElementById('pbgAppsClose');
+
+  const toggleAppsMenu = (open) => {
+    if (!pbgAppsMenu) return;
+    const isOpen = open !== undefined ? open : !pbgAppsMenu.classList.contains('open');
+    pbgAppsMenu.classList.toggle('open', isOpen);
+    pbgAppsBackdrop?.classList.toggle('open', isOpen);
+    navAppsBtn?.classList.toggle('active', isOpen);
+    pbgAppsMenu.setAttribute('aria-hidden', !isOpen);
+  };
+
+  if (navAppsBtn && pbgAppsMenu) {
+    navAppsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAppsMenu();
+    });
+    pbgAppsClose?.addEventListener('click', () => toggleAppsMenu(false));
+    pbgAppsBackdrop?.addEventListener('click', () => toggleAppsMenu(false));
+
+    const drawerAppsBtn = document.getElementById('drawerAppsBtn');
+    drawerAppsBtn?.addEventListener('click', () => {
+      hamburger?.classList.remove('open');
+      navLinks?.classList.remove('open');
+      toggleAppsMenu(true);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && pbgAppsMenu.classList.contains('open')) {
+        toggleAppsMenu(false);
+      }
+    });
+  }
+
   // ---------- ACTIVE NAV LINK ----------
   const sections = document.querySelectorAll('section[id]');
   const navAnchors = document.querySelectorAll('.nav-links a:not(.nav-cta)');
@@ -69,6 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const delay = Math.random() * 4;
 
     particle.style.cssText = `
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
       width: ${size}px;
       height: ${size}px;
       background: ${color};
@@ -201,23 +241,36 @@ document.addEventListener('DOMContentLoaded', () => {
       if (formStatus) formStatus.style.display = 'none';
 
       try {
-        const response = await fetch('https://formsubmit.co/ajax/support@pbgofficials.dev', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            name: name,
-            email: email,
-            _replyto: email,
-            _subject: subject ? `[PBG Officials] ${subject}` : `New Message from ${name} (PBG Officials)`,
-            message: message,
-            _cc: 'pbgofficial143@gmail.com',
-            _template: 'table',
-            _captcha: 'false'
-          })
-        });
+        let response;
+        try {
+          response = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ name, email, subject, message })
+          });
+        } catch {
+          response = null;
+        }
+
+        // If local API unavailable (e.g. static CDN deploy), fallback to FormSubmit
+        if (!response || !response.ok) {
+          response = await fetch('https://formsubmit.co/ajax/support@pbgofficials.dev', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              name: name,
+              email: email,
+              _replyto: email,
+              _subject: subject ? `[PBG Officials] ${subject}` : `New Message from ${name} (PBG Officials)`,
+              message: message,
+              _template: 'table',
+              _captcha: 'false'
+            })
+          });
+        }
 
         const data = await response.json();
 
@@ -384,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('pbg_ai_model', currentModel);
       updateModelLabel();
       settingsPanel?.classList.remove('open');
-      
+
       // Temporary confirmation feedback
       const originalText = saveSettingsBtn.textContent;
       saveSettingsBtn.textContent = 'Saved! ✓';
@@ -415,10 +468,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMarkdown = (rawText) => {
       let text = escapeHtml(rawText);
 
-      // Code blocks ```lang ... ```
-      text = text.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+      // Extract code blocks first and replace with tokens so newline-splitting doesn't break them
+      const codeBlocks = [];
+      text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_match, lang, code) => {
         const language = lang || 'code';
-        return `<pre><div class="pbg-ai-code-header"><span>${language}</span><button class="pbg-ai-copy-btn" type="button" onclick="navigator.clipboard.writeText(this.closest('pre').querySelector('code').innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500)"><i class="fas fa-copy"></i> Copy</button></div><code>${code.trim()}</code></pre>`;
+        const placeholder = `%%PBG_CODE_BLOCK_${codeBlocks.length}%%`;
+        codeBlocks.push(
+          `<pre><div class="pbg-ai-code-header"><span>${language}</span><button class="pbg-ai-copy-btn" type="button" onclick="navigator.clipboard.writeText(this.closest('pre').querySelector('code').innerText); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy', 1500)"><i class="fas fa-copy"></i> Copy</button></div><code>${code.trim()}</code></pre>`
+        );
+        return placeholder;
       });
 
       // Inline code `code`
@@ -430,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Italic *text*
       text = text.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
 
-      // Bullet lists
+      // Bullet lists & paragraphs
       const lines = text.split('\n');
       let inList = false;
       let html = '';
@@ -453,6 +511,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       if (inList) html += '</ul>';
+
+      // Restore protected code blocks
+      codeBlocks.forEach((block, idx) => {
+        const token = `%%PBG_CODE_BLOCK_${idx}%%`;
+        html = html.replace(`<p>${token}</p>`, block);
+        html = html.replace(token, block);
+      });
 
       return html;
     };
@@ -559,5 +624,291 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initPbgAi();
 
+  // ---------- GLOBAL COMMAND PALETTE (CTRL+K) CONTROLLER ----------
+  const initCmdPalette = () => {
+    const backdrop = document.getElementById('cmdPaletteBackdrop');
+    const input = document.getElementById('cmdPaletteInput');
+    const list = document.getElementById('cmdPaletteList');
+    const closeBtn = document.getElementById('cmdPaletteClose');
+    const navBtn = document.getElementById('navCmdBtn');
+
+    if (!backdrop || !input || !list) return;
+
+    const COMMANDS = [
+      { id: 'anime', category: 'Platforms', name: 'PBG Anime', desc: 'Stream HD anime episodes with multi-server failover', icon: '🎬', url: '/anime/', badge: 'Stream' },
+      { id: 'manga', category: 'Platforms', name: 'PBG Manga', desc: 'Read thousands of manga and manhwa chapters in HD', icon: '📖', url: '/manga/', badge: 'Reader' },
+      { id: 'chatbox', category: 'Platforms', name: 'PBG ChatBox', desc: '24/7 Live Radio, Synchronized Watch Parties & WebRTC', icon: '💬', url: '/chatbox/', badge: 'Live' },
+      { id: 'mail', category: 'Platforms', name: 'PBG Mail', desc: 'Serverless encrypted mailbox powered by Cloudflare D1/R2', icon: '✉️', url: 'https://mail.pbgofficials.dev', badge: 'External' },
+      { id: 'games', category: 'Gaming', name: 'PBG Games Portal', desc: 'Instant browser multiplayer games library', icon: '🎮', url: '/games/', badge: 'Hub' },
+      { id: 'business-board', category: 'Gaming', name: 'PBG Business Board', desc: 'Iconic 40-space Indian Business mobile board game', icon: '🎲', url: '/games/business-board/', badge: 'Play' },
+      { id: 'cubes-2048', category: 'Gaming', name: 'Cubes 2048 Arena', desc: 'Real-time snake meets 2048 multiplayer battle arena', icon: '🧊', url: '/games/cubes-2048/', badge: 'Play' },
+      { id: 'friday', category: 'AI & Developer', name: 'frAIday AI Studio', desc: 'Autonomous full-stack AI development workspace', icon: '🤖', url: '/friday/', badge: 'Dev' },
+      { id: 'ask-ai', category: 'AI & Developer', name: 'Ask PBG AI Assistant', desc: 'Open cybernetic AI assistant for queries & code help', icon: '✨', action: 'open-ai', badge: 'AI' },
+      { id: 'contact', category: 'Support & Legal', name: 'Contact PBG Support', desc: 'Send inquiries directly to support@pbgofficials.dev', icon: '📬', url: '#contact', badge: 'Help' },
+      { id: 'terms', category: 'Support & Legal', name: 'Terms of Service', desc: 'Read legal terms and platform policies', icon: '⚖️', url: '/terms-of-service.html', badge: 'Legal' },
+      { id: 'privacy', category: 'Support & Legal', name: 'Privacy Policy', desc: 'Review privacy standards and data handling', icon: '📜', url: '/privacy-policy.html', badge: 'Legal' },
+    ];
+
+    let selectedIndex = 0;
+    let filteredCommands = [...COMMANDS];
+
+    const renderList = (items) => {
+      filteredCommands = items;
+      selectedIndex = 0;
+
+      if (items.length === 0) {
+        list.innerHTML = `<div class="cmd-empty-state"><i class="fas fa-search" style="font-size: 1.5rem; margin-bottom: 8px; opacity: 0.5;"></i><p>No matching commands or platforms found for "<strong>${input.value}</strong>"</p></div>`;
+        return;
+      }
+
+      // Group by category
+      const categories = {};
+      items.forEach((cmd, idx) => {
+        if (!categories[cmd.category]) categories[cmd.category] = [];
+        categories[cmd.category].push({ ...cmd, globalIndex: idx });
+      });
+
+      let html = '';
+      Object.keys(categories).forEach(cat => {
+        html += `<div class="cmd-category-title">${cat}</div>`;
+        categories[cat].forEach(cmd => {
+          const isActive = cmd.globalIndex === selectedIndex ? 'active' : '';
+          html += `
+            <div class="cmd-item ${isActive}" data-index="${cmd.globalIndex}" role="option">
+              <div class="cmd-item-icon">${cmd.icon}</div>
+              <div class="cmd-item-info">
+                <div class="cmd-item-name">${cmd.name} ${cmd.badge ? `<span class="cmd-item-badge">${cmd.badge}</span>` : ''}</div>
+                <div class="cmd-item-desc">${cmd.desc}</div>
+              </div>
+              <i class="fas fa-arrow-right" style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.6;"></i>
+            </div>
+          `;
+        });
+      });
+
+      list.innerHTML = html;
+
+      // Click to execute
+      list.querySelectorAll('.cmd-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.getAttribute('data-index'));
+          executeCommand(filteredCommands[idx]);
+        });
+      });
+    };
+
+    const updateActiveItem = () => {
+      list.querySelectorAll('.cmd-item').forEach(el => {
+        const idx = parseInt(el.getAttribute('data-index'));
+        el.classList.toggle('active', idx === selectedIndex);
+        if (idx === selectedIndex) {
+          el.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    };
+
+    const executeCommand = (cmd) => {
+      if (!cmd) return;
+      closePalette();
+      if (cmd.action === 'open-ai') {
+        const trigger = document.getElementById('pbgAiTrigger');
+        trigger?.click();
+      } else if (cmd.url) {
+        if (cmd.url.startsWith('http')) {
+          window.open(cmd.url, '_blank', 'noopener');
+        } else {
+          window.location.href = cmd.url;
+        }
+      }
+    };
+
+    const openPalette = () => {
+      backdrop.style.display = 'flex';
+      backdrop.setAttribute('aria-hidden', 'false');
+      input.value = '';
+      renderList(COMMANDS);
+      setTimeout(() => input.focus(), 50);
+    };
+
+    const closePalette = () => {
+      backdrop.style.display = 'none';
+      backdrop.setAttribute('aria-hidden', 'true');
+    };
+
+    // Keyboard trigger (Ctrl+K or Cmd+K)
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (backdrop.style.display === 'none' || !backdrop.style.display) {
+          openPalette();
+        } else {
+          closePalette();
+        }
+      }
+      if (e.key === 'Escape' && backdrop.style.display !== 'none') {
+        closePalette();
+      }
+    });
+
+    // Navigation inside modal
+    input.addEventListener('keydown', (e) => {
+      if (filteredCommands.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex + 1) % filteredCommands.length;
+        updateActiveItem();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex - 1 + filteredCommands.length) % filteredCommands.length;
+        updateActiveItem();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        executeCommand(filteredCommands[selectedIndex]);
+      }
+    });
+
+    // Search filter
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      if (!q) {
+        renderList(COMMANDS);
+      } else {
+        const matched = COMMANDS.filter(cmd =>
+          cmd.name.toLowerCase().includes(q) ||
+          cmd.desc.toLowerCase().includes(q) ||
+          cmd.category.toLowerCase().includes(q)
+        );
+        renderList(matched);
+      }
+    });
+
+    navBtn?.addEventListener('click', openPalette);
+    closeBtn?.addEventListener('click', closePalette);
+
+    const drawerCmdBtn = document.getElementById('drawerCmdBtn');
+    drawerCmdBtn?.addEventListener('click', () => {
+      hamburger?.classList.remove('open');
+      navLinks?.classList.remove('open');
+      openPalette();
+    });
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closePalette();
+    });
+  };
+
+  initCmdPalette();
+
+  // ---------- INTERACTIVE CARD CURSOR SPOTLIGHT FOLLOWER ----------
+  const initCardSpotlight = () => {
+    const cards = document.querySelectorAll('.pbg-app-card, .project-card');
+    cards.forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
+      });
+    });
+  };
+
+  initCardSpotlight();
+
+  // ---------- HERO SHOWCASE STUDIO CONTROLS ----------
+  const initHeroShowcase = () => {
+    const tabs = document.querySelectorAll('.showcase-tab');
+    const panels = document.querySelectorAll('.showcase-panel');
+    const urlPathEl = document.getElementById('showcaseUrlPath');
+    const heroCmdTrigger = document.getElementById('heroCmdTrigger');
+    const heroAppsTrigger = document.getElementById('heroAppsTrigger');
+
+    if (!tabs.length) return;
+
+    let currentIndex = 0;
+    let autoRotateTimer = null;
+    let userInteracted = false;
+
+    const paths = {
+      anime: 'anime',
+      manga: 'manga',
+      mail: 'mail',
+      chatbox: 'chatbox',
+      games: 'games',
+      friday: 'friday'
+    };
+
+    const activateTab = (tabName) => {
+      tabs.forEach(tab => {
+        const isActive = tab.getAttribute('data-tab') === tabName;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+
+      panels.forEach(panel => {
+        const isMatch = panel.id === `panel-${tabName}`;
+        panel.classList.toggle('active', isMatch);
+      });
+
+      if (urlPathEl && paths[tabName]) {
+        urlPathEl.textContent = paths[tabName];
+      }
+    };
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        userInteracted = true;
+        currentIndex = index;
+        const tabName = tab.getAttribute('data-tab');
+        activateTab(tabName);
+      });
+    });
+
+    // Gentle Auto-rotation when idle
+    const startAutoRotate = () => {
+      if (autoRotateTimer) clearInterval(autoRotateTimer);
+      autoRotateTimer = setInterval(() => {
+        if (!userInteracted && document.visibilityState === 'visible') {
+          currentIndex = (currentIndex + 1) % tabs.length;
+          const nextTab = tabs[currentIndex];
+          if (nextTab) {
+            activateTab(nextTab.getAttribute('data-tab'));
+          }
+        }
+      }, 7000);
+    };
+
+    startAutoRotate();
+
+    // Pause auto-rotate on hover
+    const showcaseWindow = document.getElementById('heroShowcase');
+    showcaseWindow?.addEventListener('mouseenter', () => { userInteracted = true; });
+
+    // Hero Quick Triggers
+    if (heroCmdTrigger) {
+      heroCmdTrigger.addEventListener('click', () => {
+        const backdrop = document.getElementById('cmdPaletteBackdrop');
+        const input = document.getElementById('cmdPaletteInput');
+        if (backdrop) {
+          backdrop.style.display = 'flex';
+          backdrop.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+          setTimeout(() => input?.focus(), 50);
+        }
+      });
+    }
+
+    if (heroAppsTrigger) {
+      heroAppsTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleAppsMenu(true);
+      });
+    }
+  };
+
+  initHeroShowcase();
+
 });
+
 

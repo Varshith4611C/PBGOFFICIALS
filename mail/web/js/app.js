@@ -117,6 +117,16 @@
       els.mobileComposeFab.addEventListener('click', () => openCompose('new'));
     }
 
+    // Auto-resize sandboxed iframe on message from email content
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'pbg-mail-iframe-height' && typeof e.data.height === 'number') {
+        const iframe = document.querySelector('.email-body-iframe');
+        if (iframe) {
+          iframe.style.height = `${Math.max(260, e.data.height + 30)}px`;
+        }
+      }
+    });
+
     // Compose
     $('#composeBtn').addEventListener('click', () => openCompose('new'));
     $('#composeClose').addEventListener('click', closeCompose);
@@ -601,7 +611,7 @@
     if (hasHtml) {
       const iframe = document.createElement('iframe');
       iframe.className = 'email-body-iframe';
-      iframe.setAttribute('sandbox', 'allow-popups');
+      iframe.setAttribute('sandbox', 'allow-popups allow-scripts');
 
       let currentHtml = email.htmlBody;
       let blockedHtml = currentHtml;
@@ -611,6 +621,10 @@
           return m.replace(/src=/i, 'data-blocked-src=');
         });
       }
+
+      const cleanHtmlContent = (html) => (html || '')
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/\bon\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '');
 
       const buildDoc = (htmlStr) => `
         <!DOCTYPE html>
@@ -634,25 +648,26 @@
             blockquote { border-left: 3px solid #64748b; margin: 8px 0; padding-left: 12px; color: #94a3b8; }
           </style>
         </head>
-        <body>${htmlStr}</body>
+        <body>
+          ${cleanHtmlContent(htmlStr)}
+          <script>
+            function reportHeight() {
+              var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+              window.parent.postMessage({ type: 'pbg-mail-iframe-height', height: h }, '*');
+            }
+            window.addEventListener('load', reportHeight);
+            if (typeof ResizeObserver !== 'undefined') {
+              new ResizeObserver(reportHeight).observe(document.body);
+            }
+            setTimeout(reportHeight, 100);
+            setTimeout(reportHeight, 400);
+            setTimeout(reportHeight, 1200);
+          </script>
+        </body>
         </html>
       `;
 
       iframe.srcdoc = buildDoc(hasRemoteImages ? blockedHtml : currentHtml);
-
-      iframe.addEventListener('load', () => {
-        try {
-          const doc = iframe.contentDocument || iframe.contentWindow.document;
-          const resize = () => {
-            const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-            iframe.style.height = `${h + 30}px`;
-          };
-          resize();
-          setTimeout(resize, 300);
-          setTimeout(resize, 1000);
-        } catch {}
-      });
-
       bodyContainer.appendChild(iframe);
 
       const loadImagesBtn = $('#loadImagesBtn');

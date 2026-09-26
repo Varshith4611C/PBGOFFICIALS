@@ -158,3 +158,35 @@ CREATE INDEX IF NOT EXISTS idx_contacts_address
 
 CREATE INDEX IF NOT EXISTS idx_contacts_freq
   ON contacts(account_id, frequency DESC);
+
+-- ============================================================
+-- Full-Text Search (FTS5) Table & Triggers
+-- ============================================================
+CREATE VIRTUAL TABLE IF NOT EXISTS emails_fts USING fts5(
+  subject,
+  from_name,
+  from_address,
+  snippet,
+  text_body,
+  content='emails',
+  content_rowid='rowid'
+);
+
+-- Triggers to synchronize FTS5 index automatically with emails
+CREATE TRIGGER IF NOT EXISTS emails_fts_ai AFTER INSERT ON emails BEGIN
+  INSERT INTO emails_fts(rowid, subject, from_name, from_address, snippet, text_body)
+  VALUES (new.rowid, new.subject, new.from_name, new.from_address, new.snippet, new.text_body);
+END;
+
+CREATE TRIGGER IF NOT EXISTS emails_fts_ad AFTER DELETE ON emails BEGIN
+  INSERT INTO emails_fts(emails_fts, rowid, subject, from_name, from_address, snippet, text_body)
+  VALUES ('delete', old.rowid, old.subject, old.from_name, old.from_address, old.snippet, old.text_body);
+END;
+
+CREATE TRIGGER IF NOT EXISTS emails_fts_au AFTER UPDATE ON emails BEGIN
+  INSERT INTO emails_fts(emails_fts, rowid, subject, from_name, from_address, snippet, text_body)
+  VALUES ('delete', old.rowid, old.subject, old.from_name, old.from_address, old.snippet, old.text_body);
+  INSERT INTO emails_fts(rowid, subject, from_name, from_address, snippet, text_body)
+  VALUES (new.rowid, new.subject, new.from_name, new.from_address, new.snippet, new.text_body);
+END;
+

@@ -85,13 +85,38 @@ async function fetchAniList(query, variables = {}) {
 
 
 
-// ── Image proxy (bypass hotlink protection) ──
+// ── SSRF Protection Helper ──
+function isDisallowedHost(hostname) {
+  const lower = (hostname || '').toLowerCase();
+  if (lower === 'localhost' || lower === '127.0.0.1' || lower === '0.0.0.0' || lower === '::1') return true;
+  if (/^(10\.|192\.168\.|169\.254\.|127\.)/.test(lower)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
+  if (lower.endsWith('.local') || lower.endsWith('.internal')) return true;
+  return false;
+}
+
+// ── Image proxy (bypass hotlink protection & SSRF protected) ──
 router.get('/img', async (req, res) => {
   try {
     const { url } = req.query;
     if (!url) return res.status(400).send('Missing url');
 
-    const response = await axios.get(url, {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).send('Invalid url');
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return res.status(400).send('Invalid protocol. Only HTTP and HTTPS are allowed.');
+    }
+
+    if (isDisallowedHost(parsedUrl.hostname)) {
+      return res.status(403).send('Forbidden image target');
+    }
+
+    const response = await axios.get(parsedUrl.href, {
       responseType: 'arraybuffer',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',

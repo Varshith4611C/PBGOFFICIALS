@@ -73,7 +73,13 @@ function initGameSocket(io) {
         return;
       }
 
-      const newId = room.players.length;
+      // Find lowest available player slot ID (0, 1, 2, 3) to prevent duplicate IDs on reconnect
+      const existingIds = new Set(room.players.map(p => p.id));
+      let newId = 0;
+      while (existingIds.has(newId) && newId < 4) {
+        newId++;
+      }
+
       const player = {
         id: newId,
         socketId: socket.id,

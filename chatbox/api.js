@@ -409,6 +409,35 @@ function initChatSocket(io) {
       socket.to(user.room).emit('user-typing', { username: user.username, isTyping });
     });
 
+    // ── Emoji Message Reaction ──
+    socket.on('message-react', ({ messageId, emoji }) => {
+      const user = connectedUsers.get(socket.id);
+      if (!user || !messageId || !emoji) return;
+
+      const roomMsgs = messageStore[user.room] || [];
+      const msg = roomMsgs.find(m => m.id === messageId);
+      if (!msg) return;
+
+      if (!msg.reactions) msg.reactions = {};
+      if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+      const userIndex = msg.reactions[emoji].indexOf(user.username);
+      if (userIndex > -1) {
+        msg.reactions[emoji].splice(userIndex, 1);
+        if (msg.reactions[emoji].length === 0) {
+          delete msg.reactions[emoji];
+        }
+      } else {
+        msg.reactions[emoji].push(user.username);
+      }
+
+      io.to(user.room).emit('message-reaction-updated', {
+        messageId,
+        reactions: msg.reactions,
+        room: user.room,
+      });
+    });
+
     // ═══════════════════════════════════════════════════════════════
     //  MUSIC ROOM — 24/7 Live Radio Stations & Synchronized Audio
     // ═══════════════════════════════════════════════════════════════

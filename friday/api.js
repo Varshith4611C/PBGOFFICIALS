@@ -40,6 +40,26 @@ let GROQ_KEY_INDEX = 0;
 const PRUNE_DIRS = new Set(['node_modules', '.git', '__pycache__', '.system_generated', '.cache']);
 
 // ─────────────────────────────────────────────────────────
+// HELPER: Verify Friday Terminal & Command Authentication
+// ─────────────────────────────────────────────────────────
+function isLocalRequest(req) {
+  const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function verifyFridayAuth(req) {
+  const requiredKey = process.env.FRIDAY_AUTH_KEY;
+  const authHeader = req.headers['x-friday-auth'] || req.headers['authorization'] || req.query.auth_token || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (requiredKey) {
+    return token === requiredKey;
+  }
+  // If no auth key is set in environment, allow ONLY local loopback connections for development safety
+  return isLocalRequest(req);
+}
+
+// ─────────────────────────────────────────────────────────
 // HELPER: Resolve and validate workspace path
 // ─────────────────────────────────────────────────────────
 function resolveWorkspacePath(relPath) {
@@ -122,6 +142,18 @@ function httpRequest(url, options = {}) {
 // =============================================================================
 // WORKSPACE FILE CRUD
 // =============================================================================
+
+// Protect workspace mutations (write, patch, delete, clear)
+router.use('/workspace', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  if (!verifyFridayAuth(req)) {
+    return res.status(403).json({
+      error: 'Forbidden: Workspace modification requires a valid FRIDAY_AUTH_KEY.',
+      success: false
+    });
+  }
+  next();
+});
 
 // GET /workspace/files — List workspace files
 router.get('/workspace/files', (req, res) => {
@@ -430,6 +462,15 @@ router.delete('/session', (req, res) => {
 // =============================================================================
 
 router.post('/terminal/exec', (req, res) => {
+  if (!verifyFridayAuth(req)) {
+    return res.status(403).json({
+      command: req.body?.command || '',
+      stdout: '',
+      stderr: 'Forbidden: Command execution is protected and requires a valid FRIDAY_AUTH_KEY.',
+      exit_code: 1
+    });
+  }
+
   const cmd = (req.body?.command || '').trim();
   if (!cmd) return res.json({ command: '', stdout: '', stderr: 'No command provided', exit_code: 1 });
 
@@ -483,25 +524,38 @@ router.post('/terminal/exec', (req, res) => {
 // GET /config
 router.get('/config', (req, res) => {
   const keys = (ACTIVE_CONFIG.api_key || '').split(/[,;\s]+/).filter(Boolean);
+  const isAuthorized = verifyFridayAuth(req);
+  const maskedKey = ACTIVE_CONFIG.api_key
+    ? (ACTIVE_CONFIG.api_key.length > 8
+        ? `${ACTIVE_CONFIG.api_key.slice(0, 4)}••••${ACTIVE_CONFIG.api_key.slice(-4)}`
+        : '••••••••')
+    : '';
+
   res.json({
     provider: ACTIVE_CONFIG.provider,
     model: ACTIVE_CONFIG.model,
-    api_key: ACTIVE_CONFIG.api_key,
-    keys_count: keys.length,
+    api_key: isAuthorized ? ACTIVE_CONFIG.api_key : maskedKey,
     has_api_key: !!ACTIVE_CONFIG.api_key,
+    keys_count: keys.length,
     safety: ACTIVE_CONFIG.safety
   });
 });
 
 // POST /config
 router.post('/config', (req, res) => {
+  if (!verifyFridayAuth(req)) {
+    return res.status(403).json({
+      error: 'Forbidden: Config modification requires valid authentication.',
+      success: false
+    });
+  }
   const body = req.body || {};
   if (body.provider) ACTIVE_CONFIG.provider = String(body.provider).trim();
   if (body.api_key) ACTIVE_CONFIG.api_key = String(body.api_key).trim();
   if (body.model) ACTIVE_CONFIG.model = String(body.model).trim();
   if (body.safety) ACTIVE_CONFIG.safety = String(body.safety).trim();
   console.log(`[PBG Friday] Config updated: provider=${ACTIVE_CONFIG.provider}, model=${ACTIVE_CONFIG.model}`);
-  res.json({ provider: ACTIVE_CONFIG.provider, model: ACTIVE_CONFIG.model, safety: ACTIVE_CONFIG.safety });
+  res.json({ success: true, provider: ACTIVE_CONFIG.provider, model: ACTIVE_CONFIG.model, safety: ACTIVE_CONFIG.safety });
 });
 
 // =============================================================================
@@ -1018,9 +1072,7 @@ router.post('/tools/execute', async (req, res) => {
       }
 
       case 'run_command': {
-        const authKey = req.headers['x-friday-auth'] || req.headers['authorization'] || req.query.auth_token;
-        const requiredKey = process.env.FRIDAY_AUTH_KEY;
-        if (!requiredKey || authKey !== requiredKey) {
+        if (!verifyFridayAuth(req)) {
           return res.status(403).json({
             error: 'Forbidden: Command execution is protected and requires a valid FRIDAY_AUTH_KEY header.',
             success: false,
