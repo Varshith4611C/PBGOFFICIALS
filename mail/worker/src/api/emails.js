@@ -35,26 +35,58 @@ async function listEmails(request, env, ctx) {
     return listThreads(env, ctx, page, offset);
   }
 
-  const emails = await env.DB.prepare(`
-    SELECT id, message_id, from_address, from_name, to_address, cc_address,
-           subject, snippet, folder, is_read, is_starred, is_draft,
-           has_attachments, date, received_at, thread_id, is_parsed
-    FROM emails
-    WHERE account_id = ?1 AND folder = ?2 AND is_draft = 0
-    ORDER BY date DESC
-    LIMIT ?3 OFFSET ?4
-  `).bind(ctx.session.accountId, folder, PAGE_SIZE, offset).all();
+  let emailsQuery, countQuery, binds, countBinds;
 
-  const total = await env.DB.prepare(
-    'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND folder = ? AND is_draft = 0'
-  ).bind(ctx.session.accountId, folder).first();
+  if (folder === 'starred') {
+    emailsQuery = `
+      SELECT id, message_id, from_address, from_name, to_address, cc_address,
+             subject, snippet, folder, is_read, is_starred, is_draft,
+             has_attachments, date, received_at, thread_id, is_parsed
+      FROM emails
+      WHERE account_id = ?1 AND is_starred = 1 AND folder != 'trash'
+      ORDER BY date DESC
+      LIMIT ?2 OFFSET ?3
+    `;
+    binds = [ctx.session.accountId, PAGE_SIZE, offset];
+    countQuery = "SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_starred = 1 AND folder != 'trash'";
+    countBinds = [ctx.session.accountId];
+  } else if (folder === 'drafts') {
+    emailsQuery = `
+      SELECT id, message_id, from_address, from_name, to_address, cc_address,
+             subject, snippet, folder, is_read, is_starred, is_draft,
+             has_attachments, date, received_at, thread_id, is_parsed
+      FROM emails
+      WHERE account_id = ?1 AND (folder = 'drafts' OR is_draft = 1)
+      ORDER BY date DESC
+      LIMIT ?2 OFFSET ?3
+    `;
+    binds = [ctx.session.accountId, PAGE_SIZE, offset];
+    countQuery = "SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND (folder = 'drafts' OR is_draft = 1)";
+    countBinds = [ctx.session.accountId];
+  } else {
+    emailsQuery = `
+      SELECT id, message_id, from_address, from_name, to_address, cc_address,
+             subject, snippet, folder, is_read, is_starred, is_draft,
+             has_attachments, date, received_at, thread_id, is_parsed
+      FROM emails
+      WHERE account_id = ?1 AND folder = ?2 AND is_draft = 0
+      ORDER BY date DESC
+      LIMIT ?3 OFFSET ?4
+    `;
+    binds = [ctx.session.accountId, folder, PAGE_SIZE, offset];
+    countQuery = 'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND folder = ? AND is_draft = 0';
+    countBinds = [ctx.session.accountId, folder];
+  }
+
+  const emails = await env.DB.prepare(emailsQuery).bind(...binds).all();
+  const total = await env.DB.prepare(countQuery).bind(...countBinds).first();
 
   return jsonResponse({
     emails: emails.results.map(formatEmailSummary),
     page,
     pageSize: PAGE_SIZE,
-    total: total.count,
-    totalPages: Math.ceil(total.count / PAGE_SIZE),
+    total: total?.count || 0,
+    totalPages: Math.ceil((total?.count || 0) / PAGE_SIZE) || 1,
   });
 }
 
@@ -218,20 +250,28 @@ async function deleteEmail(request, env, ctx) {
   const permanent = url.searchParams.get('permanent') === 'true';
 
   const email = await env.DB.prepare(
-    'SELECT id, folder, r2_key, thread_id FROM emails WHERE id = ? AND account_id = ?'
+    'SELECT id, folder, r2_key, body_r2_key, size_bytes, thread_id FROM emails WHERE id = ? AND account_id = ?'
   ).bind(emailId, ctx.session.accountId).first();
   if (!email) return jsonResponse({ error: 'Email not found' }, 404);
 
   if (permanent || email.folder === 'trash') {
     // Permanent delete: remove from D1 + R2
     const attachments = await env.DB.prepare(
-      'SELECT r2_key FROM attachments WHERE email_id = ?'
+      'SELECT r2_key, size_bytes FROM attachments WHERE email_id = ?'
     ).bind(emailId).all();
 
-    // Delete from R2
-    const r2Keys = [email.r2_key, ...attachments.results.map(a => a.r2_key)].filter(Boolean);
+    // Delete from R2 (including large body JSON if stored in R2)
+    const r2Keys = [email.r2_key, email.body_r2_key, ...attachments.results.map(a => a.r2_key)].filter(Boolean);
     for (const key of r2Keys) {
       await env.MAIL_STORE.delete(key);
+    }
+
+    // Decrement storage quota
+    const totalFreed = (email.size_bytes || 0) + attachments.results.reduce((s, a) => s + (a.size_bytes || 0), 0);
+    if (totalFreed > 0) {
+      await env.DB.prepare(
+        'UPDATE accounts SET storage_used = MAX(0, storage_used - ?1) WHERE id = ?2'
+      ).bind(totalFreed, ctx.session.accountId).run();
     }
 
     // Delete from D1
@@ -374,14 +414,19 @@ async function folderCounts(request, env, ctx) {
   `).bind(ctx.session.accountId).all();
 
   const draftsCount = await env.DB.prepare(
-    'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_draft = 1'
+    "SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND (is_draft = 1 OR folder = 'drafts')"
+  ).bind(ctx.session.accountId).first();
+
+  const starredCount = await env.DB.prepare(
+    "SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_starred = 1 AND folder != 'trash'"
   ).bind(ctx.session.accountId).first();
 
   const result = {};
   for (const row of counts.results) {
-    result[row.folder] = { total: row.total, unread: row.unread };
+    result[row.folder] = { total: row.total, unread: row.unread || 0 };
   }
-  result.drafts = { total: draftsCount.count, unread: 0 };
+  result.drafts = { total: draftsCount?.count || 0, unread: 0 };
+  result.starred = { total: starredCount?.count || 0, unread: 0 };
 
   return jsonResponse(result);
 }

@@ -47,6 +47,10 @@ export async function verifyPassword(password, stored) {
 // Simple HMAC-SHA256 JWT implementation (no external deps)
 
 export async function createToken(payload, secret, expiresInHours = 24 * 7) {
+  if (!secret || typeof secret !== 'string' || secret.length < 16) {
+    throw new Error('JWT_SECRET secret is missing or insecure (must be at least 16 characters)');
+  }
+
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const claims = {
@@ -71,25 +75,31 @@ export async function createToken(payload, secret, expiresInHours = 24 * 7) {
 }
 
 export async function verifyToken(token, secret) {
-  const parts = token.split('.');
+  if (!secret || typeof secret !== 'string') return null;
+  const parts = (token || '').split('.');
   if (parts.length !== 3) return null;
 
   const [encodedHeader, encodedPayload, encodedSig] = parts;
   const data = `${encodedHeader}.${encodedPayload}`;
 
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
 
-  const sig = base64urlDecode(encodedSig);
-  const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(data));
-  if (!valid) return null;
+    const sig = base64urlDecode(encodedSig);
+    const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(data));
+    if (!valid) return null;
 
-  const payload = JSON.parse(atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')));
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    const jsonStr = new TextDecoder().decode(base64urlDecode(encodedPayload));
+    const payload = JSON.parse(jsonStr);
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
 
-  return payload;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -107,10 +117,14 @@ function unhex(hexStr) {
 }
 
 function base64url(input) {
-  const str = typeof input === 'string'
-    ? btoa(input)
-    : btoa(String.fromCharCode(...new Uint8Array(input)));
-  return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const bytes = typeof input === 'string'
+    ? new TextEncoder().encode(input)
+    : new Uint8Array(input instanceof ArrayBuffer ? input : input);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function base64urlDecode(str) {

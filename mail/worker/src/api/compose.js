@@ -71,17 +71,19 @@ async function sendEmail(request, env, ctx) {
     httpMetadata: { contentType: 'application/json' },
   });
 
+  const hasAttachments = (attachmentIds && attachmentIds.length > 0) ? 1 : 0;
+
   await env.DB.prepare(`
     INSERT INTO emails (
       id, account_id, message_id,
       from_address, from_name, to_address, cc_address, bcc_address,
       subject, snippet, text_body, html_body, r2_key, size_bytes,
-      folder, is_read, is_parsed, date
+      folder, is_read, is_parsed, has_attachments, date
     ) VALUES (
       ?1, ?2, ?3,
       ?4, ?5, ?6, ?7, ?8,
       ?9, ?10, ?11, ?12, ?13, ?14,
-      'sent', 1, 1, datetime('now')
+      'sent', 1, 1, ?15, datetime('now')
     )
   `).bind(
     emailId, ctx.session.accountId, messageId,
@@ -89,8 +91,16 @@ async function sendEmail(request, env, ctx) {
     JSON.stringify(normalizeRecipients(cc || [])), JSON.stringify(normalizeRecipients(bcc || [])),
     subject || '(no subject)', (textBody || '').slice(0, 200),
     (textBody || '').slice(0, 65536), (htmlBody || '').slice(0, 65536),
-    r2Key, sentData.length,
+    r2Key, sentData.length, hasAttachments,
   ).run();
+
+  // Link uploaded attachments to this sent email
+  if (hasAttachments) {
+    const placeholders = attachmentIds.map((_, i) => `?${i + 2}`).join(',');
+    await env.DB.prepare(
+      `UPDATE attachments SET email_id = ?1 WHERE id IN (${placeholders})`
+    ).bind(emailId, ...attachmentIds).run();
+  }
 
   // Update contacts
   for (const addr of [...(to || []), ...(cc || []), ...(bcc || [])]) {
@@ -168,17 +178,19 @@ async function replyEmail(request, env, ctx) {
   const r2Key = `sent/${ctx.session.accountId}/${replyId}.json`;
   await env.MAIL_STORE.put(r2Key, JSON.stringify({ from: fromStr, to, cc, subject, htmlBody, textBody }));
 
+  const hasReplyAttachments = (attachmentIds && attachmentIds.length > 0) ? 1 : 0;
+
   await env.DB.prepare(`
     INSERT INTO emails (
       id, account_id, message_id, in_reply_to, "references", thread_id,
       from_address, from_name, to_address, cc_address,
       subject, snippet, text_body, html_body, r2_key,
-      folder, is_read, is_parsed, date
+      folder, is_read, is_parsed, has_attachments, date
     ) VALUES (
       ?1, ?2, ?3, ?4, ?5, ?6,
       ?7, ?8, ?9, ?10,
       ?11, ?12, ?13, ?14, ?15,
-      'sent', 1, 1, datetime('now')
+      'sent', 1, 1, ?16, datetime('now')
     )
   `).bind(
     replyId, ctx.session.accountId, result.messageId || `<${replyId}@${env.DOMAIN}>`,
@@ -187,7 +199,15 @@ async function replyEmail(request, env, ctx) {
     JSON.stringify(normalizeRecipients(to)), JSON.stringify(normalizeRecipients(cc)),
     subject, (textBody || '').slice(0, 200),
     (textBody || '').slice(0, 65536), (htmlBody || '').slice(0, 65536), r2Key,
+    hasReplyAttachments,
   ).run();
+
+  if (hasReplyAttachments) {
+    const placeholders = attachmentIds.map((_, i) => `?${i + 2}`).join(',');
+    await env.DB.prepare(
+      `UPDATE attachments SET email_id = ?1 WHERE id IN (${placeholders})`
+    ).bind(replyId, ...attachmentIds).run();
+  }
 
   // Update thread
   if (original.thread_id) {

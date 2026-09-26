@@ -45,7 +45,7 @@ app.use((_req, res, next) => {
 app.use(express.static(path.join(__dirname), {
   extensions: ['html'],          // allows visiting /about → about.html
   index: 'index.html',           // default file for "/"
-  dotfiles: 'allow',             // serve .well-known directory
+  dotfiles: 'ignore',            // protect .env, .git, and private dotfiles
 }));
 
 // ── Serve assets folder explicitly ──
@@ -178,14 +178,39 @@ Guidelines:
   }
 });
 
-// ── Music Live Radio Proxy Endpoint ──
+// ── Music Live Radio Proxy Endpoint (SSRF Protected) ──
+function isDisallowedHost(hostname) {
+  const lower = (hostname || '').toLowerCase();
+  if (lower === 'localhost' || lower === '127.0.0.1' || lower === '0.0.0.0' || lower === '::1') return true;
+  // Match private IPv4: 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 169.254.x.x (AWS/Cloud metadata)
+  if (/^(10\.|192\.168\.|169\.254\.|127\.)/.test(lower)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(lower)) return true;
+  if (lower.endsWith('.local') || lower.endsWith('.internal')) return true;
+  return false;
+}
+
 app.get('/api/music/radio-proxy', (req, res) => {
   const streamUrl = req.query.url;
   if (!streamUrl) return res.status(400).send('Missing stream URL');
 
+  let parsedUrl;
   try {
-    const client = streamUrl.startsWith('https') ? https : http;
-    const proxyReq = client.get(streamUrl, {
+    parsedUrl = new URL(streamUrl);
+  } catch {
+    return res.status(400).send('Invalid stream URL');
+  }
+
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    return res.status(400).send('Invalid protocol. Only HTTP and HTTPS are allowed.');
+  }
+
+  if (isDisallowedHost(parsedUrl.hostname)) {
+    return res.status(403).send('Forbidden stream target');
+  }
+
+  try {
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    const proxyReq = client.get(parsedUrl.href, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Icy-MetaData': '0',

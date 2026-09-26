@@ -24,6 +24,10 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (env.ASSETS) {
+        // Normalize /app to /app.html for static assets
+        if (url.pathname === '/app') {
+          return env.ASSETS.fetch(new Request(new URL('/app.html', request.url), request));
+        }
         return env.ASSETS.fetch(request);
       }
     }

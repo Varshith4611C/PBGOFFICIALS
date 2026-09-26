@@ -20,9 +20,8 @@ const SESSION_FILE = path.join(BASE_DIR, '.fraiday_session.json');
 // Ensure workspace exists
 if (!fs.existsSync(WORKSPACE_DIR)) fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 
-// ── Default API keys (comma-separated pool) ──
-const DEFAULT_GROQ_KEY = process.env.GROQ_API_KEY ||
-  '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,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,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,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,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,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,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,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,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,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';
+// ── Default API keys (from environment) ──
+const DEFAULT_GROQ_KEY = process.env.GROQ_API_KEY || '';
 
 // ── Active runtime config ──
 let ACTIVE_CONFIG = {
@@ -1019,6 +1018,14 @@ router.post('/tools/execute', async (req, res) => {
       }
 
       case 'run_command': {
+        const authKey = req.headers['x-friday-auth'] || req.headers['authorization'] || req.query.auth_token;
+        const requiredKey = process.env.FRIDAY_AUTH_KEY;
+        if (!requiredKey || authKey !== requiredKey) {
+          return res.status(403).json({
+            error: 'Forbidden: Command execution is protected and requires a valid FRIDAY_AUTH_KEY header.',
+            success: false,
+          });
+        }
         const cmd = toolArgs.CommandLine || toolArgs.command || '';
         if (!cmd) return res.json({ error: 'Missing command' });
         const isWindows = process.platform === 'win32';

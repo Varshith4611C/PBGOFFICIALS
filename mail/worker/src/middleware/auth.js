@@ -19,12 +19,15 @@ export async function authenticate(request, env) {
   const payload = await verifyToken(token, env.JWT_SECRET);
   if (!payload) return null;
 
-  // Verify session still exists in D1 (allows revocation)
-  const session = await env.DB.prepare(
-    'SELECT id, account_id, expires_at FROM sessions WHERE id = ?'
-  ).bind(payload.jti).first();
+  // Verify session still exists in D1 and account is active
+  const session = await env.DB.prepare(`
+    SELECT s.id, s.account_id, s.expires_at, a.is_active, a.role
+    FROM sessions s
+    JOIN accounts a ON s.account_id = a.id
+    WHERE s.id = ?
+  `).bind(payload.jti).first();
 
-  if (!session) return null;
+  if (!session || !session.is_active) return null;
 
   // Check expiry
   if (new Date(session.expires_at) < new Date()) {
@@ -34,8 +37,8 @@ export async function authenticate(request, env) {
   }
 
   return {
-    accountId: payload.sub,
-    role:      payload.role,
+    accountId: session.account_id,
+    role:      session.role || payload.role,
     sessionId: payload.jti,
     address:   payload.address,
   };

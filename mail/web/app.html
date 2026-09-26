@@ -9,20 +9,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
   <div class="app-layout" id="appLayout">
     <!-- ===== HEADER ===== -->
     <header class="app-header">
-      <div class="header-logo">
-        <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-          <rect width="40" height="40" rx="10" fill="url(#hg)"/>
-          <path d="M8 14L20 22L32 14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M8 14V26C8 27.1 8.9 28 10 28H30C31.1 28 32 27.1 32 26V14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <defs><linearGradient id="hg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#8b5cf6"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
-        </svg>
-        <span class="header-logo-text">PBG Mail</span>
+      <div class="header-left">
+        <button class="header-menu-btn" id="menuToggleBtn" title="Toggle menu" aria-label="Toggle menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="header-logo">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="10" fill="url(#hg)"/>
+            <path d="M8 14L20 22L32 14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 14V26C8 27.1 8.9 28 10 28H30C31.1 28 32 27.1 32 26V14" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="hg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#8b5cf6"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+          </svg>
+          <span class="header-logo-text">PBG Mail</span>
+        </div>
       </div>
 
       <div class="header-search">
@@ -47,6 +52,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           Admin Panel
         </button>
+        <button class="user-dropdown-item" id="shortcutsBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Keyboard Shortcuts
+        </button>
         <button class="user-dropdown-item danger" id="logoutBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sign Out
@@ -54,8 +63,11 @@
       </div>
     </header>
 
+    <!-- Sidebar backdrop (mobile) -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <!-- ===== SIDEBAR ===== -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <button class="compose-btn" id="composeBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Compose
@@ -141,6 +153,13 @@
 
     <!-- ===== READING PANE ===== -->
     <section class="reading-pane" id="readingPane">
+      <div class="reading-mobile-header" id="readingMobileHeader">
+        <button class="mobile-back-btn" id="mobileBackBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          <span>Back to list</span>
+        </button>
+      </div>
+
       <div class="reading-empty" id="readingEmpty">
         <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -155,6 +174,11 @@
     </section>
   </div>
 
+  <!-- Mobile Floating Action Button for Compose -->
+  <button class="mobile-compose-fab" id="mobileComposeFab" title="Compose Email" aria-label="Compose Email">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
   <!-- ===== COMPOSE MODAL ===== -->
   <div class="compose-overlay" id="composeOverlay">
     <div class="compose-window">
@@ -165,24 +189,44 @@
         </button>
       </div>
       <div class="compose-fields">
-        <div class="compose-field">
+        <div class="compose-field" style="position:relative;">
           <span class="compose-field-label">To</span>
-          <input type="text" id="composeTo" placeholder="recipient@example.com">
+          <div class="chips-input-container" id="toChipsContainer">
+            <input type="text" id="composeTo" placeholder="recipient@example.com" autocomplete="off">
+          </div>
           <span class="compose-toggle-cc" id="toggleCcBcc">Cc/Bcc</span>
+          <div class="autocomplete-dropdown" id="contactSuggestions" hidden></div>
         </div>
         <div class="compose-field" id="ccField" hidden>
           <span class="compose-field-label">Cc</span>
-          <input type="text" id="composeCc" placeholder="cc@example.com">
+          <input type="text" id="composeCc" placeholder="cc@example.com" autocomplete="off">
         </div>
         <div class="compose-field" id="bccField" hidden>
           <span class="compose-field-label">Bcc</span>
-          <input type="text" id="composeBcc" placeholder="bcc@example.com">
+          <input type="text" id="composeBcc" placeholder="bcc@example.com" autocomplete="off">
         </div>
         <div class="compose-field">
           <span class="compose-field-label">Subject</span>
           <input type="text" id="composeSubject" placeholder="Subject">
         </div>
       </div>
+
+      <!-- Rich text format toolbar -->
+      <div class="compose-toolbar" id="composeFormatToolbar">
+        <button type="button" class="fmt-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button type="button" class="fmt-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button type="button" class="fmt-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+        <button type="button" class="fmt-btn" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+        <span class="fmt-divider"></span>
+        <button type="button" class="fmt-btn" data-cmd="insertUnorderedList" title="Bullet List">• List</button>
+        <button type="button" class="fmt-btn" data-cmd="insertOrderedList" title="Numbered List">1. List</button>
+        <button type="button" class="fmt-btn" data-cmd="formatBlock" data-val="blockquote" title="Quote">” Quote</button>
+        <button type="button" class="fmt-btn" data-cmd="formatBlock" data-val="pre" title="Code Block">&lt;/&gt;</button>
+        <span class="fmt-divider"></span>
+        <button type="button" class="fmt-btn" id="insertLinkBtn" title="Insert Link">🔗</button>
+        <button type="button" class="fmt-btn" data-cmd="removeFormat" title="Clear Formatting">✕</button>
+      </div>
+
       <div class="compose-body">
         <div contenteditable="true" id="composeBody" data-placeholder="Write your message…"></div>
       </div>
@@ -207,10 +251,106 @@
     </div>
   </div>
 
+  <!-- ===== ADMIN MODAL ===== -->
+  <div class="admin-overlay" id="adminOverlay" hidden>
+    <div class="admin-window">
+      <div class="admin-header">
+        <div>
+          <h2 class="admin-title">PBG Mail — Admin Console</h2>
+          <p class="admin-subtitle">Manage @pbgofficials.dev mailboxes, roles & security</p>
+        </div>
+        <button class="admin-close" id="adminClose" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="admin-content">
+        <!-- Create New Account Card -->
+        <div class="admin-card">
+          <h3 class="admin-card-title">Create New Mailbox</h3>
+          <form id="createAccountForm" class="admin-form">
+            <div class="admin-form-grid">
+              <div class="admin-input-group">
+                <label for="newAccountUsername">Mailbox Address</label>
+                <div class="admin-input-wrapper">
+                  <input type="text" id="newAccountUsername" placeholder="username" required>
+                  <span class="admin-input-suffix">@pbgofficials.dev</span>
+                </div>
+              </div>
+              <div class="admin-input-group">
+                <label for="newAccountDisplayName">Display Name</label>
+                <input type="text" id="newAccountDisplayName" placeholder="e.g. Varshith C" required>
+              </div>
+              <div class="admin-input-group">
+                <label for="newAccountPassword">Password (8+ chars)</label>
+                <input type="password" id="newAccountPassword" placeholder="••••••••" required minlength="8">
+              </div>
+              <div class="admin-input-group">
+                <label for="newAccountRole">Role</label>
+                <select id="newAccountRole">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary admin-submit-btn" id="createAccountBtn">
+              <span>Create Mailbox</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Accounts List Card -->
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3 class="admin-card-title">Active Mailboxes</h3>
+            <button class="btn-secondary" id="refreshAccountsBtn">Refresh</button>
+          </div>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Storage</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="accountsTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SHORTCUTS MODAL ===== -->
+  <div class="admin-overlay" id="shortcutOverlay" hidden>
+    <div class="admin-window" style="max-width: 480px;">
+      <div class="admin-header">
+        <h2 class="admin-title">Keyboard Shortcuts</h2>
+        <button class="admin-close" id="shortcutClose" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="shortcuts-list">
+        <div class="shortcut-row"><span class="shortcut-key">c</span><span>Compose new email</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">r</span><span>Reply to active email</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">a</span><span>Archive active email</span></div>
+        <div class="shortcut-row"><span class="shortcut-key"># / Del</span><span>Move to trash</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">Esc</span><span>Close modal or clear view</span></div>
+        <div class="shortcut-row"><span class="shortcut-key">?</span><span>Show keyboard shortcuts</span></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="js/api.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/api.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

@@ -157,6 +157,14 @@ class MailAPI {
   async createAccount(data) {
     return this.request('POST', '/api/accounts', data);
   }
+
+  async updateAccount(id, data) {
+    return this.request('PATCH', `/api/accounts/${id}`, data);
+  }
+
+  async deleteAccount(id) {
+    return this.request('DELETE', `/api/accounts/${id}`);
+  }
 }
 
 window.mailAPI = new MailAPI();
